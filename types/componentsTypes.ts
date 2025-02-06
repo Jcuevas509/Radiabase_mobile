@@ -3,4 +3,5 @@ export interface SvgProps {
     height?: string;
     stroke?: string | undefined;
     color?: string | undefined;
+    backgroundColor?: string | undefined;
 }

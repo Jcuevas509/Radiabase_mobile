@@ -4,12 +4,14 @@ import { StyleSheet } from 'react-native';
 import { DrawingMap } from 'components/DrawingMap/DrawingMap';
 import { FloatingButton } from 'components/Button/FloatingButton';
 import { SettingsSvg, UsersSvg, FilterSvg, DrawSvg, MapSvg, AddSvg, SearchSvg } from 'components/svg';
-
+import PolygonCreator from 'components/DrawingMap/MapV';
+import { Button } from 'components/Button/Button';
 
 
 export default function Map() {
     const [showDrawIcon, setShowDrawIcon] = useState<boolean>(false)
     const [activeDrawing, setActiveDrawing] = useState<boolean>(false)
+    const [canFinishArea, setCanFinishArea] = useState<boolean>(false)
     const animation = useRef(new Animated.Value(0)).current;
     const buttons = [
         { icon: <AddSvg />, onPress: () => toggleDrawButton() },
@@ -31,7 +33,12 @@ export default function Map() {
 
     return (
         <View style={styles.container}>
-            <DrawingMap />
+            <PolygonCreator
+                stopDrawing={() => {
+                    setActiveDrawing(false);
+                }}
+                canDraw={activeDrawing}
+            />
             <View style={styles.floatingButtonsContainer}>
                 <Animated.View
                     style={{
@@ -47,9 +54,13 @@ export default function Map() {
                     }
                     }
                 >
+                    {/* {canFinishArea && <Button
+
+                    />} */}
                     <FloatingButton
-                        onPress={() => console.log('drawing')}
-                        buttonIcon={<DrawSvg />}
+                        buttonStyle={{ backgroundColor: activeDrawing ? "#32A0FF" : 'white' }}
+                        onPress={() => setActiveDrawing(!activeDrawing)}
+                        buttonIcon={<DrawSvg color={activeDrawing ? 'white' : '#1F1F1F'} />}
                     />
                 </Animated.View>
                 {buttons.map((btn, index) => (
