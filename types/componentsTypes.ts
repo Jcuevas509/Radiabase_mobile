@@ -14,3 +14,14 @@ export interface MarkerProps extends CoordinateProps {
     title: string;
     subtitle: string;
 }
+
+export interface PolygonProps {
+    coordinates: CoordinateProps[];
+    id: number;
+}
+
+export interface AreaProps extends PolygonProps {
+    assignee: any;
+    buildingMarkers: Array<CoordinateProps>;
+
+}

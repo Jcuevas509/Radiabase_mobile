@@ -1,22 +1,14 @@
-import React, { useState, useRef } from 'react'
-import { View, Animated } from 'react-native'
+import React from 'react'
+import { View } from 'react-native'
 import { StyleSheet } from 'react-native';
-import { DrawingMap } from 'components/DrawingMap/DrawingMap';
-import { FloatingButton } from 'components/Button/FloatingButton';
-import { SettingsSvg, UsersSvg, FilterSvg, DrawSvg, MapSvg, AddSvg, SearchSvg } from 'components/svg';
 import PolygonCreator from 'components/DrawingMap/MapV';
 import { TopMenu } from 'components/Menu/TopMenu';
 
-
 export default function Map() {
-
-
     return (
         <View style={styles.container}>
             <TopMenu />
-            <PolygonCreator
-            />
-
+            <PolygonCreator />
         </View>
     )
 }

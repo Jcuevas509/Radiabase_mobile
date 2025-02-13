@@ -1,31 +1,25 @@
-import * as Location from 'expo-location';
-import { useNavigation } from '@react-navigation/native';
 import React, { useRef, useState, useCallback, useEffect, useMemo } from 'react';
-import { Button } from 'components/Button/Button';
-import { PlainModal } from 'components/Modal/Modal';
-import moment from 'moment'
+import * as Location from 'expo-location';
 import {
     StyleSheet,
     View,
     Text,
-    Animated,
     Dimensions,
-    TouchableOpacity,
     Alert,
     LogBox,
 } from 'react-native';
 import MapView, { Marker, Polygon, Region } from 'react-native-maps';
-import { FloatingButton } from 'components/Button/FloatingButton';
 import { peopleData } from 'constants/dataExample';
-import { AgentCard } from 'components/Card/AgentCard';
-import { Ionicons } from '@expo/vector-icons';
-import { AddSvg, DrawSvg, MyLocationSvg, UndoSvg } from 'components/svg';
+import { AddSvg, MyLocationSvg } from 'components/svg';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
 import axios from 'axios';
 import { CustomMarker } from 'components/Marker/Marker';
 import { CoordinateProps } from 'types/componentsTypes';
-const { width, height } = Dimensions.get('window');
+import FloatingButtons from './FloatingButtons';
+import { AssignAreaModal } from './AssignAreaModal';
+import { ManageAreaModal } from './ManageAreaModal';
 
+const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.003;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
@@ -66,16 +60,6 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const [openManageAreaModal, setOpenManageAreaModal] = useState(false)
     const [isReassignment, setIsReassignment] = useState(false)
     const mapRef = useRef<MapView>(null);
-
-    const buttons = [
-        { icon: <AddSvg />, onPress: () => console.log('add') },
-        {
-            icon: <MyLocationSvg color={isAtCurrentLocation ? "white" : "#1F1F1F"} />,
-            onPress: () => handleMyLocation(),
-            style: { backgroundColor: isAtCurrentLocation ? "#32A0FF" : "white" }
-        },
-    ];
-
     useEffect(() => {
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
@@ -205,8 +189,6 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             })
         }
     }
-
-
     const handleConfirmAndReassignArea = async () => {
         if (selectedArea && selectedAgent) {
             try {
@@ -278,7 +260,6 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             return { ...prev, coordinates: newCoords };
         });
     }, []);
-
     const handleMapPress = useCallback((e: any) => {
         const newCoord = e.nativeEvent.coordinate;
         setEditing(prev => {
@@ -295,13 +276,11 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 ...prev,
                 coordinates: [...prev.coordinates, newCoord],
             };
-
             setForceRender(prev => !prev); // Forsira re-render
             return updatedEditing;
         });
 
     }, []);
-
     const memoizedPolygons = useMemo(() => {
         return polygons.map(polygon => (
             <Polygon
@@ -356,109 +335,46 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     }, [editing]);
     return (
         <View style={styles.container}>
-            <PlainModal
+
+            <FloatingButtons
+                buttons={[
+                    { icon: <AddSvg />, onPress: () => console.log('add') },
+                    {
+                        icon: <MyLocationSvg color={isAtCurrentLocation ? "white" : "#1F1F1F"} />,
+                        onPress: handleMyLocation,
+                        style: { backgroundColor: isAtCurrentLocation ? "#32A0FF" : "white" }
+                    },
+                ]}
+                canFinishArea={canFinishArea}
+                onFinish={handleFinish}
+                activeDrawing={activeDrawing}
+                onToggleDrawing={() => {
+                    setActiveDrawing(!activeDrawing);
+                    setCanFinishArea(false);
+                }}
+                showUndoButton={!!editing}
+                onUndo={handleUndo}
+            />
+            <AssignAreaModal
                 visible={openAssignModal}
                 onClose={() => setOpenAssignModal(false)}
-                title={`${isReassignment ? "Reassign" : "Assign"} Area to User`}
-                isLoading={loading}
-                buttons={
-                    < >
-                        <Button
-                            text='Delete Area'
-                            textStyle={{ color: '#CA0105' }}
-                            onPress={() => { isReassignment ? handleDeleteExistingArea() : handleDeleteArea() }}
-                        />
-                        <Button
-                            text={`Confirm & ${isReassignment ? "Reassign" : "Assign"}`}
-                            buttonStyle={{ backgroundColor: 'black' }}
-                            textStyle={{ color: 'white' }}
-                            onPress={() => isReassignment ? handleConfirmAndReassignArea() : handleConfirmAndAssignArea()}
-                            isDisabled={!selectedAgent}
-                        />
-                    </>
-                }
-            >
-                <>
-                    {peopleData?.map((person) => <AgentCard
-                        data={person}
-                        setIsSelected={setSelectedAgent}
-                        isSelected={selectedAgent?.id === person?.id} />)}
-                </>
-            </PlainModal>
-            <View style={styles.floatingButtonsContainer}>
-                {canFinishArea && <Button
-                    text='Complete'
-                    onPress={handleFinish}
-                    buttonStyle={styles.completeButtonStyle}
-                    textStyle={styles.buttonTextStyle}
-                    startIcon={<Ionicons name="checkmark-circle-outline" size={24} color="black" />}
-                />}
-                <View style={styles.buttonContainer} >
-                    <FloatingButton
-                        buttonStyle={{ backgroundColor: activeDrawing ? "#32A0FF" : 'white' }}
-                        onPress={() => {
-                            setActiveDrawing(!activeDrawing)
-                            setCanFinishArea(false)
-                        }}
-                        buttonIcon={<DrawSvg color={activeDrawing ? 'white' : '#1F1F1F'} />}
-                    />
-                </View>
-                {buttons?.map((btn, index) => (
-                    <View style={styles.buttonContainer} key={index}>
-                        <FloatingButton
-                            key={index}
-                            onPress={btn.onPress}
-                            buttonIcon={btn.icon}
-                            buttonStyle={btn.style}
-                        />
-                    </View>
-                ))}
-            </View>
-            {editing && <View style={styles.undoButtonContainer}>
-                <Button
-                    text='Undo'
-                    onPress={handleUndo}
-                    buttonStyle={styles.completeButtonStyle}
-                    textStyle={styles.buttonTextStyle}
-                    startIcon={<UndoSvg />}
-                />
-            </View>}
-            <PlainModal
+                isReassignment={isReassignment}
+                loading={loading}
+                selectedAgent={selectedAgent}
+                setSelectedAgent={setSelectedAgent}
+                onDeleteArea={() => isReassignment ? handleDeleteExistingArea() : handleDeleteArea()}
+                onConfirmAndAssign={() => isReassignment ? handleConfirmAndReassignArea() : handleConfirmAndAssignArea()}
+                peopleData={peopleData}
+            />
+
+            <ManageAreaModal
                 visible={openManageAreaModal}
                 onClose={() => setOpenManageAreaModal(false)}
-                title="Manage Area"
-                // isLoading={loading}
-                buttons={
-                    < >
-                        <Button
-                            text='Delete Area'
-                            textStyle={{ color: '#CA0105' }}
-                            onPress={() => handleDeleteExistingArea()}
-                        />
-                        <Button
-                            text='Reassign'
-                            buttonStyle={{ backgroundColor: 'black', width: 149 }}
-                            textStyle={{ color: 'white' }}
-                            onPress={() => handleReassignArea()}
-                        />
-                    </>
-                }
-            >
-                <>
-                    <AgentCard
-                        data={selectedArea?.assignee}
-                        isAssigned={true}
-                        setIsSelected={setSelectedAgent} />
-                    <View style={styles.textContainer}>
-                        <Text style={styles.manageAreaText}>You have assigned this area on{' '}
-                            <Text style={styles.boldText}>
-                                {moment(new Date()).format('DD.MM.YYYY HH:mm:ss')}.
-                            </Text>
-                        </Text>
-                    </View>
-                </>
-            </PlainModal>
-
+                selectedArea={selectedArea}
+                setSelectedAgent={setSelectedAgent}
+                onDeleteArea={handleDeleteExistingArea}
+                onReassignArea={handleReassignArea}
+            />
             {region && <MapView
                 style={styles.map}
                 ref={mapRef}
@@ -497,58 +413,6 @@ const styles = StyleSheet.create({
     },
     map: {
         ...StyleSheet.absoluteFillObject,
-    },
-    button: {
-        backgroundColor: '#7243FF',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-    },
-    buttonText: {
-        color: 'white',
-        fontWeight: '500',
-    },
-
-    completeButtonStyle: {
-        backgroundColor: 'white',
-        borderRadius: 16,
-        paddingVertical: 6,
-        height: 34,
-        width: 113,
-        marginBottom: 24
-    },
-    buttonTextStyle: {
-        marginLeft: 4
-    },
-    floatingButtonsContainer: {
-        flexDirection: 'column',
-        position: 'absolute',
-        bottom: 70,
-        right: 26,
-        zIndex: 10,
-        alignItems: 'flex-end',
-    },
-    undoButtonContainer: {
-        position: 'absolute',
-        bottom: 70,
-        left: 25,
-        zIndex: 10,
-        alignItems: 'flex-end',
-    },
-    buttonContainer: {
-        marginBottom: 24,
-        alignItems: 'flex-end',
-    },
-    textContainer: {
-        paddingVertical: 24
-    },
-    manageAreaText: {
-        fontSize: 12,
-        fontWeight: '400',
-        color: 'black'
-    },
-    boldText: {
-        fontWeight: 600
     },
     myLocationMarker: {
         backgroundColor: 'white',
