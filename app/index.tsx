@@ -5,70 +5,18 @@ import { DrawingMap } from 'components/DrawingMap/DrawingMap';
 import { FloatingButton } from 'components/Button/FloatingButton';
 import { SettingsSvg, UsersSvg, FilterSvg, DrawSvg, MapSvg, AddSvg, SearchSvg } from 'components/svg';
 import PolygonCreator from 'components/DrawingMap/MapV';
-import { Button } from 'components/Button/Button';
+import { TopMenu } from 'components/Menu/TopMenu';
 
 
 export default function Map() {
-    const [showDrawIcon, setShowDrawIcon] = useState<boolean>(false)
-    const [activeDrawing, setActiveDrawing] = useState<boolean>(false)
-    const [canFinishArea, setCanFinishArea] = useState<boolean>(false)
-    const animation = useRef(new Animated.Value(0)).current;
-    const buttons = [
-        { icon: <AddSvg />, onPress: () => toggleDrawButton() },
-        { icon: <SearchSvg />, onPress: () => console.log('SearchSvg') },
-        { icon: <FilterSvg />, onPress: () => console.log('FilterSvg') },
-        { icon: <MapSvg />, onPress: () => console.log('MapSvg') },
-        { icon: <UsersSvg />, onPress: () => console.log('UsersSvg') },
-        { icon: <SettingsSvg />, onPress: () => console.log('SettingsSvg') },
-    ];
 
-    const toggleDrawButton = () => {
-        setShowDrawIcon(!showDrawIcon);
-        Animated.timing(animation, {
-            toValue: showDrawIcon ? 0 : 1,
-            duration: 300,
-            useNativeDriver: true,
-        }).start();
-    };
 
     return (
         <View style={styles.container}>
+            <TopMenu />
             <PolygonCreator
-                stopDrawing={() => {
-                    setActiveDrawing(false);
-                }}
-                canDraw={activeDrawing}
             />
-            <View style={styles.floatingButtonsContainer}>
-                <Animated.View
-                    style={{
-                        transform: [
-                            {
-                                translateY: animation.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [0, -24],
-                                }),
-                            },
-                        ],
-                        opacity: animation,
-                    }
-                    }
-                >
-                    {/* {canFinishArea && <Button
 
-                    />} */}
-                    <FloatingButton
-                        buttonStyle={{ backgroundColor: activeDrawing ? "#32A0FF" : 'white' }}
-                        onPress={() => setActiveDrawing(!activeDrawing)}
-                        buttonIcon={<DrawSvg color={activeDrawing ? 'white' : '#1F1F1F'} />}
-                    />
-                </Animated.View>
-                {buttons.map((btn, index) => (
-                    <View style={styles.buttonContainer} key={index}>
-                        <FloatingButton key={index} onPress={btn.onPress} buttonIcon={btn.icon} />
-                    </View>
-                ))}
-            </View>
         </View>
     )
 }
@@ -80,11 +28,25 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     buttonContainer: {
-        marginBottom: 24
+        marginBottom: 24,
+        alignItems: 'flex-end',
     },
     floatingButtonsContainer: {
         position: 'absolute',
+        alignItems: 'flex-end',
         right: 23,
-        bottom: 46
+        bottom: 300,
+        zIndex: 6
+    },
+    completeButtonStyle: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        paddingVertical: 6,
+        height: 34,
+        width: 113,
+        marginBottom: 24
+    },
+    buttonTextStyle: {
+        marginLeft: 4
     }
 });

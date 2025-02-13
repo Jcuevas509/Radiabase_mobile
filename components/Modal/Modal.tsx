@@ -1,49 +1,64 @@
 import React from "react";
-import { View, Modal, TouchableOpacity, StyleSheet, Text } from "react-native";
+import { View, Modal, TouchableOpacity, StyleSheet, Text, ActivityIndicator } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+
 interface ModalProps {
     onClose: () => void;
     children: JSX.Element;
     buttons: JSX.Element;
     visible: boolean;
     title: string;
+    isLoading?: boolean;
 }
 
-export function PlainModal({ visible, onClose, children, title, buttons }: ModalProps) {
+export function PlainModal({ visible, onClose, children, title, buttons, isLoading }: ModalProps) {
+    const insets = useSafeAreaInsets();
     return (
         <Modal visible={visible} animationType="slide" transparent={true}>
-            <SafeAreaView style={styles.container}>
-                <View
-                    style={styles.content}
-                >
+            <View style={styles.modalContainer}>
+                <TouchableOpacity style={styles.dismissArea} onPress={onClose} />
+                <View style={[styles.content, { paddingBottom: insets.bottom }]}>
+                    {/* Top Section */}
                     <View style={styles.top}>
                         <Text style={styles.title}>{title}</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.iconContainer}>
+                        <TouchableOpacity onPress={onClose} style={styles.iconContainer} disabled={isLoading}>
                             <Ionicons name="close" size={18} color="black" />
                         </TouchableOpacity>
                     </View>
-                    <View style={styles.childrenContainer}>
+
+                    {/* Overlay and Loading Indicator */}
+                    {isLoading && (
+                        <View style={styles.overlay}>
+                            <ActivityIndicator size="large" color="#007AFF" />
+                        </View>
+                    )}
+
+                    {/* Children Section */}
+                    <View style={[styles.childrenContainer, isLoading && styles.hidden]}>
                         {children}
                     </View>
-                    <View style={styles.buttonContainer}>
+
+                    {/* Buttons Section */}
+                    <View style={[styles.buttonContainer, isLoading && styles.hidden]}>
                         {buttons}
                     </View>
                 </View>
-            </SafeAreaView>
+            </View>
         </Modal>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    modalContainer: {
         flex: 1,
         justifyContent: "flex-end",
-        backgroundColor: "rgba(0,0,0,0.5)"
+        backgroundColor: "rgba(0,0,0,0.5)",
+    },
+    dismissArea: {
+        flex: 1,
     },
     content: {
-        width: "100%",
-        minHeight: 300,
         backgroundColor: "white",
         borderTopLeftRadius: 16,
         borderTopRightRadius: 16,
@@ -55,36 +70,44 @@ const styles = StyleSheet.create({
         elevation: 5,
     },
     title: {
-        color: 'black',
+        color: "black",
         fontSize: 16,
-        fontWeight: 600
+        fontWeight: "600",
     },
     top: {
-        display: 'flex',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center'
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
     },
     childrenContainer: {
         marginTop: 24,
     },
     iconContainer: {
-        alignSelf: "flex-end",
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#D9D9D9',
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#D9D9D9",
         borderRadius: 12,
         width: 24,
         height: 24,
     },
     buttonContainer: {
-        borderTopColor: '#E9E9E9',
+        borderTopColor: "#E9E9E9",
         borderTopWidth: 0.5,
         marginTop: 24,
         paddingVertical: 12,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        height: 63
-    }
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        height: 63,
+    },
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: "rgba(255, 255, 255, 0.8)",
+        justifyContent: "center",
+        alignItems: "center",
+        zIndex: 10,
+    },
+    hidden: {
+        opacity: 0.5,
+    },
 });

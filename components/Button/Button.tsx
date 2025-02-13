@@ -32,7 +32,7 @@ export function Button({
     return (
         <TouchableOpacity
             disabled={isDisabled}
-            style={[styles.container, buttonStyle]}
+            style={[styles.container, buttonStyle, isDisabled && styles.disabledButton]}
             onPress={handlePress}
             activeOpacity={0.8}
         >
@@ -45,6 +45,7 @@ export function Button({
 
 const styles = StyleSheet.create({
     container: {
+        flexDirection: 'row',
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 8,
@@ -58,4 +59,7 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 600
     },
+    disabledButton: {
+        opacity: 0.3
+    }
 });

@@ -5,3 +5,7 @@ export { default as SearchSvg } from './search';
 export { default as DrawSvg } from './draw';
 export { default as AddSvg } from './add';
 export { default as FilterSvg } from './filter';
+export { default as DashboardSvg } from './dashboard';
+export { default as HomeSvg } from './home';
+export { default as MyLocationSvg } from './myLocation';
+export { default as UndoSvg } from './undo';

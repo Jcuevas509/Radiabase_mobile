@@ -8,6 +8,7 @@ export function DrawingMap() {
     const [polygonCoordinates, setPolygonCoordinates] = useState([]);
     const mapViewRef = useRef(null);
     const [loading, setLoading] = useState(false)
+
     const handleMapPress = (event: any) => {
         const { coordinate } = event.nativeEvent;
         //@ts-ignore

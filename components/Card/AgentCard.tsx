@@ -2,8 +2,9 @@ import { RadioButton } from 'components/RadioButton/RadioButton';
 import { View, Text, StyleSheet, Image } from 'react-native';
 interface CardProps {
     data: any,
-    isSelected: boolean,
-    setIsSelected: (value: number) => void,
+    isSelected?: boolean,
+    isAssigned?: boolean,
+    setIsSelected: (value: any) => void,
 }
 
 /**
@@ -12,8 +13,9 @@ interface CardProps {
 
 export function AgentCard({
     data,
-    isSelected,
-    setIsSelected
+    isSelected = false,
+    setIsSelected,
+    isAssigned = false,
 }: CardProps) {
     return (
         <View key={data?.id} style={styles.container}>
@@ -34,11 +36,13 @@ export function AgentCard({
                 </View>
             </View>
             <View >
-                <RadioButton
-                    checked={isSelected}
-                    value={data?.id}
-                    onChange={() => setIsSelected(data?.id)}
-                />
+                {isAssigned ?
+                    <Text style={styles.assignedText}>Assigned</Text>
+                    : <RadioButton
+                        checked={isSelected}
+                        value={data?.id}
+                        onChange={() => setIsSelected(data)}
+                    />}
             </View>
 
         </View>
@@ -52,7 +56,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 24,
         width: '100%',
-        height: 48
+        height: 48,
+        paddingRight: 16
     },
     name: {
         color: 'black',
@@ -86,6 +91,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         marginLeft: 10,
+    },
+    assignedText: {
+        fontWeight: 700,
+        fontSize: 16
     }
 
 });
