@@ -14,10 +14,11 @@ import { AddSvg, MyLocationSvg } from 'components/svg';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
 import axios from 'axios';
 import { CustomMarker } from 'components/Marker/Marker';
-import { CoordinateProps } from 'types/componentsTypes';
+import { BuildingProps, CoordinateProps, LeadStatus } from 'types/componentsTypes';
 import FloatingButtons from './FloatingButtons';
 import { AssignAreaModal } from './AssignAreaModal';
 import { ManageAreaModal } from './ManageAreaModal';
+import { QuickHouseOverviewModal } from './QuickHouseOverviewModal';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -37,7 +38,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         id: number;
         assignee: any;
         coordinates: Array<{ latitude: number; longitude: number }>;
-        buildingMarkers: Array<{ latitude: number; longitude: number }>;
+        buildingMarkers: Array<BuildingProps>;
     }>>([]);
     const [editing, setEditing] = useState<{
         id: number;
@@ -58,7 +59,9 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const [isAtCurrentLocation, setIsAtCurrentLocation] = useState(true);
     const [forceRender, setForceRender] = useState(false);
     const [openManageAreaModal, setOpenManageAreaModal] = useState(false)
+    const [selectedBuilding, setSelectedBuilding] = useState<any | null>(null);
     const [isReassignment, setIsReassignment] = useState(false)
+    const [openQuickStatusModal, setOpenQuickStatusModal] = useState<boolean>(false)
     const mapRef = useRef<MapView>(null);
     useEffect(() => {
         (async () => {
@@ -124,6 +127,32 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         }
     };
 
+    const handleDeletePin = useCallback(() => {
+        if (selectedBuilding) {
+            setPolygons(prevPolygons =>
+                prevPolygons.map(polygon => ({
+                    ...polygon,
+                    buildingMarkers: polygon.buildingMarkers?.filter(
+                        (building: BuildingProps) => building.id !== selectedBuilding.id
+                    )
+                }))
+            );
+            setSelectedBuilding(null);
+            setOpenQuickStatusModal(false);
+        }
+    }, [selectedBuilding]);
+
+    const handleBuildingPress = (building: any) => {
+        setSelectedBuilding(building);
+        // You can add more logic here, such as opening a modal
+        Alert.alert("Building Selected", `${building.title}\n${building.subtitle}`);
+    };
+
+    const handleBuildingLongPress = (building: any) => {
+        setSelectedBuilding(building);
+        setOpenQuickStatusModal(true);
+    };
+
     const fetchOverpassData = async (polygon: any) => {
         const polygonCoordinates = polygon.coordinates;
         if (polygonCoordinates.length < 3) {
@@ -148,10 +177,13 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             const data = response.data.elements;
 
             const newMarkers = data.map((item: any) => ({
+                id: item.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 latitude: item.center?.lat,
                 longitude: item.center?.lon,
                 title: item.tags?.name || "Unnamed Way",
                 subtitle: item.tags?.amenity || "No Amenity",
+                address: item.tags?.["addr:street"] ? `${item.tags["addr:housenumber"] || ''} ${item.tags["addr:street"]}` : "Unknown Address",
+                statusId: 0,
             }));
             setPolygons((prevPolygons) =>
                 prevPolygons.map((p) =>
@@ -300,7 +332,10 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     <CustomMarker
                         type='building'
                         id={marker?.id}
+                        key={marker?.id}
                         marker={marker}
+                        onClick={() => handleBuildingPress(marker)}
+                        onLongPress={() => handleBuildingLongPress(marker)}
                     />
                 ) : null
             )
@@ -314,7 +349,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     key={index}
                     type='polygon'
                     id={`1`}
-                    marker={{ ...marker, title: `Marker ${index + 1}`, subtitle: `Marker ${index + 1}` }}
+                    marker={{ ...marker, id: index, title: `Marker ${index + 1}`, subtitle: `Marker ${index + 1},` }}
                 />
             ) : null
         );
@@ -335,7 +370,6 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     }, [editing]);
     return (
         <View style={styles.container}>
-
             <FloatingButtons
                 buttons={[
                     { icon: <AddSvg />, onPress: () => console.log('add') },
@@ -366,7 +400,6 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 onConfirmAndAssign={() => isReassignment ? handleConfirmAndReassignArea() : handleConfirmAndAssignArea()}
                 peopleData={peopleData}
             />
-
             <ManageAreaModal
                 visible={openManageAreaModal}
                 onClose={() => setOpenManageAreaModal(false)}
@@ -374,6 +407,32 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 setSelectedAgent={setSelectedAgent}
                 onDeleteArea={handleDeleteExistingArea}
                 onReassignArea={handleReassignArea}
+            />
+            <QuickHouseOverviewModal
+                onClose={() => setOpenQuickStatusModal(false)}
+                visible={openQuickStatusModal}
+                selectedHouse={selectedBuilding}
+                onDeletePin={handleDeletePin}
+                onOpenHouseInfo={() => console.log('open')}
+                onChangeHouseStatus={(status: LeadStatus) => {
+                    if (selectedBuilding) {
+                        setPolygons(prevPolygons =>
+                            prevPolygons.map(polygon => ({
+                                ...polygon,
+                                buildingMarkers: polygon.buildingMarkers?.map((building: BuildingProps) =>
+                                    building.id === selectedBuilding.id
+                                        ? { ...building, statusId: status.statusId }
+                                        : building
+                                )
+                            }))
+                        );
+                        setSelectedBuilding((prevBuilding: BuildingProps) =>
+                            prevBuilding ? { ...prevBuilding, statusId: status.statusId } : null
+                        );
+                        setOpenQuickStatusModal(false);
+                        Alert.alert("Status Updated", `House status has been updated to ${status.fullName}.`);
+                    }
+                }}
             />
             {region && <MapView
                 style={styles.map}

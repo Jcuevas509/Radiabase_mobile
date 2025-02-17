@@ -9,3 +9,8 @@ export { default as DashboardSvg } from './dashboard';
 export { default as HomeSvg } from './home';
 export { default as MyLocationSvg } from './myLocation';
 export { default as UndoSvg } from './undo';
+export { default as NotHomeSvg } from './notHome';
+export { default as NewSvg } from './new';
+export { default as NotInterestedSvg } from './notInterested';
+export { default as CallSvg } from './call';
+export { default as GoBackSvg } from './goBack';

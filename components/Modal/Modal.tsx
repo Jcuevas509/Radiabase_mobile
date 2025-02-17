@@ -5,14 +5,15 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 interface ModalProps {
     onClose: () => void;
+    customTitle?: JSX.Element;
     children: JSX.Element;
     buttons: JSX.Element;
     visible: boolean;
-    title: string;
+    title?: string;
     isLoading?: boolean;
 }
 
-export function PlainModal({ visible, onClose, children, title, buttons, isLoading }: ModalProps) {
+export function PlainModal({ visible, customTitle, onClose, children, title, buttons, isLoading }: ModalProps) {
     const insets = useSafeAreaInsets();
     return (
         <Modal visible={visible} animationType="slide" transparent={true}>
@@ -21,7 +22,7 @@ export function PlainModal({ visible, onClose, children, title, buttons, isLoadi
                 <View style={[styles.content, { paddingBottom: insets.bottom }]}>
                     {/* Top Section */}
                     <View style={styles.top}>
-                        <Text style={styles.title}>{title}</Text>
+                        {customTitle || <Text style={styles.title}>{title}</Text>}
                         <TouchableOpacity onPress={onClose} style={styles.iconContainer} disabled={isLoading}>
                             <Ionicons name="close" size={18} color="black" />
                         </TouchableOpacity>

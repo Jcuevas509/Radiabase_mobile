@@ -23,5 +23,20 @@ export interface PolygonProps {
 export interface AreaProps extends PolygonProps {
     assignee: any;
     buildingMarkers: Array<CoordinateProps>;
+}
 
+export interface BuildingProps extends CoordinateProps {
+    id: number;
+    statusId?: number;
+    address?: string;
+    title?: string;
+    subtitle?: string;
+}
+
+export interface LeadStatus {
+    statusId: number;
+    shortName: string;
+    fullName: string;
+    color: string;
+    icon: React.FC<SvgProps>;
 }
