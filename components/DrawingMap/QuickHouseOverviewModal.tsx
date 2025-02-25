@@ -24,7 +24,7 @@ export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = (
     onOpenHouseInfo,
     onChangeHouseStatus
 }) => {
-    const currentStatus = leadStatuses.find(status => status?.statusId === selectedHouse?.statusId) || leadStatuses[0];
+    const currentStatus = leadStatuses.find(status => status?.statusId === selectedHouse?.statusId) || null;
 
     return (
         <PlainModal
@@ -32,8 +32,8 @@ export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = (
             onClose={onClose}
             customTitle={
                 <View style={styles.customTitleContainer}>
-                    <View style={[styles.statusContainer, { backgroundColor: currentStatus.color }]}>
-                        <currentStatus.icon color="white" />
+                    <View style={[styles.statusContainer, { borderColor: currentStatus?.color || 'black', backgroundColor: currentStatus?.color || 'white' }]}>
+                        {currentStatus ? <currentStatus.icon color="white" /> : <></>}
                     </View>
                     <View style={styles.addressContainer}>
                         <FontAwesome6 name='location-dot' color='black' size={22} style={styles.locationIcon} />
@@ -52,7 +52,7 @@ export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = (
                     />
                     <Button
                         text='Open House Info'
-                        buttonStyle={{ backgroundColor: 'black', width: 149 }}
+                        buttonStyle={{ backgroundColor: 'black', maxWidth: 247, width: '60%' }}
                         textStyle={{ color: 'white' }}
                         onPress={onOpenHouseInfo}
                     />
@@ -68,8 +68,9 @@ export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = (
                                 <Text style={styles.buttonText}>{status.shortName}</Text>
                                 <TouchableOpacity
                                     key={status.shortName}
-                                    style={[styles.button, { backgroundColor: status.color }]}
+                                    style={[styles.button, { backgroundColor: status.color, opacity: currentStatus?.statusId === status.statusId ? 0.2 : 1 }]}
                                     onPress={() => onChangeHouseStatus(status)}
+                                    disabled={currentStatus?.statusId === status.statusId}
                                 >
                                     <status.icon color="white" />
                                 </TouchableOpacity>
@@ -124,6 +125,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         width: 32,
+        borderWidth: 1,
         height: 32,
         borderRadius: 16,
         marginRight: 16

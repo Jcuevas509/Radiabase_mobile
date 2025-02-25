@@ -11,21 +11,23 @@ interface ModalProps {
     visible: boolean;
     title?: string;
     isLoading?: boolean;
+    hasCloseButton?: boolean;
+    animationType?: "none" | "slide" | "fade";
 }
 
-export function PlainModal({ visible, customTitle, onClose, children, title, buttons, isLoading }: ModalProps) {
+export function PlainModal({ visible, customTitle, onClose, children, title, buttons, isLoading, hasCloseButton = true, animationType = 'slide' }: ModalProps) {
     const insets = useSafeAreaInsets();
     return (
-        <Modal visible={visible} animationType="slide" transparent={true}>
+        <Modal visible={visible} animationType={animationType} transparent={true}>
             <View style={styles.modalContainer}>
                 <TouchableOpacity style={styles.dismissArea} onPress={onClose} />
                 <View style={[styles.content, { paddingBottom: insets.bottom }]}>
                     {/* Top Section */}
                     <View style={styles.top}>
                         {customTitle || <Text style={styles.title}>{title}</Text>}
-                        <TouchableOpacity onPress={onClose} style={styles.iconContainer} disabled={isLoading}>
+                        {hasCloseButton && <TouchableOpacity onPress={onClose} style={styles.iconContainer} disabled={isLoading}>
                             <Ionicons name="close" size={18} color="black" />
-                        </TouchableOpacity>
+                        </TouchableOpacity>}
                     </View>
 
                     {/* Overlay and Loading Indicator */}
@@ -94,8 +96,8 @@ const styles = StyleSheet.create({
     buttonContainer: {
         borderTopColor: "#E9E9E9",
         borderTopWidth: 0.5,
-        marginTop: 24,
-        paddingVertical: 12,
+        // marginTop: 24,
+        paddingTop: 12,
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
@@ -107,6 +109,7 @@ const styles = StyleSheet.create({
         justifyContent: "center",
         alignItems: "center",
         zIndex: 10,
+        borderRadius: 12,
     },
     hidden: {
         opacity: 0.5,

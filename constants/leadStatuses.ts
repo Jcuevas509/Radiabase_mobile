@@ -1,5 +1,5 @@
 import React from 'react';
-import { NewSvg, NotInterestedSvg, NotHomeSvg, GoBackSvg, CallSvg } from '../components/svg';
+import { NewSvg, NotInterestedSvg, NotHomeSvg, GoBackSvg, CallSvg, UndoSvg, CheckmarkSvg, CancelSvg, SignatureSvg } from '../components/svg';
 import { LeadStatus, SvgProps } from '../types/componentsTypes';
 
 
@@ -40,4 +40,35 @@ export const leadStatuses: LeadStatus[] = [
         color: "#A300FF", // Purple color,
         icon: CallSvg
     }
+];
+
+export const customerStatuses: LeadStatus[] = [
+    {
+        statusId: 0,
+        shortName: "NS",
+        fullName: "Presented - Not sold",
+        color: "#1A75C6", // Blue color,
+        icon: UndoSvg
+    },
+    {
+        statusId: 1,
+        shortName: "SIGN",
+        fullName: "Signed",
+        color: "#276E11",// Red color
+        icon: SignatureSvg
+    },
+    {
+        statusId: 2,
+        shortName: "CANC",
+        fullName: "Cancelled",
+        color: "#F90114", // Orange color
+        icon: CancelSvg
+    },
+    {
+        statusId: 3,
+        shortName: "INST",
+        fullName: "Installed",
+        color: "black", // Green color
+        icon: CheckmarkSvg
+    },
 ];

@@ -27,10 +27,13 @@ export interface AreaProps extends PolygonProps {
 
 export interface BuildingProps extends CoordinateProps {
     id: number;
+    statuses?: number[];
+    additionalDetails?: any;
     statusId?: number;
     address?: string;
     title?: string;
     subtitle?: string;
+    assignee?: any;
 }
 
 export interface LeadStatus {

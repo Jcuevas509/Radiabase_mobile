@@ -5,7 +5,6 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
-
 import { useRouter, useSegments } from 'expo-router';
 import { useColorScheme } from 'components/useColorScheme';
 
@@ -42,7 +41,6 @@ export default function RootLayout() {
   if (!loaded) {
     return null;
   }
-  console.log('ovjde????')
   return <RootLayoutNav />;
 }
 
@@ -51,9 +49,6 @@ function RootLayoutNav() {
   const router = useRouter();
   const segments = useSegments();
 
-  useEffect(() => {
-    console.log('All route segments:', segments);
-  }, [segments]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -62,7 +57,6 @@ function RootLayoutNav() {
           options={{ headerShown: false }}
         />
       </Stack>
-
     </ThemeProvider>
   );
 }

@@ -19,6 +19,8 @@ import FloatingButtons from './FloatingButtons';
 import { AssignAreaModal } from './AssignAreaModal';
 import { ManageAreaModal } from './ManageAreaModal';
 import { QuickHouseOverviewModal } from './QuickHouseOverviewModal';
+import { DetailedHouseOverviewModal } from './DetailedHouseOverviewModal';
+import { CustomAlert } from 'components/Alert/Alert';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -62,7 +64,12 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const [selectedBuilding, setSelectedBuilding] = useState<any | null>(null);
     const [isReassignment, setIsReassignment] = useState(false)
     const [openQuickStatusModal, setOpenQuickStatusModal] = useState<boolean>(false)
+    const [openDetailedHouseModal, setOpenDetailedHouseModal] = useState<boolean>(false)
+    const [alertVisible, setAlertVisible] = useState<boolean>(false)
+    const [deleteType, setDeleteType] = useState<'house' | 'area' | null>(null)
+    const [message, setMessage] = useState<string>('')
     const mapRef = useRef<MapView>(null);
+
     useEffect(() => {
         (async () => {
             let { status } = await Location.requestForegroundPermissionsAsync();
@@ -144,8 +151,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
 
     const handleBuildingPress = (building: any) => {
         setSelectedBuilding(building);
-        // You can add more logic here, such as opening a modal
-        Alert.alert("Building Selected", `${building.title}\n${building.subtitle}`);
+        setOpenDetailedHouseModal(true);
     };
 
     const handleBuildingLongPress = (building: any) => {
@@ -180,10 +186,11 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 id: item.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 latitude: item.center?.lat,
                 longitude: item.center?.lon,
+                assignee: polygon?.assignee,
                 title: item.tags?.name || "Unnamed Way",
                 subtitle: item.tags?.amenity || "No Amenity",
                 address: item.tags?.["addr:street"] ? `${item.tags["addr:housenumber"] || ''} ${item.tags["addr:street"]}` : "Unknown Address",
-                statusId: 0,
+                statusId: null,
             }));
             setPolygons((prevPolygons) =>
                 prevPolygons.map((p) =>
@@ -216,6 +223,8 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setOpenAssignModal(false);
                     setSelectedAgent(null)
                     setCanFinishArea(false)
+                    setMessage('Area is Assigned Successfully!');
+                    setAlertVisible(true);
                 }
                 )
             })
@@ -228,7 +237,13 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 setPolygons(prevPolygons =>
                     prevPolygons.map(polygon =>
                         polygon.id === selectedArea.id
-                            ? { ...polygon, assignee: selectedAgent }
+                            ? {
+                                ...polygon, assignee: selectedAgent,
+                                buildingMarkers: polygon?.buildingMarkers?.map(building => ({
+                                    ...building,
+                                    assignee: selectedAgent
+                                }))
+                            }
                             : polygon
                     )
                 );
@@ -240,13 +255,8 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 setSelectedArea(null);
                 setSelectedAgent(null);
                 setIsReassignment(false);
-
-                // Show success modal or alert
-                Alert.alert(
-                    "Success",
-                    "Area has been successfully reassigned.",
-                    [{ text: "OK" }]
-                );
+                setMessage('Area is Reassigned Successfully!');
+                setAlertVisible(true);
 
             } catch (error) {
                 console.error("Error reassigning area:", error);
@@ -271,8 +281,8 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         if (selectedArea) {
             setPolygons(prevPolygons => prevPolygons.filter(polygon => polygon.id !== selectedArea.id));
             setSelectedArea(null);
+            setIsReassignment(false);
             setOpenManageAreaModal(false);
-            Alert.alert("Area Deleted", "The selected area has been successfully deleted.");
         }
     };
     const handleReassignArea = async () => {
@@ -389,6 +399,30 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 showUndoButton={!!editing}
                 onUndo={handleUndo}
             />
+            <CustomAlert
+                visible={alertVisible}
+                onDismiss={() => {
+                    setAlertVisible(false)
+                    setDeleteType(null)
+                }}
+                type={deleteType ? 'confirm' : 'success'}
+                onConfirm={() => {
+                    if (deleteType === 'area') {
+                        if (isReassignment) {
+                            handleDeleteExistingArea()
+                        }
+                        else {
+                            handleDeleteArea()
+                        }
+                    }
+                    else {
+                        handleDeletePin()
+                    }
+                    setDeleteType(null)
+                    setAlertVisible(false)
+                }}
+                message={message}
+            />
             <AssignAreaModal
                 visible={openAssignModal}
                 onClose={() => setOpenAssignModal(false)}
@@ -396,7 +430,12 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 loading={loading}
                 selectedAgent={selectedAgent}
                 setSelectedAgent={setSelectedAgent}
-                onDeleteArea={() => isReassignment ? handleDeleteExistingArea() : handleDeleteArea()}
+                onDeleteArea={() => {
+                    setMessage('Area is Deleted!')
+                    setOpenAssignModal(false)
+                    setDeleteType('area')
+                    setAlertVisible(true)
+                }}
                 onConfirmAndAssign={() => isReassignment ? handleConfirmAndReassignArea() : handleConfirmAndAssignArea()}
                 peopleData={peopleData}
             />
@@ -405,15 +444,29 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 onClose={() => setOpenManageAreaModal(false)}
                 selectedArea={selectedArea}
                 setSelectedAgent={setSelectedAgent}
-                onDeleteArea={handleDeleteExistingArea}
+                onDeleteArea={() => {
+                    setIsReassignment(true)
+                    setOpenManageAreaModal(false)
+                    setDeleteType('area')
+                    setMessage('Area is Deleted!')
+                    setAlertVisible(true)
+                }}
                 onReassignArea={handleReassignArea}
             />
             <QuickHouseOverviewModal
                 onClose={() => setOpenQuickStatusModal(false)}
                 visible={openQuickStatusModal}
                 selectedHouse={selectedBuilding}
-                onDeletePin={handleDeletePin}
-                onOpenHouseInfo={() => console.log('open')}
+                onDeletePin={() => {
+                    setOpenQuickStatusModal(false)
+                    setDeleteType('house')
+                    setMessage('House is Deleted!')
+                    setAlertVisible(true)
+                }}
+                onOpenHouseInfo={() => {
+                    setOpenDetailedHouseModal(true)
+                    setOpenQuickStatusModal(false)
+                }}
                 onChangeHouseStatus={(status: LeadStatus) => {
                     if (selectedBuilding) {
                         setPolygons(prevPolygons =>
@@ -421,18 +474,47 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                                 ...polygon,
                                 buildingMarkers: polygon.buildingMarkers?.map((building: BuildingProps) =>
                                     building.id === selectedBuilding.id
-                                        ? { ...building, statusId: status.statusId }
+                                        ? {
+                                            ...building,
+                                            statusId: status.statusId,
+                                            statuses: [...(building?.statuses || []), status.statusId]
+                                        }
                                         : building
                                 )
                             }))
                         );
                         setSelectedBuilding((prevBuilding: BuildingProps) =>
-                            prevBuilding ? { ...prevBuilding, statusId: status.statusId } : null
+                            prevBuilding ? { ...prevBuilding, statusId: status.statusId, statuses: [...(prevBuilding?.statuses || []), status.statusId] } : null
                         );
                         setOpenQuickStatusModal(false);
-                        Alert.alert("Status Updated", `House status has been updated to ${status.fullName}.`);
+                        setMessage("House Status Updated Successfully!");
+                        setAlertVisible(true);
                     }
                 }}
+            />
+            <DetailedHouseOverviewModal
+                onClose={() => setOpenDetailedHouseModal(false)}
+                visible={openDetailedHouseModal}
+                selectedHouse={selectedBuilding}
+                onSaveAndClose={(updatedHouse) => {
+                    setSelectedBuilding(updatedHouse)
+                    setPolygons((prevPolygons: any) =>
+                        prevPolygons.map((polygon: any) => ({
+                            ...polygon,
+                            buildingMarkers: polygon.buildingMarkers?.map((building: BuildingProps) =>
+                                building.id === updatedHouse.id
+                                    ? {
+                                        ...building,
+                                        ...updatedHouse,
+                                        statuses: [...(building?.statuses || []), updatedHouse.statusId].filter((v, i, a) => a.indexOf(v) === i)
+                                    }
+                                    : building
+                            )
+                        }))
+                    );
+                    setOpenDetailedHouseModal(false)
+                }}
+                onSaveAndSend={() => setOpenDetailedHouseModal(false)}
             />
             {region && <MapView
                 style={styles.map}

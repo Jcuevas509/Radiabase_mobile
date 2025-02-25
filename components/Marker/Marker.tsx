@@ -30,7 +30,7 @@ export function CustomMarker({
         if (type === 'building' && marker.statusId !== undefined) {
             return {
                 ...styles.buildingMarker,
-                borderColor: status ? status.color : 'gray',
+                borderColor: status ? status.color : 'black',
             };
         }
 

@@ -14,3 +14,7 @@ export { default as NewSvg } from './new';
 export { default as NotInterestedSvg } from './notInterested';
 export { default as CallSvg } from './call';
 export { default as GoBackSvg } from './goBack';
+export { default as SignatureSvg } from './signature';
+export { default as CheckmarkSvg } from './correct';
+export { default as CancelSvg } from './cancel';
+export { default as SunSvg } from './sun';
