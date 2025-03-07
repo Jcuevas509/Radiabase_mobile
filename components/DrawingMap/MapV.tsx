@@ -21,6 +21,7 @@ import { ManageAreaModal } from './ManageAreaModal';
 import { QuickHouseOverviewModal } from './QuickHouseOverviewModal';
 import { DetailedHouseOverviewModal } from './DetailedHouseOverviewModal';
 import { CustomAlert } from 'components/Alert/Alert';
+import { useSession } from 'context/AuthenticationContext';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -35,6 +36,8 @@ interface DrawingMapProps {
 }
 LogBox.ignoreAllLogs(true);
 const PolygonCreator = ({ }: DrawingMapProps) => {
+    const { session } = useSession()
+    const isManager = session?.user?.role === 'manager';
     const [region, setRegion] = useState<Region | null>(null);
     const [polygons, setPolygons] = useState<Array<{
         id: number;
@@ -396,6 +399,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setActiveDrawing(!activeDrawing);
                     setCanFinishArea(false);
                 }}
+                isManager={isManager}
                 showUndoButton={!!editing}
                 onUndo={handleUndo}
             />

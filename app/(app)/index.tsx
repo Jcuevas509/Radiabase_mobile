@@ -3,16 +3,13 @@ import { View } from 'react-native'
 import { StyleSheet } from 'react-native';
 import PolygonCreator from 'components/DrawingMap/MapV';
 import { TopMenu } from 'components/Menu/TopMenu';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 export default function Map() {
     return (
-        <GestureHandlerRootView style={{ flex: 1 }}>
-            <View style={styles.container}>
-                <TopMenu />
-                <PolygonCreator />
-            </View>
-        </GestureHandlerRootView>
+        <View style={styles.container}>
+            <TopMenu />
+            <PolygonCreator />
+        </View>
     )
 }
 

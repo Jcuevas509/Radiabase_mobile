@@ -18,3 +18,4 @@ export { default as SignatureSvg } from './signature';
 export { default as CheckmarkSvg } from './correct';
 export { default as CancelSvg } from './cancel';
 export { default as SunSvg } from './sun';
+export { default as LogoText } from './logoText';

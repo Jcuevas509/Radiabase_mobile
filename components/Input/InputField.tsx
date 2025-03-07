@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, TextInput, KeyboardTypeOptions } from 'react-native';
+import { View, StyleSheet, Text, TextInput, KeyboardTypeOptions, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface InputProps {
     value: string;
     keyboardType?: KeyboardTypeOptions;
     placeholder?: string;
+    placeHolderColor?: string;
     multiline?: boolean;
     onChange: (text: string, isValid?: boolean) => void;
     style?: object;
     isEmail?: boolean;
+    isPassword?: boolean;
+    isSignInput?: boolean;
     onFocus?: () => void;
     onBlur?: () => void;
 }
@@ -22,15 +25,23 @@ export function InputField({
     onChange,
     style,
     isEmail = false,
+    isPassword = false,
     onFocus,
-    onBlur
+    onBlur,
+    isSignInput = false,
+    placeHolderColor = '#D9D9D9',
 }: InputProps) {
     const [isValid, setIsValid] = useState(true);
     const [isTouched, setIsTouched] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
 
     const validateEmail = (email: string) => {
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         return re.test(email);
+    };
+
+    const toggleShowPassword = () => {
+        setShowPassword(!showPassword);
     };
 
     useEffect(() => {
@@ -58,19 +69,35 @@ export function InputField({
 
     return (
         <View>
-            <TextInput
-                style={[styles.input, style, !isValid && isTouched && value !== '' && styles.invalidInput]}
-                placeholder={placeholder}
-                value={value}
-                keyboardType={keyboardType}
-                placeholderTextColor='#D9D9D9'
-                multiline={multiline}
-                onChangeText={handleChange}
-                onBlur={handleBlur}
-                onFocus={onFocus}
-            />
+            <View style={styles.inputContainer}>
+                <TextInput
+                    style={[
+                        styles.input,
+                        style,
+                        !isValid && isTouched && value !== '' && styles.invalidInput
+                    ]}
+                    placeholder={placeholder}
+                    value={value}
+                    keyboardType={keyboardType}
+                    placeholderTextColor={placeHolderColor}
+                    multiline={multiline}
+                    onChangeText={handleChange}
+                    onBlur={handleBlur}
+                    onFocus={onFocus}
+                    secureTextEntry={isPassword && !showPassword}
+                />
+                {isPassword && (
+                    <TouchableOpacity onPress={toggleShowPassword} style={styles.eyeIcon}>
+                        <Ionicons
+                            name={showPassword ? 'eye-off' : 'eye'}
+                            size={24}
+                            color="#6E6A62"
+                        />
+                    </TouchableOpacity>
+                )}
+            </View>
             {isEmail && !isValid && isTouched && value !== '' && (
-                <Text style={styles.errorText}>Invalid email format</Text>
+                <Text style={[styles.errorText, { paddingVertical: isSignInput ? 6 : 0 }]}>Invalid email format</Text>
             )}
         </View>
     );
@@ -81,7 +108,7 @@ const styles = StyleSheet.create({
         height: 35,
         borderColor: '#D9D9D9',
         borderRadius: 8,
-        width: 165,
+        width: '100%',
         borderWidth: 1,
         marginBottom: 12,
         paddingHorizontal: 12,
@@ -95,5 +122,14 @@ const styles = StyleSheet.create({
         color: 'red',
         fontSize: 10,
         marginTop: -10,
+    },
+    inputContainer: {
+        position: 'relative',
+        width: '100%',
+    },
+    eyeIcon: {
+        position: 'absolute',
+        right: 10,
+        top: '20%',
     },
 });

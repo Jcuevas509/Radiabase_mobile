@@ -1,8 +1,8 @@
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import * as Haptics from 'expo-haptics';
 
 interface ButtonProps {
-    onPress: () => void;
+    onPress: () => Promise<void> | void;
     text?: string;
     buttonStyle?: object;
     textStyle?: object;
@@ -10,6 +10,8 @@ interface ButtonProps {
     startIcon?: JSX.Element;
     buttonIcon?: JSX.Element;
     isDisabled?: boolean;
+    loadingColor?: string;
+    isLoading?: boolean;
 }
 
 /**
@@ -23,15 +25,19 @@ export function Button({
     textStyle,
     isDisabled = false,
     endIcon,
-    startIcon
+    startIcon,
+    loadingColor = 'white',
+    isLoading = false,
 }: ButtonProps) {
-    function handlePress() {
+
+    async function handlePress() {
         Haptics.selectionAsync().catch(() => null);
         onPress();
     }
+
     return (
         <TouchableOpacity
-            disabled={isDisabled}
+            disabled={isDisabled || isLoading}
             style={[styles.container, buttonStyle, isDisabled && styles.disabledButton]}
             onPress={handlePress}
             activeOpacity={0.8}
@@ -39,6 +45,7 @@ export function Button({
             {startIcon !== null && startIcon}
             {text && <Text style={[styles.text, textStyle]}>{text}</Text>}
             {endIcon !== null && endIcon}
+            {isLoading && <ActivityIndicator size='small' color={loadingColor} style={{ marginLeft: 8 }} />}
         </TouchableOpacity>
     );
 }

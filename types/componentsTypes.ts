@@ -1,3 +1,5 @@
+import { ReactElement } from "react";
+
 export interface SvgProps {
     width?: string;
     height?: string;
@@ -42,4 +44,12 @@ export interface LeadStatus {
     fullName: string;
     color: string;
     icon: React.FC<SvgProps>;
+}
+
+export interface MenuItemProps {
+    id: number;
+    label: string;
+    route: string;
+    icon: any;
+
 }

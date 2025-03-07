@@ -1,10 +1,13 @@
+import { Button } from 'components/Button/Button';
 import { RadioButton } from 'components/RadioButton/RadioButton';
 import { View, Text, StyleSheet, Image } from 'react-native';
 interface CardProps {
     data: any,
     isSelected?: boolean,
     isAssigned?: boolean,
-    setIsSelected: (value: any) => void,
+    fromMenu?: boolean,
+    onSendCard?: () => void,
+    setIsSelected?: (value: any) => void,
 }
 
 /**
@@ -16,6 +19,8 @@ export function AgentCard({
     isSelected = false,
     setIsSelected,
     isAssigned = false,
+    fromMenu = false,
+    onSendCard,
 }: CardProps) {
     return (
         <View key={data?.id} style={styles.container}>
@@ -36,13 +41,22 @@ export function AgentCard({
                 </View>
             </View>
             <View >
-                {isAssigned ?
-                    <Text style={styles.assignedText}>Assigned</Text>
-                    : <RadioButton
-                        checked={isSelected}
-                        value={data?.id}
-                        onChange={() => setIsSelected(data)}
-                    />}
+                {
+                    fromMenu && onSendCard ?
+                        <Button
+                            text='Send Card'
+                            buttonStyle={{ backgroundColor: 'black' }}
+                            textStyle={{ color: 'white' }}
+                            onPress={onSendCard}
+                        />
+                        :
+                        isAssigned ?
+                            <Text style={styles.assignedText}>Assigned</Text>
+                            : <RadioButton
+                                checked={isSelected}
+                                value={data?.id}
+                                onChange={() => setIsSelected && setIsSelected(data)}
+                            />}
             </View>
 
         </View>

@@ -18,6 +18,7 @@ interface FloatingButtonsProps {
     onToggleDrawing: () => void;
     showUndoButton?: boolean;
     onUndo: () => void;
+    isManager: boolean;
 }
 
 const FloatingButtons: React.FC<FloatingButtonsProps> = ({
@@ -28,11 +29,12 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
     onToggleDrawing,
     showUndoButton = false,
     onUndo,
+    isManager
 }) => {
     return (
         <>
             <View style={styles.floatingButtonsContainer}>
-                {canFinishArea && (
+                {canFinishArea && isManager && (
                     <Button
                         text='Complete'
                         onPress={onFinish}
@@ -41,13 +43,13 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                         startIcon={<Ionicons name="checkmark-circle-outline" size={24} color="black" />}
                     />
                 )}
-                <View style={styles.buttonContainer}>
+                {isManager && <View style={styles.buttonContainer}>
                     <FloatingButton
                         buttonStyle={{ backgroundColor: activeDrawing ? "#32A0FF" : 'white' }}
                         onPress={onToggleDrawing}
                         buttonIcon={<DrawSvg color={activeDrawing ? 'white' : '#1F1F1F'} />}
                     />
-                </View>
+                </View>}
                 {buttons?.map((btn, index) => (
                     <View style={styles.buttonContainer} key={index}>
                         <FloatingButton
@@ -58,7 +60,7 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                     </View>
                 ))}
             </View>
-            {showUndoButton && (
+            {showUndoButton && isManager && (
                 <View style={styles.undoButtonContainer}>
                     <Button
                         text='Undo'

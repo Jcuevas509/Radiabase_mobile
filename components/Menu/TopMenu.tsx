@@ -1,37 +1,85 @@
 import React from "react";
-import { View, StyleSheet, Text } from "react-native";
+import { View, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { DashboardSvg, HomeSvg } from "components/svg";
+import { MaterialIcons } from "@expo/vector-icons";
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { useRouter } from "expo-router";
+interface TopMenuProps {
+    color?: 'white' | 'black',
+    isOnDashboard?: boolean;
 
-interface TopMenuProps { }
+}
 
-export function TopMenu() {
+export const TopMenu: React.FC<TopMenuProps> = ({
+    color = 'white',
+    isOnDashboard = false,
+}) => {
+    const router = useRouter()
+    const isBlack = color === 'black';
+    const navigation = useNavigation();
+
+    const openDrawer = () => {
+        navigation.dispatch(DrawerActions.openDrawer());
+    };
+
+    const navigateToDashboard = () => {
+        // @ts-ignore
+        router.navigate('/dashboard');
+    };
+
+    const handlePress = () => {
+        if (isBlack) {
+            navigateToDashboard();
+        } else {
+            openDrawer();
+        }
+    };
     return (
-        <View style={styles.topMenuContainer}>
-            <View style={styles.iconLeft}>
-                <DashboardSvg />
-                <Text style={styles.text}>
-                    Back to Dashboard
-                </Text>
-            </View>
+        <View style={[
+            styles.topMenuContainer,
+            isBlack ? styles.topMenuContainerBlack : styles.topMenuContainerWhite
+        ]}>
+            <TouchableOpacity onPress={handlePress} style={styles.iconLeft}>
+                {isBlack ? (
+                    isOnDashboard ?
+                        <></> :
+                        <>
+                            <DashboardSvg color={color} />
+                            <Text style={[styles.text, { color: color }]}>
+                                Back to Dashboard
+                            </Text>
+                        </>
+                ) : (
+                    <MaterialIcons name="menu" size={30} color="white" />
+                )}
+            </TouchableOpacity>
             <View style={styles.iconRight}>
-                <HomeSvg />
+                <HomeSvg color={color} />
             </View>
         </View>
     );
 }
 
 const styles = StyleSheet.create({
-    topMenuContainer: {
-        position: "absolute",  // Postavlja preko mape
-        top: 58,               // Razmak od vrha ekrana
+    topMenuContainerWhite: {
+        position: "absolute",
+        top: 58,
         left: 0,
         right: 0,
-        flexDirection: "row",  // Postavlja ikone u red
-        justifyContent: "space-between", // Razmješta ih u lijevi i desni ugao
+    },
+    topMenuContainerBlack: {
+        paddingTop: 30,
+        height: 120,
+        alignItems: 'center',
+    },
+    topMenuContainer: {
+
+        flexDirection: "row",
+        justifyContent: "space-between",
         alignItems: "center",
-        paddingLeft: 26, // Padding sa lijeve i desne strane
+        paddingLeft: 26,
         paddingRight: 22,
-        zIndex: 10,            // Osigurava da je iznad mape
+        zIndex: 10,
     },
     iconLeft: {
         alignItems: "center",

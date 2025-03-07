@@ -1,62 +1,67 @@
-import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-import { useRouter, useSegments } from 'expo-router';
-import { useColorScheme } from 'components/useColorScheme';
-
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
+import { SessionProvider, useSession } from 'context/AuthenticationContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  Slot,
+  SplashScreen,
+  useRouter,
 } from 'expo-router';
+import { useColorScheme } from 'components/useColorScheme';
+import { PropsWithChildren, useEffect, useState } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: 'index',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
-
-export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-    ...FontAwesome.font,
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+function AppLoader({ children }: PropsWithChildren) {
+  const [isAppReady, setAppReady] = useState<boolean>(false);
+  const { isLoading: isSessionLoading, session } = useSession();
+  const router = useRouter();
 
   useEffect(() => {
-    if (loaded) {
+    if (!isSessionLoading) {
+      setAppReady(true);
+    }
+  }, [isSessionLoading]);
+
+  useEffect(() => {
+    if (isAppReady) {
+      if (session) {
+        router.replace('/');
+      } else {
+        router.replace('/login');
+      }
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
-
-  if (!loaded) {
-    return null;
-  }
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-  const router = useRouter();
-  const segments = useSegments();
-
+  }, [isAppReady, session, router]);
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="index"
-          options={{ headerShown: false }}
-        />
-      </Stack>
-    </ThemeProvider>
+    <>
+      {children}
+    </>
   );
 }
+
+function Root() {
+  const queryClient = new QueryClient();
+  const colorScheme = useColorScheme();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <SessionProvider>
+        <AppLoader>
+          <GestureHandlerRootView style={{ flex: 1 }}>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Slot />
+            </ThemeProvider>
+          </GestureHandlerRootView >
+        </AppLoader>
+      </SessionProvider>
+    </QueryClientProvider>
+  );
+}
+
+function AppEntryPoint() {
+  useEffect(() => {
+    SplashScreen.preventAutoHideAsync();
+  }, []);
+  return <Root />;
+}
+
+export default AppEntryPoint;
