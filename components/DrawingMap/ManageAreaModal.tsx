@@ -22,6 +22,7 @@ export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
     onDeleteArea,
     onReassignArea,
 }) => {
+    const isAssigned = selectedArea?.assignee !== null;
     return (
         <PlainModal
             visible={visible}
@@ -35,7 +36,7 @@ export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
                         onPress={onDeleteArea}
                     />
                     <Button
-                        text='Reassign'
+                        text={isAssigned ? 'Reassign' : 'Assign'}
                         buttonStyle={{ backgroundColor: 'black', width: 149 }}
                         textStyle={{ color: 'white' }}
                         onPress={onReassignArea}
@@ -43,7 +44,7 @@ export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
                 </>
             }
         >
-            <>
+            {isAssigned ? <>
                 <AgentCard
                     data={selectedArea?.assignee}
                     isAssigned={true}
@@ -57,6 +58,13 @@ export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
                     </Text>
                 </View>
             </>
+                :
+                <View style={styles.textContainer}>
+                    <Text style={styles.notAssignedText}>
+                        This Area is not assigned yet.
+                    </Text>
+                </View>
+            }
         </PlainModal>
     );
 };
@@ -64,6 +72,10 @@ export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
 const styles = StyleSheet.create({
     textContainer: {
         paddingVertical: 24
+    },
+    notAssignedText: {
+        fontSize: 14,
+        fontWeight: '500'
     },
     manageAreaText: {
         fontSize: 12,

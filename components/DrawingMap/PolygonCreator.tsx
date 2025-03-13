@@ -8,11 +8,12 @@ import {
     Alert,
     LogBox,
 } from 'react-native';
+import { debounce } from 'lodash';
+
 import MapView, { Marker, Polygon, Region } from 'react-native-maps';
 import { peopleData } from 'constants/dataExample';
-import { AddSvg, MyLocationSvg } from 'components/svg';
+import { AddHouse, MyLocationSvg } from 'components/svg';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
-import axios from 'axios';
 import { CustomMarker } from 'components/Marker/Marker';
 import { BuildingProps, CoordinateProps, LeadStatus } from 'types/componentsTypes';
 import FloatingButtons from './FloatingButtons';
@@ -22,6 +23,7 @@ import { QuickHouseOverviewModal } from './QuickHouseOverviewModal';
 import { DetailedHouseOverviewModal } from './DetailedHouseOverviewModal';
 import { CustomAlert } from 'components/Alert/Alert';
 import { useSession } from 'context/AuthenticationContext';
+import { fetchOverpassData } from 'services/overpassApi';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -71,7 +73,27 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const [alertVisible, setAlertVisible] = useState<boolean>(false)
     const [deleteType, setDeleteType] = useState<'house' | 'area' | null>(null)
     const [message, setMessage] = useState<string>('')
+    const [mapType, setMapType] = useState<'satellite' | 'standard'>('satellite');
     const mapRef = useRef<MapView>(null);
+
+
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+
+    // TODO
+
+    // The code is not the cleanest due to mocked data (APIs are still missing), so ignore that for now.
+    // There's a lot of local state because it's currently the easiest way to store data.
+    // Implement a simulation of 'onLongPress' instead of 'onPress' in memoizedPolygons.
+    // Note: The Polygon object only has an 'onPress' prop and does not support 'onLongPress', 'onPressIn', or 'onPressOut'.
+
+
+    const handlePolygonPress = () => {
+        timeoutRef.current = setTimeout(() => {
+
+        }, 1000);
+    };
+
 
     useEffect(() => {
         (async () => {
@@ -161,51 +183,20 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         setSelectedBuilding(building);
         setOpenQuickStatusModal(true);
     };
-
-    const fetchOverpassData = async (polygon: any) => {
-        const polygonCoordinates = polygon.coordinates;
-        if (polygonCoordinates.length < 3) {
-            Alert.alert("Error", "Please draw a polygon with at least 3 points.");
-            return;
-        }
-
-        setLoading(true);
-        const polygonString = polygonCoordinates
-            .map((coord: any) => `${coord.latitude} ${coord.longitude}`)
-            .join(' ');
-
-        const overpassUrl = `https://overpass-api.de/api/interpreter`;
-        const query = `[out:json];
-            (
-                way["building"](poly:"${polygonString}");
-            );
-            out center;`;
-
+    const handleFetchOverpassData = async (polygon: any) => {
         try {
-            const response = await axios.post(overpassUrl, query, { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-            const data = response.data.elements;
-
-            const newMarkers = data.map((item: any) => ({
-                id: item.id || `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                latitude: item.center?.lat,
-                longitude: item.center?.lon,
-                assignee: polygon?.assignee,
-                title: item.tags?.name || "Unnamed Way",
-                subtitle: item.tags?.amenity || "No Amenity",
-                address: item.tags?.["addr:street"] ? `${item.tags["addr:housenumber"] || ''} ${item.tags["addr:street"]}` : "Unknown Address",
-                statusId: null,
-            }));
-            setPolygons((prevPolygons) =>
-                prevPolygons.map((p) =>
+            setLoading(true);
+            const newMarkers = await fetchOverpassData(polygon);
+            setPolygons((prevPolygons: any) =>
+                prevPolygons.map((p: any) =>
                     p.id === polygon.id
                         ? { ...p, buildingMarkers: newMarkers }
                         : p
                 )
             );
-
-            setLoading(false);
-        } catch (error) {
-            console.error("Error fetching data: ", error);
+        } catch (error: any) {
+            Alert.alert("Error", error.message);
+        } finally {
             setLoading(false);
         }
     };
@@ -213,26 +204,20 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const handleFinish = async () => {
         if (editing) {
             setActiveDrawing(false);
-            setOpenAssignModal(true)
-        }
-    };
-
-    const handleConfirmAndAssignArea = async () => {
-        if (editing) {
             const newPolygon = JSON.parse(JSON.stringify(editing));
             setEditing(null)
-            await Promise.resolve(setPolygons(prevPolygons => [...prevPolygons, { ...newPolygon, assignee: selectedAgent }])).then(async () => {
-                await Promise.resolve(fetchOverpassData({ ...newPolygon, assignee: selectedAgent })).then(() => {
-                    setOpenAssignModal(false);
-                    setSelectedAgent(null)
+            await Promise.resolve(setPolygons(prevPolygons => [...prevPolygons, { ...newPolygon, assignee: null }])).then(async () => {
+                await Promise.resolve(handleFetchOverpassData({ ...newPolygon })).then(() => {
                     setCanFinishArea(false)
-                    setMessage('Area is Assigned Successfully!');
+                    setMessage('Area is Created Successfully!');
                     setAlertVisible(true);
                 }
                 )
             })
+            // setOpenAssignModal(true)
         }
-    }
+    };
+
     const handleConfirmAndReassignArea = async () => {
         if (selectedArea && selectedAgent) {
             try {
@@ -253,7 +238,6 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
 
                 // Close the assign modal
                 setOpenAssignModal(false);
-
                 // Reset states
                 setSelectedArea(null);
                 setSelectedAgent(null);
@@ -289,7 +273,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         }
     };
     const handleReassignArea = async () => {
-        setSelectedAgent(selectedArea?.assignee)
+        setSelectedAgent(selectedArea?.assignee || null)
         setIsReassignment(true)
         setOpenManageAreaModal(false)
         setOpenAssignModal(true)
@@ -305,6 +289,28 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             return { ...prev, coordinates: newCoords };
         });
     }, []);
+
+
+    const debouncedSetEditing = useCallback(
+        debounce((newCoordinates) => {
+            setEditing(prev => {
+                if (!prev) return null;
+                return { ...prev, coordinates: newCoordinates };
+            });
+        }, 16), // 16ms debounce, which is roughly 60fps
+        []
+    );
+    const handleMarkerDragEnd = useCallback((e: any, index: number) => {
+        const { latitude, longitude } = e.nativeEvent.coordinate;
+        setEditing(prev => {
+            if (!prev) return null;
+            const newCoordinates = [...prev.coordinates];
+            newCoordinates[index] = { latitude, longitude };
+            debouncedSetEditing(newCoordinates);
+            return prev; // Return the previous state to avoid unnecessary re-renders
+        });
+    }, [debouncedSetEditing]);
+
     const handleMapPress = useCallback((e: any) => {
         const newCoord = e.nativeEvent.coordinate;
         setEditing(prev => {
@@ -328,14 +334,21 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     }, []);
     const memoizedPolygons = useMemo(() => {
         return polygons.map(polygon => (
+            // <TouchableOpacity
+            //     onLongPress={async () => await Promise.resolve(setSelectedArea(polygon)).then(() => setOpenManageAreaModal(true))}
+            // >
             <Polygon
                 key={polygon.id}
                 coordinates={polygon.coordinates}
-                strokeColor={polygon?.assignee?.color}
-                fillColor={hexToRgba(polygon?.assignee?.color, 0.2)}
+                strokeColor={polygon?.assignee ? polygon?.assignee?.color : '#32A0FF'}
+                fillColor={polygon?.assignee ? hexToRgba(polygon?.assignee?.color, 0.2) : 'rgba(50, 160, 255, 0.2)'}
                 strokeWidth={2}
-                onPress={async () => await Promise.resolve(setSelectedArea(polygon)).then(() => setOpenManageAreaModal(true))}
+                onPress={async () => {
+
+                    await Promise.resolve(setSelectedArea(polygon)).then(() => setOpenManageAreaModal(true))
+                }}
             />
+            // </TouchableOpacity>
         ));
     }, [polygons]);
     const memoizedBuildingMarkers = useMemo(() => {
@@ -354,6 +367,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             )
         );
     }, [polygons]);
+
     const editingMarkers = useMemo(() => {
         if (!editing || editing.coordinates.length === 0) return null;
         return editing.coordinates.map((marker, index) =>
@@ -361,12 +375,20 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 <CustomMarker
                     key={index}
                     type='polygon'
-                    id={`1`}
-                    marker={{ ...marker, id: index, title: `Marker ${index + 1}`, subtitle: `Marker ${index + 1},` }}
+                    id={`${index}`}
+                    marker={{
+                        ...marker,
+                        id: index,
+                        title: `Marker ${index + 1}`,
+                        subtitle: `Marker ${index + 1}`
+                    }}
+                    draggable={true}
+                    onDragEnd={(e: any) => handleMarkerDragEnd(e, index)}
                 />
             ) : null
         );
     }, [editing, forceRender]);
+
     const memoizedEditingPolygon = useMemo(() => {
         if (!editing || editing.coordinates.length === 0) return null;
         return (
@@ -376,7 +398,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 fillColor="rgba(50, 160, 255, 0.2)"
                 strokeWidth={2}
                 onPress={() => {
-                    Alert.alert('Poly pressed' + editing);
+                    console.log('first')
                 }}
             />
         );
@@ -385,13 +407,15 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         <View style={styles.container}>
             <FloatingButtons
                 buttons={[
-                    { icon: <AddSvg />, onPress: () => console.log('add') },
+                    ...(polygons.length > 0 ? [{ icon: <AddHouse />, onPress: () => console.log('add') }] : []),
                     {
                         icon: <MyLocationSvg color={isAtCurrentLocation ? "white" : "#1F1F1F"} />,
                         onPress: handleMyLocation,
                         style: { backgroundColor: isAtCurrentLocation ? "#32A0FF" : "white" }
                     },
                 ]}
+                setMapType={setMapType}
+                mapType={mapType}
                 canFinishArea={canFinishArea}
                 onFinish={handleFinish}
                 activeDrawing={activeDrawing}
@@ -440,7 +464,8 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setDeleteType('area')
                     setAlertVisible(true)
                 }}
-                onConfirmAndAssign={() => isReassignment ? handleConfirmAndReassignArea() : handleConfirmAndAssignArea()}
+                hasNoAssignee={!selectedArea?.assignee}
+                onConfirmAndAssign={() => handleConfirmAndReassignArea()}
                 peopleData={peopleData}
             />
             <ManageAreaModal
@@ -523,7 +548,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             {region && <MapView
                 style={styles.map}
                 ref={mapRef}
-                mapType={'satellite'}
+                mapType={mapType}
                 initialRegion={region}
                 onPress={(e) => activeDrawing && handleMapPress(e)}
                 onRegionChangeComplete={handleRegionChangeComplete}

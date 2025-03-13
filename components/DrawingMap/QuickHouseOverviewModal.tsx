@@ -64,7 +64,7 @@ export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = (
                     <Text style={styles.quickHouseOverviewText}>Quick Status{' '}</Text>
                     <View style={styles.statuses}>
                         {leadStatuses.map((status) => (
-                            <View style={styles.singleStatus}>
+                            <View style={styles.singleStatus} key={status?.shortName}>
                                 <Text style={styles.buttonText}>{status.shortName}</Text>
                                 <TouchableOpacity
                                     key={status.shortName}

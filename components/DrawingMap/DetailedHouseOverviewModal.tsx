@@ -238,7 +238,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                         </View>
                     </View>
                     <View style={styles.mainInputContainer}>
-                        <View>
+                        <View style={{ width: '49%' }}>
                             <InputField
                                 value={firstName}
                                 placeholder="First Name"
@@ -260,7 +260,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                                 onFocus={() => handleInputFocus(true)}
                             />
                         </View>
-                        <View>
+                        <View style={{ width: '49%' }}>
                             <InputField
                                 value={lastName}
                                 placeholder="Last Name"

@@ -84,7 +84,7 @@ const DrawerNavigator = ({
             screenOptions={{
                 headerShown: false,
                 drawerType: 'front',
-                swipeEdgeWidth: 400,
+                swipeEnabled: false,
                 drawerStyle: {
                     width: SCREEN_WIDTH,
                     backgroundColor: 'white',

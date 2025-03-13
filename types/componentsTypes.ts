@@ -24,7 +24,7 @@ export interface PolygonProps {
 
 export interface AreaProps extends PolygonProps {
     assignee: any;
-    buildingMarkers: Array<CoordinateProps>;
+    buildingMarkers?: Array<CoordinateProps>;
 }
 
 export interface BuildingProps extends CoordinateProps {

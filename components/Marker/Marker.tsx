@@ -8,6 +8,9 @@ interface ComponentMarkerProps {
     type: 'building' | 'polygon',
     onClick?: () => void;
     onLongPress?: () => void;
+    draggable?: boolean;
+    onDragEnd?: (e: any) => void;
+
 }
 
 /**
@@ -19,7 +22,9 @@ export function CustomMarker({
     type,
     id,
     onClick,
-    onLongPress
+    onLongPress,
+    draggable = false,
+    onDragEnd
 }: ComponentMarkerProps) {
 
     const status = leadStatuses.find(s => s.statusId === marker.statusId);
@@ -40,10 +45,12 @@ export function CustomMarker({
         <Marker
             key={`marker-${id}`}
             coordinate={{ latitude: marker.latitude, longitude: marker.longitude }}
-            title={type === 'polygon' ? marker.title : undefined}
-            description={type === 'polygon' ? marker.subtitle : undefined}
+            title={!draggable && type === 'polygon' ? marker.title : undefined}
+            description={!draggable && type === 'polygon' ? marker.subtitle : undefined}
             onPress={onClick}
+            draggable={draggable}
             onCalloutPress={onClick}
+            onDragEnd={onDragEnd}
         >
             <TouchableOpacity onLongPress={onLongPress}>
                 <View style={getMarkerStyle()}>
@@ -68,9 +75,9 @@ const styles = StyleSheet.create({
         alignItems: 'center'
     },
     polygonMarker: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
+        width: 30,
+        height: 30,
+        borderRadius: 15,
         borderWidth: 2,
         backgroundColor: "#32A0FF",
         borderColor: "#32A0FF",

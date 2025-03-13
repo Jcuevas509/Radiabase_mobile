@@ -1,9 +1,9 @@
 import React from "react";
 import { View, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { DashboardSvg, HomeSvg } from "components/svg";
-import { MaterialIcons } from "@expo/vector-icons";
+import { AntDesign, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useNavigation, DrawerActions } from '@react-navigation/native';
-import { useRouter } from "expo-router";
+import { useRouter, usePathname } from "expo-router";
 interface TopMenuProps {
     color?: 'white' | 'black',
     isOnDashboard?: boolean;
@@ -17,13 +17,17 @@ export const TopMenu: React.FC<TopMenuProps> = ({
     const router = useRouter()
     const isBlack = color === 'black';
     const navigation = useNavigation();
-
+    const pathname = usePathname();
     const openDrawer = () => {
         navigation.dispatch(DrawerActions.openDrawer());
     };
 
-    const navigateToDashboard = () => {
+    const closeDrawer = () => {
         // @ts-ignore
+        router.replace(pathname);
+    };
+
+    const navigateToDashboard = () => {
         router.navigate('/dashboard');
     };
 
@@ -54,7 +58,11 @@ export const TopMenu: React.FC<TopMenuProps> = ({
                 )}
             </TouchableOpacity>
             <View style={styles.iconRight}>
-                <HomeSvg color={color} />
+                {isBlack ?
+                    <TouchableOpacity onPress={closeDrawer}>
+                        <AntDesign name="right" size={24} color="black" />                    </TouchableOpacity>
+                    : <HomeSvg color={color} />
+                }
             </View>
         </View>
     );

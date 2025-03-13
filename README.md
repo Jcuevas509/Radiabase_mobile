@@ -80,5 +80,19 @@ For a full list of dependencies, please refer to the `package.json` file.
 - `yarn web` or `npm run web` - Run in web browser
 - `yarn test` or `npm test` - Run tests
 
+## Creating a Development Build
+
+To create a development build, follow these steps:
+
+```bash
+cd ./Radiabase_mobile
+# Ensure you are using Node.js v22.13.1
+eas update --branch production
+# When prompted, enter an update message.
+```
+
+Latest builds are available at:
+🔗 Expo Builds https://expo.dev/accounts/visiot-dev/projects/Suntapped-Mobile
+
 
 This README provides a comprehensive guide for setting up, running, and contributing to the Radiabase Mobile App project. If you have any questions or need further clarification, please don't hesitate to reach out to the project maintainers.

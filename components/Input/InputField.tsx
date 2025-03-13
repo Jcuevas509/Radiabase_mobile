@@ -83,6 +83,7 @@ export function InputField({
                     multiline={multiline}
                     onChangeText={handleChange}
                     onBlur={handleBlur}
+                    autoCapitalize={isEmail ? 'none' : 'sentences'}
                     onFocus={onFocus}
                     secureTextEntry={isPassword && !showPassword}
                 />

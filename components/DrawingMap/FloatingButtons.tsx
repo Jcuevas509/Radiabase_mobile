@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Button } from 'components/Button/Button';
 import { FloatingButton } from 'components/Button/FloatingButton';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,14 +12,44 @@ interface ButtonConfig {
 
 interface FloatingButtonsProps {
     buttons: ButtonConfig[];
-    canFinishArea: boolean;
-    onFinish: () => void;
-    activeDrawing: boolean;
-    onToggleDrawing: () => void;
+    canFinishArea?: boolean;
+    onFinish?: () => void;
+    activeDrawing?: boolean;
+    setMapType: (type: 'standard' | 'satellite') => void;
+    onToggleDrawing?: () => void;
     showUndoButton?: boolean;
-    onUndo: () => void;
+    onUndo?: () => void;
     isManager: boolean;
+    mapType: 'satellite' | 'standard'
 }
+
+interface MapTypeSelectorProps {
+    mapType: 'standard' | 'satellite';
+    onMapTypeChange: (type: 'standard' | 'satellite') => void;
+}
+
+const MapTypeSelector: React.FC<MapTypeSelectorProps> = ({ mapType, onMapTypeChange }) => {
+    return (
+        <View style={styles.container}>
+            <TouchableOpacity
+                style={[styles.typeButton, mapType === 'standard' && styles.activeButton]}
+                onPress={() => onMapTypeChange('standard')}
+            >
+                <Text style={[styles.typeButtonText, mapType === 'standard' && styles.activeButtonText]}>
+                    Hybrid
+                </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+                style={[styles.typeButton, mapType === 'satellite' && styles.activeButton]}
+                onPress={() => onMapTypeChange('satellite')}
+            >
+                <Text style={[styles.typeButtonText, mapType === 'satellite' && styles.activeButtonText]}>
+                    Satellite
+                </Text>
+            </TouchableOpacity>
+        </View>
+    );
+};
 
 const FloatingButtons: React.FC<FloatingButtonsProps> = ({
     buttons,
@@ -29,12 +59,14 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
     onToggleDrawing,
     showUndoButton = false,
     onUndo,
-    isManager
+    isManager,
+    mapType,
+    setMapType,
 }) => {
     return (
         <>
             <View style={styles.floatingButtonsContainer}>
-                {canFinishArea && isManager && (
+                {canFinishArea && isManager && onFinish && (
                     <Button
                         text='Complete'
                         onPress={onFinish}
@@ -43,7 +75,7 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                         startIcon={<Ionicons name="checkmark-circle-outline" size={24} color="black" />}
                     />
                 )}
-                {isManager && <View style={styles.buttonContainer}>
+                {isManager && onToggleDrawing && <View style={styles.buttonContainer}>
                     <FloatingButton
                         buttonStyle={{ backgroundColor: activeDrawing ? "#32A0FF" : 'white' }}
                         onPress={onToggleDrawing}
@@ -59,8 +91,12 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                         />
                     </View>
                 ))}
+                <MapTypeSelector
+                    mapType={mapType}
+                    onMapTypeChange={setMapType}
+                />
             </View>
-            {showUndoButton && isManager && (
+            {showUndoButton && isManager && onUndo && (
                 <View style={styles.undoButtonContainer}>
                     <Button
                         text='Undo'
@@ -71,6 +107,7 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                     />
                 </View>
             )}
+
         </>
     );
 };
@@ -115,6 +152,31 @@ const styles = StyleSheet.create({
     buttonContainer: {
         marginBottom: 24,
         alignItems: 'flex-end',
+    },
+    container: {
+        flexDirection: 'row',
+        backgroundColor: '#E9E9E9',
+        borderRadius: 4,
+        padding: 4,
+        height: 31,
+        overflow: 'hidden',
+    },
+    typeButton: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 12,
+    },
+    activeButton: {
+        backgroundColor: 'white',
+        borderRadius: 4
+    },
+    typeButtonText: {
+        color: 'black',
+        fontSize: 12,
+    },
+    activeButtonText: {
+        fontWeight: 'bold'
     },
 });
 

@@ -14,6 +14,7 @@ interface AssignAreaModalProps {
     onDeleteArea: () => void;
     onConfirmAndAssign: () => void;
     peopleData: any[];
+    hasNoAssignee: boolean;
 }
 
 export const AssignAreaModal: React.FC<AssignAreaModalProps> = ({
@@ -26,12 +27,14 @@ export const AssignAreaModal: React.FC<AssignAreaModalProps> = ({
     onDeleteArea,
     onConfirmAndAssign,
     peopleData,
+    hasNoAssignee
 }) => {
+
     return (
         <PlainModal
             visible={visible}
             onClose={onClose}
-            title={`${isReassignment ? "Reassign" : "Assign"} Area to User`}
+            title={`${!hasNoAssignee ? "Reassign" : "Assign"} Area to User`}
             isLoading={loading}
             buttons={
                 <>
@@ -41,7 +44,7 @@ export const AssignAreaModal: React.FC<AssignAreaModalProps> = ({
                         onPress={onDeleteArea}
                     />
                     <Button
-                        text={`Confirm & ${isReassignment ? "Reassign" : "Assign"}`}
+                        text={`Confirm & ${!hasNoAssignee ? "Reassign" : "Assign"}`}
                         buttonStyle={{ backgroundColor: 'black' }}
                         textStyle={{ color: 'white' }}
                         onPress={onConfirmAndAssign}
