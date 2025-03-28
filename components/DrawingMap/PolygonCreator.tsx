@@ -7,6 +7,7 @@ import {
     Dimensions,
     Alert,
     LogBox,
+    ActivityIndicator,
 } from 'react-native';
 import { debounce } from 'lodash';
 
@@ -203,18 +204,34 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
 
     const handleFinish = async () => {
         if (editing) {
-            setActiveDrawing(false);
-            const newPolygon = JSON.parse(JSON.stringify(editing));
-            setEditing(null)
-            await Promise.resolve(setPolygons(prevPolygons => [...prevPolygons, { ...newPolygon, assignee: null }])).then(async () => {
-                await Promise.resolve(handleFetchOverpassData({ ...newPolygon })).then(() => {
-                    setCanFinishArea(false)
-                    setMessage('Area is Created Successfully!');
-                    setAlertVisible(true);
-                }
-                )
-            })
-            // setOpenAssignModal(true)
+            try {
+                // Pokažite loader
+                setLoading(true);
+
+                setActiveDrawing(false);
+                const newPolygon = JSON.parse(JSON.stringify(editing));
+                setEditing(null);
+
+                // Dodajte novi poligon u listu
+                await Promise.resolve(setPolygons(prevPolygons => [...prevPolygons, { ...newPolygon, assignee: null }]));
+
+                // Dohvatite podatke za poligon
+                await Promise.resolve(handleFetchOverpassData({ ...newPolygon }));
+
+                // Prikažite poruku o uspjehu
+                setCanFinishArea(false);
+                setMessage('Area is Created Successfully!');
+                setAlertVisible(true);
+                // setOpenAssignModal(true)
+            } catch (error) {
+                // Prikažite poruku o grešci
+                console.error("Error creating area:", error);
+                setMessage('Failed to create area. Please try again.');
+                setAlertVisible(true);
+            } finally {
+                // Sakrijte loader bez obzira na ishod
+                setLoading(false);
+            }
         }
     };
 
@@ -424,7 +441,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setCanFinishArea(false);
                 }}
                 isManager={isManager}
-                showUndoButton={!!editing}
+                showUndoButton={!!editing && editing?.coordinates?.length > 0}
                 onUndo={handleUndo}
             />
             <CustomAlert
@@ -545,6 +562,12 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 }}
                 onSaveAndSend={() => setOpenDetailedHouseModal(false)}
             />
+            {loading && (
+                <View style={styles.loaderContainer}>
+                    <ActivityIndicator size="large" color="#32A0FF" />
+                    <Text style={styles.loaderText}>Creating area...</Text>
+                </View>
+            )}
             {region && <MapView
                 style={styles.map}
                 ref={mapRef}
@@ -597,6 +620,30 @@ const styles = StyleSheet.create({
     myLocationText: {
         color: '#32A0FF',
         fontWeight: 'bold'
+    },
+    loaderContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 10
+    },
+    loaderBox: {
+        backgroundColor: 'white',
+        padding: 20,
+        borderRadius: 10,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    loaderText: {
+        marginTop: 10,
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: 'white'
     }
 });
 
