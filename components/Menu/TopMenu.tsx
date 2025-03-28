@@ -60,7 +60,8 @@ export const TopMenu: React.FC<TopMenuProps> = ({
             <View style={styles.iconRight}>
                 {isBlack ?
                     <TouchableOpacity onPress={closeDrawer}>
-                        <AntDesign name="right" size={24} color="black" />                    </TouchableOpacity>
+                        <AntDesign name="right" size={24} color="black" />
+                    </TouchableOpacity>
                     : <HomeSvg color={color} />
                 }
             </View>

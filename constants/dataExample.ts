@@ -51,7 +51,7 @@ export const menuItemsManager = [
     { id: 0, label: 'Area Management', route: '/', icon: DrawSvg },
     { id: 1, label: 'My Location', route: '/myLocation', icon: MyLocationSvg },
     { id: 2, label: 'Search', route: '/', icon: SearchSvg },
-    { id: 3, label: 'Filter', route: '/', icon: FilterSvg },
+    { id: 3, label: 'Filter', route: '/profile', icon: FilterSvg },
     // { id: 4, label: 'Users', route: '/profile', icon: UsersSvg },
     // { id: 5, label: 'Settings', route: '/profile', icon: SettingsSvg },
 ];
@@ -61,7 +61,7 @@ export const menuItemsAgent = [
     { id: 1, label: 'Current Area', route: '/', icon: MapSvg },
     { id: 3, label: 'My Location', route: '/myLocation', icon: MyLocationSvg },
     { id: 3, label: 'My Areas', route: '/', icon: SearchSvg },
-    { id: 4, label: 'Filter', route: '/', icon: FilterSvg },
+    { id: 4, label: 'Filter', route: '/profile', icon: FilterSvg },
     // { id: 5, label: 'Users', route: '/', icon: UsersSvg },
     // { id: 6, label: 'Settings', route: '/', icon: SettingsSvg },
 ];

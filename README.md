@@ -94,5 +94,22 @@ eas update --branch production
 Latest builds are available at:
 🔗 Expo Builds https://expo.dev/accounts/visiot-dev/projects/Suntapped-Mobile
 
+### Development Build for iOS Simulator
+
+To run a development build on iOS simulator:
+
+```bash
+# Install the Expo Development Client if you haven't already
+npx expo install expo-dev-client
+
+# Make sure you have the iOS simulator running (can be launched from Xcode)
+
+# Start the development client
+npx expo start --dev-client
+
+# When the Metro Bundler starts, press 'i' to open the app in the iOS simulator
+```
+
+Note: You need to have Xcode installed on your Mac to run the iOS simulator.
 
 This README provides a comprehensive guide for setting up, running, and contributing to the Radiabase Mobile App project. If you have any questions or need further clarification, please don't hesitate to reach out to the project maintainers.
