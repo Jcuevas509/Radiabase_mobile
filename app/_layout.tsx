@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import {
   Slot,
   SplashScreen,
+  usePathname,
   useRouter,
 } from 'expo-router';
 import { useColorScheme } from 'components/useColorScheme';
@@ -10,10 +11,15 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 
+void SplashScreen.preventAutoHideAsync().catch(() => undefined);
+
+const PUBLIC_AUTH_ROUTES = ['/login', '/forgotPassword'];
+
 function AppLoader({ children }: PropsWithChildren) {
   const [isAppReady, setAppReady] = useState<boolean>(false);
   const { isLoading: isSessionLoading, session } = useSession();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!isSessionLoading) {
@@ -22,15 +28,18 @@ function AppLoader({ children }: PropsWithChildren) {
   }, [isSessionLoading]);
 
   useEffect(() => {
-    if (isAppReady) {
-      if (session) {
-        router.replace('/');
-      } else {
-        router.replace('/login');
-      }
-      SplashScreen.hideAsync();
+    if (!isAppReady) {
+      return;
     }
-  }, [isAppReady, session, router]);
+    if (session) {
+      if (PUBLIC_AUTH_ROUTES.includes(pathname)) {
+        router.replace('/');
+      }
+    } else if (!PUBLIC_AUTH_ROUTES.includes(pathname)) {
+      router.replace('/login');
+    }
+    void SplashScreen.hideAsync().catch(() => undefined);
+  }, [isAppReady, session, pathname, router]);
 
   return (
     <>
@@ -58,9 +67,6 @@ function Root() {
 }
 
 function AppEntryPoint() {
-  useEffect(() => {
-    SplashScreen.preventAutoHideAsync();
-  }, []);
   return <Root />;
 }
 

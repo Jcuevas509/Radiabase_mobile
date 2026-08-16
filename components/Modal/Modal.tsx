@@ -25,8 +25,8 @@ export function PlainModal({ visible, customTitle, onClose, children, title, but
                     {/* Top Section */}
                     <View style={styles.top}>
                         {customTitle || <Text style={styles.title}>{title}</Text>}
-                        {hasCloseButton && <TouchableOpacity onPress={onClose} style={styles.iconContainer} disabled={isLoading}>
-                            <Ionicons name="close" size={18} color="black" />
+                        {hasCloseButton && <TouchableOpacity onPress={onClose} style={styles.iconContainer} disabled={isLoading} hitSlop={8}>
+                            <Ionicons name="close" size={20} color="black" />
                         </TouchableOpacity>}
                     </View>
 
@@ -84,14 +84,15 @@ const styles = StyleSheet.create({
     },
     childrenContainer: {
         marginTop: 24,
+        position: "relative",
     },
     iconContainer: {
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "#D9D9D9",
-        borderRadius: 12,
-        width: 24,
-        height: 24,
+        borderRadius: 16,
+        width: 32,
+        height: 32,
     },
     buttonContainer: {
         borderTopColor: "#E9E9E9",

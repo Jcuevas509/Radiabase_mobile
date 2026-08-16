@@ -1,238 +1,436 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, SafeAreaView, Text, Image, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+    View,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    ScrollView,
+    ActivityIndicator,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { AgentCard } from 'components/Card/AgentCard';
-import LogoImage from 'components/LogoImage/LogoImage';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
-import { MaterialIcons } from '@expo/vector-icons';
-import { Button } from 'components/Button/Button';
-import { useNavigation } from '@react-navigation/native';
-import { dashboardData } from 'constants/dataExample';
+import MapView, { Polygon } from 'react-native-maps';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { useSession } from 'context/AuthenticationContext';
+import { fetchFieldStats, fetchMapAreas, FieldStatsResponse, MapAreaResponse } from 'services/area-api';
+import { pickDashboardPreviewAreas } from 'utils/pick-dashboard-preview-areas';
+import { pickFieldStatsBucket } from 'utils/pick-field-stats-bucket';
+import { getMapRegionFromCoordinates } from 'utils/get-map-region-from-coordinates';
+import { pickAssigneeColor } from 'utils/pick-assignee-color';
+import { hexToRgba } from 'utils/helperFunctions';
 
-interface CardProps {
-    title: string;
-    number: number;
+const PERIODS = ['Today', 'This Week', 'This Month'] as const;
+
+function getAreaTileLabel(area: MapAreaResponse): string {
+    if (area.name) {
+        return area.name;
+    }
+    if (area.assignee) {
+        return `${area.assignee.firstName} ${area.assignee.lastName}`.trim();
+    }
+    return 'Unassigned';
+}
+
+function getHouseCountLabel(area: MapAreaResponse): string {
+    const count = area.houseCount ?? 0;
+    if (count === 1) {
+        return '1 house';
+    }
+    return `${count} houses`;
 }
 
 const DashboardScreen = () => {
     const navigation = useNavigation();
-    const [activeTab, setActiveTab] = useState('Today');
+    const { session } = useSession();
+    const [activeTab, setActiveTab] = useState<string>('Today');
     const [contactData, setContactData] = useState({
         leads: 0,
+        knocks: 0,
         customers: 0,
-        recruits: 0
     });
+    const [fieldStats, setFieldStats] = useState<FieldStatsResponse | null>(null);
+    const [previewAreas, setPreviewAreas] = useState<MapAreaResponse[]>([]);
+    const [isLoadingAreas, setIsLoadingAreas] = useState<boolean>(true);
+    const [hasAreaError, setHasAreaError] = useState<boolean>(false);
 
-    useEffect(() => {
-        setContactData(dashboardData[activeTab as keyof typeof dashboardData]);
-    }, [activeTab]);
-
-    const Card: React.FC<CardProps> = ({ title, number }) => {
-        return (
-            <View style={styles.contactBox}>
-                <Text style={styles.contactTitle}>{title}</Text>
-                <Text style={styles.contactNumber}>{number}</Text>
-            </View>
-        );
+    const openMap = () => {
+        navigation.navigate('index' as never);
     };
 
-    const TabButton = ({ title }: { title: string }) => (
-        <TouchableOpacity onPress={() => setActiveTab(title)}>
-            <Text style={[styles.tabText, activeTab === title && styles.activeTab]}>
-                {title}
-            </Text>
-        </TouchableOpacity>
-    );
+    useEffect(() => {
+        if (!fieldStats) {
+            return;
+        }
+        setContactData(pickFieldStatsBucket(fieldStats, activeTab));
+    }, [activeTab, fieldStats]);
+
+    useEffect(() => {
+        if (!session?.token) {
+            return;
+        }
+        let isCancelled = false;
+        setIsLoadingAreas(true);
+        fetchMapAreas()
+            .then((areas) => {
+                if (isCancelled) {
+                    return;
+                }
+                setPreviewAreas(pickDashboardPreviewAreas(areas));
+                setHasAreaError(false);
+            })
+            .catch(() => {
+                if (!isCancelled) {
+                    setPreviewAreas([]);
+                    setHasAreaError(true);
+                }
+            })
+            .finally(() => {
+                if (!isCancelled) {
+                    setIsLoadingAreas(false);
+                }
+            });
+        fetchFieldStats()
+            .then((stats) => {
+                if (!isCancelled) {
+                    setFieldStats(stats);
+                }
+            })
+            .catch(() => {
+                if (!isCancelled) {
+                    setFieldStats({
+                        today: { leads: 0, knocks: 0, customers: 0 },
+                        week: { leads: 0, knocks: 0, customers: 0 },
+                        month: { leads: 0, knocks: 0, customers: 0 },
+                    });
+                }
+            });
+        return () => {
+            isCancelled = true;
+        };
+    }, [session?.token]);
+
+    const firstName = session?.user?.firstName?.trim() || 'there';
 
     return (
-        <View style={styles.container}>
-            <SafeAreaView style={styles.safeArea}>
-                <View style={styles.agentContainer}>
+        <SafeAreaView style={styles.safeArea} edges={['top']}>
+            <View style={styles.header}>
+                <TouchableOpacity
+                    onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                    hitSlop={12}
+                    style={styles.menuHit}
+                >
+                    <MaterialIcons name="menu" size={28} color="#18181B" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Home</Text>
+                <View style={styles.menuHit} />
+            </View>
+            <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+                <View style={styles.profileBlock}>
                     <AgentCard
                         fromMenu={true}
                         data={{
-                            id: 1,
-                            name: "John",
-                            lastname: "Doe",
-                            description: "Sales Representative",
-                            color: "#FF5733",
+                            id: Number(session?.user?.id ?? 0),
+                            name: session?.user?.firstName ?? '',
+                            lastname: session?.user?.lastName ?? '',
+                            description: session?.user?.roleLabel ?? 'Sales Representative',
+                            salesRole: session?.user?.roleLabel ?? null,
+                            officeName: session?.user?.officeName ?? null,
+                            structureName: session?.user?.structureName ?? null,
+                            color: '#32A0FF',
                         }}
-                        onSendCard={() => console.log('send')}
                     />
+                    <Text style={styles.greeting}>Hi, {firstName}</Text>
+                    <Text style={styles.subtitle}>Open the field map to knock doors and log leads.</Text>
+                    <TouchableOpacity style={styles.primaryButton} onPress={openMap}>
+                        <Ionicons name="map" size={18} color="#FFFFFF" />
+                        <Text style={styles.primaryButtonText}>Open field map</Text>
+                    </TouchableOpacity>
                 </View>
-            </SafeAreaView>
-            <ScrollView style={styles.content}>
-                <View style={styles.assignedAreasContainer}>
-                    <View style={styles.sectionHeader}>
-                        <View style={styles.sectionSubHeader}>
-                            <Text style={styles.sectionTitle}>
-                                Assigned Areas
-                            </Text>
-                            <TouchableOpacity style={styles.infoButton}>
-                                <MaterialIcons name="info-outline" size={16} color="#D9D9D9" />
-                            </TouchableOpacity>
-                        </View>
-                        <Button
-                            text='View Map'
-                            buttonStyle={{ backgroundColor: 'black' }}
-                            textStyle={{ color: 'white' }}
-                            onPress={() => navigation.navigate('index' as never)}
-                        />
 
-                    </View>
-                    <View style={styles.areaImagesContainer}>
-                        <View style={styles.areaImageWrapper}>
-                            <MapView
-                                style={styles.map}
-                                mapType={'satellite'}
-                                initialRegion={{
-                                    latitude: 40.7128,
-                                    longitude: -74.0060,
-                                    latitudeDelta: 0.0922,
-                                    longitudeDelta: 0.0421,
-                                }}
-                            />
-                            <Text style={styles.areaText}>New York Region</Text>
-                        </View>
-                        <View style={styles.areaImageWrapper}>
-                            <MapView
-                                style={styles.map}
-                                mapType={'satellite'}
-                                initialRegion={{
-                                    latitude: 34.0522,
-                                    longitude: -118.2437,
-                                    latitudeDelta: 0.0922,
-                                    longitudeDelta: 0.0421,
-                                }}
-                            />
-                            <Text style={styles.areaText}>Los Angeles Region</Text>
-                        </View>
-                    </View>
-                </View>
-                <View style={styles.contactsContainer}>
-                    <View style={styles.sectionHeader}>
-                        <View style={styles.sectionSubHeader}>
-                            <Text style={styles.sectionTitle}>
-                                Contacts
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Your turf</Text>
+                    {isLoadingAreas ? (
+                        <ActivityIndicator style={styles.loader} color="#32A0FF" />
+                    ) : hasAreaError ? (
+                        <Text style={styles.statusText}>Could not load areas. Pull to refresh after checking login.</Text>
+                    ) : previewAreas.length === 0 ? (
+                        <View style={styles.emptyCard}>
+                            <Text style={styles.emptyTitle}>No turf yet</Text>
+                            <Text style={styles.statusText}>
+                                Assigned areas will show up here. You can still open the map.
                             </Text>
-                            <TouchableOpacity style={styles.infoButton}>
-                                <MaterialIcons name="info-outline" size={16} color="#D9D9D9" />
-                            </TouchableOpacity>
                         </View>
-                        <View style={styles.tabContainer}>
-                            <TabButton title="Today" />
-                            <TabButton title="This Week" />
-                            <TabButton title="This Month" />
+                    ) : (
+                        <View style={styles.areaGrid}>
+                            {previewAreas.map((area) => {
+                                const region = getMapRegionFromCoordinates(area.coordinates);
+                                const stroke = area.assignee
+                                    ? pickAssigneeColor(area.assignee.id)
+                                    : '#8B8682';
+                                return (
+                                    <TouchableOpacity
+                                        key={area.id}
+                                        style={styles.areaCard}
+                                        onPress={openMap}
+                                        activeOpacity={0.85}
+                                    >
+                                        {region ? (
+                                            <MapView
+                                                style={styles.map}
+                                                mapType="satellite"
+                                                region={region}
+                                                scrollEnabled={false}
+                                                zoomEnabled={false}
+                                                rotateEnabled={false}
+                                                pitchEnabled={false}
+                                                pointerEvents="none"
+                                            >
+                                                {area.coordinates.length > 2 ? (
+                                                    <Polygon
+                                                        coordinates={area.coordinates}
+                                                        strokeColor={stroke}
+                                                        fillColor={hexToRgba(stroke, 0.28)}
+                                                        strokeWidth={2}
+                                                    />
+                                                ) : null}
+                                            </MapView>
+                                        ) : (
+                                            <View style={[styles.map, styles.mapFallback]} />
+                                        )}
+                                        <Text style={styles.areaName} numberOfLines={1}>
+                                            {getAreaTileLabel(area)}
+                                        </Text>
+                                        <Text style={styles.areaMeta}>{getHouseCountLabel(area)}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
+                    )}
+                </View>
+
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Activity</Text>
+                    <View style={styles.periodRow}>
+                        {PERIODS.map((title) => {
+                            const isActive = activeTab === title;
+                            return (
+                                <TouchableOpacity
+                                    key={title}
+                                    onPress={() => setActiveTab(title)}
+                                    style={[styles.periodChip, isActive && styles.periodChipActive]}
+                                >
+                                    <Text style={[styles.periodText, isActive && styles.periodTextActive]}>
+                                        {title}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
-                    <View style={styles.contactsGrid}>
-                        <Card title="Leads" number={contactData.leads} />
-                        <Card title="Customers" number={contactData.customers} />
-                        <Card title="Recruits" number={contactData.recruits} />
+                    <View style={styles.statsRow}>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statLabel}>Leads</Text>
+                            <Text style={styles.statNumber}>{contactData.leads}</Text>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statLabel}>Knocks</Text>
+                            <Text style={styles.statNumber}>{contactData.knocks}</Text>
+                        </View>
+                        <View style={styles.statCard}>
+                            <Text style={styles.statLabel}>Customers</Text>
+                            <Text style={styles.statNumber}>{contactData.customers}</Text>
+                        </View>
                     </View>
                 </View>
             </ScrollView>
-            <LogoImage type='large' />
-        </View>
+        </SafeAreaView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: 'white',
-    },
     safeArea: {
-        backgroundColor: 'white',
+        flex: 1,
+        backgroundColor: '#FAFAF9',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 12,
+        paddingBottom: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E4E4E7',
+        backgroundColor: '#FFFFFF',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '700',
+        color: '#18181B',
+    },
+    menuHit: {
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     content: {
         flex: 1,
     },
-    agentContainer: {
-        paddingLeft: 24,
-        paddingRight: 10,
-        borderBottomColor: '#D9D9D9',
+    scrollContent: {
+        paddingBottom: 32,
+    },
+    profileBlock: {
+        backgroundColor: '#FFFFFF',
+        paddingHorizontal: 20,
+        paddingTop: 16,
+        paddingBottom: 20,
         borderBottomWidth: 1,
-        width: '100%',
+        borderBottomColor: '#E4E4E7',
     },
-    assignedAreasContainer: {
-        padding: 20,
+    greeting: {
+        marginTop: 4,
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#18181B',
     },
-    contactsContainer: {
-        padding: 20,
+    subtitle: {
+        marginTop: 6,
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#52525B',
     },
-    sectionHeader: {
+    primaryButton: {
+        marginTop: 16,
+        height: 48,
+        borderRadius: 10,
+        backgroundColor: '#18181B',
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15,
+        justifyContent: 'center',
+        gap: 8,
+    },
+    primaryButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: '700',
+    },
+    section: {
+        paddingHorizontal: 20,
+        paddingTop: 24,
     },
     sectionTitle: {
         fontSize: 16,
-        fontWeight: 600,
+        fontWeight: '700',
+        color: '#18181B',
+        marginBottom: 12,
     },
-    tabContainer: {
-        flexDirection: 'row',
+    loader: {
+        marginVertical: 24,
     },
-    tabText: {
-        marginLeft: 10,
-        fontSize: 8,
-        fontWeight: 600,
-        color: '#909090',
+    statusText: {
+        fontSize: 14,
+        lineHeight: 20,
+        color: '#71717A',
     },
-    activeTab: {
-        color: 'black',
-    },
-    contactsGrid: {
-        marginTop: 12,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-    },
-    contactBox: {
-        width: 110,
-        height: 96,
+    emptyCard: {
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
         borderWidth: 1,
-        borderColor: 'black',
-        borderRadius: 8,
-        flexDirection: 'column',
-        justifyContent: 'center',
-        alignItems: 'center',
+        borderColor: '#E4E4E7',
     },
-    contactTitle: {
-        fontSize: 12,
-        fontWeight: 300,
-        marginBottom: 16,
+    emptyTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#18181B',
+        marginBottom: 4,
     },
-    contactNumber: {
-        fontSize: 24,
-        fontWeight: 600,
-    },
-    areaImagesContainer: {
+    areaGrid: {
         flexDirection: 'row',
-        gap: 24,
-        justifyContent: 'flex-start',
-        alignItems: 'center'
+        flexWrap: 'wrap',
+        gap: 12,
     },
-    areaImageWrapper: {
-        width: 96,
+    areaCard: {
+        width: '47.5%',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#E4E4E7',
+        overflow: 'hidden',
+        paddingBottom: 10,
     },
     map: {
-        width: 96,
-        height: 96,
-        borderRadius: 15,
+        width: '100%',
+        height: 112,
+        backgroundColor: '#E4E4E7',
     },
-    areaText: {
+    mapFallback: {
+        backgroundColor: '#E4E4E7',
+    },
+    areaName: {
         marginTop: 8,
-        fontSize: 8,
-        fontWeight: 300,
-        textAlign: 'center',
+        marginHorizontal: 10,
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#18181B',
     },
-    infoButton: {
-        marginLeft: 16,
+    areaMeta: {
+        marginTop: 2,
+        marginHorizontal: 10,
+        fontSize: 12,
+        color: '#71717A',
     },
-    sectionSubHeader: {
+    periodRow: {
         flexDirection: 'row',
+        backgroundColor: '#E4E4E7',
+        borderRadius: 10,
+        padding: 3,
+        marginBottom: 12,
+    },
+    periodChip: {
+        flex: 1,
+        minHeight: 36,
+        borderRadius: 8,
         alignItems: 'center',
-    }
+        justifyContent: 'center',
+    },
+    periodChipActive: {
+        backgroundColor: '#FFFFFF',
+    },
+    periodText: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#71717A',
+    },
+    periodTextActive: {
+        color: '#18181B',
+    },
+    statsRow: {
+        flexDirection: 'row',
+        gap: 10,
+    },
+    statCard: {
+        flex: 1,
+        minHeight: 92,
+        borderRadius: 12,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E4E4E7',
+        paddingVertical: 14,
+        paddingHorizontal: 10,
+        justifyContent: 'center',
+    },
+    statLabel: {
+        fontSize: 13,
+        fontWeight: '500',
+        color: '#71717A',
+        marginBottom: 8,
+    },
+    statNumber: {
+        fontSize: 26,
+        fontWeight: '700',
+        color: '#18181B',
+    },
 });
 
 export default DashboardScreen;

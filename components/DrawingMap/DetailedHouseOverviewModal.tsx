@@ -16,17 +16,20 @@ interface DetailedHouseOverviewModalProps {
     visible: boolean;
     onClose: () => void;
     selectedHouse: BuildingProps;
-    onSaveAndClose: (value: BuildingProps) => void;
-    onSaveAndSend: () => void;
-    // onChangeHouseStatus: (status: LeadStatus) => void;
+    onSendCard: (value: BuildingProps) => void;
+    onChangeHouseStatus: (status: LeadStatus) => void;
+    onSaveNotes: (note: string) => void;
+    onSaveHomeowner: (value: BuildingProps) => void;
 }
 
 export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProps> = ({
     visible,
     onClose,
     selectedHouse,
-    onSaveAndClose,
-    onSaveAndSend,
+    onSendCard,
+    onChangeHouseStatus,
+    onSaveNotes,
+    onSaveHomeowner,
 }) => {
     const { keyboardShown, keyboardHeight } = useKeyboard()
     const scrollViewRef = useRef<ScrollView>(null);
@@ -45,6 +48,25 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
     const [isNoteFocused, setIsNoteFocused] = useState(false)
     const [isValidEmail, setIsValidEmail] = useState(true)
     const currentStatus = leadStatuses.find(status => status?.statusId === selectedHouse?.statusId) || null;
+
+    const buildUpdatedHouse = (): BuildingProps => ({
+        ...selectedHouse,
+        assignee: {
+            ...selectedHouse?.assignee,
+            name: firstName,
+            lastname: lastName,
+            phone: phoneNumber,
+            email: email
+        },
+        additionalDetails: {
+            ...selectedHouse?.additionalDetails,
+            age: age,
+            houseBuilt: houseBuilt,
+            isOwner: isOwner,
+            creditScore: creditScore,
+            note: note
+        }
+    });
 
 
 
@@ -71,7 +93,6 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
     const handleInputFocus = (toTop: boolean) => {
         if (!scrollViewRef.current) return;
         if (!toTop) setIsNoteFocused(true)
-        // Koristimo requestAnimationFrame da osiguramo da se ovo izvrši nakon renderiranja
         requestAnimationFrame(() => {
             if (toTop) {
                 scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -81,53 +102,73 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
         });
     };
 
+    const persistHomeowner = () => {
+        onSaveHomeowner(buildUpdatedHouse());
+    };
+
+    const persistAndClose = () => {
+        persistHomeowner();
+        if (note !== (selectedHouse?.additionalDetails?.note || '')) {
+            onSaveNotes(note);
+        }
+        onClose();
+    };
+
+    const handleLeadStatusPress = (status: LeadStatus) => {
+        if (currentStatus?.statusId === status.statusId) {
+            return;
+        }
+        onChangeHouseStatus(status);
+    };
+
     const handleContentSizeChange = () => {
         if (isNoteFocused) {
             scrollViewRef.current?.scrollToEnd({ animated: true });
         }
     };
 
-    const LeadStatusTab = React.memo(() => (
+    const LeadStatusTab = () => (
         <View style={styles.tabContent}>
             <View style={styles.statuses}>
                 {leadStatuses.map((status) => (
-                    <View style={styles.singleStatus}>
+                    <View style={styles.singleStatus} key={status.shortName}>
                         <Text style={styles.buttonText}>{status.shortName}</Text>
                         <TouchableOpacity
-                            key={status.shortName}
-                            style={[styles.button, { backgroundColor: status.color }]}
-                            onPress={() => console.log(status)}
+                            style={[styles.button, { backgroundColor: status.color, opacity: currentStatus?.statusId === status.statusId ? 0.2 : 1 }]}
+                            onPress={() => handleLeadStatusPress(status)}
+                            disabled={currentStatus?.statusId === status.statusId}
                         >
                             <status.icon color="white" />
                         </TouchableOpacity>
                     </View>
-                ))
-                }
+                ))}
             </View>
         </View>
-    ));
+    );
 
-    const CustomerStatusTab = React.memo(() => (
+    const CustomerStatusTab = () => (
         <View style={styles.tabContent}>
             <View style={styles.statuses}>
                 {customerStatuses.map((status) => (
-                    <View style={styles.singleStatus}>
+                    <View style={styles.singleStatus} key={status.shortName}>
                         <Text style={styles.buttonText}>{status.shortName}</Text>
                         <TouchableOpacity
-                            key={status.shortName}
                             style={[styles.button, { backgroundColor: status.color }]}
-                            onPress={() => console.log(status)}
+                            onPress={() => undefined}
                         >
                             <status.icon color="white" />
                         </TouchableOpacity>
                     </View>
-                ))
-                }
+                ))}
             </View>
         </View>
-    ));
+    );
     const StatusHistory = () => (
         <View>
+            <TouchableOpacity onPress={() => setShowStatusHistory(false)} style={styles.historyCloseButton} hitSlop={8}>
+                <Text style={styles.historyCloseText}>Close status history</Text>
+                <Ionicons name="close" size={18} color="black" />
+            </TouchableOpacity>
             {selectedHouse?.statuses?.slice().reverse().map((status, index) => (
                 <StatusCard
                     key={index}
@@ -147,8 +188,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
     return (
         <PlainModal
             visible={visible}
-            onClose={onClose}
-            hasCloseButton={false}
+            onClose={persistAndClose}
             customTitle={
                 <View style={styles.customTitleContainer}>
                     <View style={styles.statusSection}>
@@ -159,49 +199,23 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                             {currentStatus ? currentStatus?.fullName : "This house has no status!"}
                         </Text>
                     </View>
-                    {selectedHouse?.statuses && selectedHouse?.statuses?.length > 1 && <TouchableOpacity onPress={() => setShowStatusHistory(!showStatusHistory)} style={styles.historySection}>
+                    {selectedHouse?.statuses && selectedHouse?.statuses?.length > 0 && <TouchableOpacity onPress={() => setShowStatusHistory(!showStatusHistory)} style={styles.historySection} hitSlop={8}>
                         <Text style={styles.statusHistory}>
-                            {showStatusHistory ? "Close" : "See"} Status History
+                            {showStatusHistory ? "Close history" : "Status history"}
                         </Text>
                     </TouchableOpacity>}
                 </View>
             }
             buttons={
-                <>
-                    <Button
-                        text='Save & Close'
-                        textStyle={{ color: 'black' }}
-                        onPress={() => {
-                            const updatedHouse = {
-                                ...selectedHouse,
-                                assignee: {
-                                    ...selectedHouse?.assignee,
-                                    name: firstName,
-                                    lastname: lastName,
-                                    phone: phoneNumber,
-                                    email: email
-                                },
-                                additionalDetails: {
-                                    ...selectedHouse?.additionalDetails,
-                                    age: age,
-                                    houseBuilt: houseBuilt,
-                                    isOwner: isOwner,
-                                    creditScore: creditScore,
-                                    note: note
-                                }
-                            }
-                            onSaveAndClose(updatedHouse)
-                        }}
-                        isDisabled={!isValidEmail}
-                    />
-                    <Button
-                        text='Save & Send Card'
-                        buttonStyle={{ backgroundColor: 'black', maxWidth: 247, width: '60%' }}
-                        textStyle={{ color: 'white' }}
-                        onPress={onSaveAndSend}
-                        isDisabled={!isValidEmail}
-                    />
-                </>
+                <Button
+                    text='Send Card'
+                    buttonStyle={{ backgroundColor: 'black', width: '100%' }}
+                    textStyle={{ color: 'white' }}
+                    onPress={() => {
+                        onSendCard(buildUpdatedHouse())
+                    }}
+                    isDisabled={!isValidEmail}
+                />
             }
         >
 
@@ -211,10 +225,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             > */}
-            <>
-                {isTooltipVisible && <StatusTooltip onClose={() => setIsTooltipVisible(false)} />}
-                {isTooltipVisible && <View style={styles.tooltipArrow} />}
-
+            <View style={styles.body}>
                 <ScrollView
                     ref={scrollViewRef}
                     style={[styles.scrollView]}
@@ -244,6 +255,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                                 placeholder="First Name"
                                 onChange={setFirstName}
                                 onFocus={() => handleInputFocus(true)}
+                                onBlur={persistHomeowner}
                             />
                             <InputField
                                 value={phoneNumber}
@@ -251,6 +263,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                                 onChange={setPhoneNumber}
                                 keyboardType="phone-pad"
                                 onFocus={() => handleInputFocus(true)}
+                                onBlur={persistHomeowner}
                             />
                             <InputField
                                 value={age}
@@ -266,6 +279,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                                 placeholder="Last Name"
                                 onChange={setLastName}
                                 onFocus={() => handleInputFocus(true)}
+                                onBlur={persistHomeowner}
                             />
                             <InputField
                                 value={email}
@@ -277,6 +291,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                                 keyboardType="email-address"
                                 isEmail={true}
                                 onFocus={() => handleInputFocus(true)}
+                                onBlur={persistHomeowner}
                             />
                             <InputField
                                 value={houseBuilt}
@@ -355,13 +370,17 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                             placeholder="Leave internal note here..."
                             multiline
                             onFocus={() => handleInputFocus(false)}
-                            onBlur={() => setIsNoteFocused(false)}
+                            onBlur={() => {
+                                setIsNoteFocused(false);
+                                onSaveNotes(note);
+                            }}
                             value={note}
                             onChange={setNote}
                         />
                     </View>
                 </ScrollView>
-            </>
+                {isTooltipVisible && <StatusTooltip onClose={() => setIsTooltipVisible(false)} />}
+            </View>
             {/* </ScrollView> */}
         </PlainModal >
     );
@@ -370,6 +389,9 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
 const styles = StyleSheet.create({
     scrollView: {
         maxHeight: 550,
+    },
+    body: {
+        position: 'relative',
     },
     scrollViewContainerStyle: {
         flexGrow: 1,
@@ -406,12 +428,25 @@ const styles = StyleSheet.create({
         fontWeight: '600'
     },
     customTitleContainer: {
+        flex: 1,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        width: '100%',
         paddingTop: 12,
+        paddingRight: 8,
         zIndex: 20,
+    },
+    historyCloseButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 16,
+        paddingVertical: 8,
+    },
+    historyCloseText: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: 'black',
     },
     statusSection: {
         flexDirection: 'row',

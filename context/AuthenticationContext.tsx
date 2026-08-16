@@ -1,8 +1,9 @@
 import { useStorageState } from 'hooks/useStorageState';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-// import { checkAuth, getSubscription, logout } from '@services/AuthApi';
 import { useLocalSettingStore } from 'store/LocalSettingsStore';
-import { User } from 'types/storageTypes';
+import { Session } from 'types/storageTypes';
+import { setAccessToken } from 'services/api-client';
+import { fetchCurrentUser, isUnauthorizedError } from 'services/auth-api';
 import {
     createContext,
     useContext,
@@ -10,12 +11,6 @@ import {
     type PropsWithChildren,
 } from 'react';
 import { Alert, AppState, AppStateStatus } from 'react-native';
-
-
-type Session = {
-    token: string;
-    user: User;
-};
 
 type AuthContextType = {
     signIn: (session: Session) => void;
@@ -45,10 +40,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
     const { resetStore } = useLocalSettingStore();
 
     useEffect(() => {
-        if (session) {
+        setAccessToken(session?.token ?? null);
+    }, [session?.token]);
 
-        }
-    }, [session?.user]);
     useEffect(() => {
         if (session) {
             const subscription = AppState.addEventListener(
@@ -64,6 +58,7 @@ export function SessionProvider({ children }: PropsWithChildren) {
     }, [session?.token]);
 
     async function handleSignout() {
+        setAccessToken(null);
         await AsyncStorage.clear();
         resetStore();
     }
@@ -73,24 +68,18 @@ export function SessionProvider({ children }: PropsWithChildren) {
             return;
         }
         try {
-            const isAuth = true
-            if (isAuth === undefined) {
-                return; //e.g. no internet connection
-            }
-
-            if (!isAuth) {
+            await fetchCurrentUser();
+        } catch (error) {
+            if (isUnauthorizedError(error)) {
                 Alert.alert('Your session has expired. Please login again');
                 setSession(null);
-                // logout();
+                setAccessToken(null);
             }
-        } catch (e) {
-
         }
     }
 
     async function signOut() {
         try {
-            // await logout();
             setSession(null);
             handleSignout();
         } catch (e) {
@@ -106,8 +95,9 @@ export function SessionProvider({ children }: PropsWithChildren) {
                 checkAuth: async () => {
                     return await check();
                 },
-                signIn: (session: Session) => {
-                    setSession(session);
+                signIn: (nextSession: Session) => {
+                    setAccessToken(nextSession.token);
+                    setSession(nextSession);
                 },
                 signOut,
                 session,
@@ -118,4 +108,5 @@ export function SessionProvider({ children }: PropsWithChildren) {
         </AuthContext.Provider>
     );
 }
-export { Session };
+export type { Session };
+

@@ -12,10 +12,11 @@ import {
 import { debounce } from 'lodash';
 
 import MapView, { Marker, Polygon, Region } from 'react-native-maps';
-import { peopleData } from 'constants/dataExample';
 import { AddHouse, MyLocationSvg } from 'components/svg';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
 import { CustomMarker } from 'components/Marker/Marker';
+import { AssigneeMapLabel } from 'components/DrawingMap/AssigneeMapLabel';
+import { UnassignedMapLabel } from 'components/DrawingMap/UnassignedMapLabel';
 import { BuildingProps, CoordinateProps, LeadStatus } from 'types/componentsTypes';
 import FloatingButtons from './FloatingButtons';
 import { AssignAreaModal } from './AssignAreaModal';
@@ -24,12 +25,26 @@ import { QuickHouseOverviewModal } from './QuickHouseOverviewModal';
 import { DetailedHouseOverviewModal } from './DetailedHouseOverviewModal';
 import { CustomAlert } from 'components/Alert/Alert';
 import { useSession } from 'context/AuthenticationContext';
-import { fetchOverpassData } from 'services/overpassApi';
+import { assignMapAreaRep, createMapArea, createMapHouseFromBuilding, createMapHouseStatus, deleteMapArea, fetchMapAreas, fetchMapHouseDetail, fetchMapHouses, MapBuildingResponse, updateMapHouseNotes } from 'services/area-api';
+import { useMapBuildings } from 'hooks/useMapBuildings';
+import { useMapHousesViewport } from 'hooks/useMapHousesViewport';
+import { convertMapHousesToBuildings } from 'utils/convert-map-houses-to-buildings';
+import { convertMapHouseDetailToHouse } from 'utils/convert-map-house-detail-to-house';
+import { pickFootprintColors } from 'utils/pick-footprint-colors';
+import { getApiErrorMessage } from 'utils/get-api-error-message';
+import { createFieldLead, updateFieldLeadInfo } from 'services/leads-api';
+import { convertCoordinatesToGeoJsonPolygon } from 'utils/convert-coordinates-to-geojson';
+import { convertMapAreasToPolygons } from 'utils/convert-map-areas-to-polygons';
+import { applyMapHouseDetailToBuilding } from 'utils/apply-map-house-detail-to-building';
+import { getPolygonCentroid } from 'utils/get-polygon-centroid';
+import { mapLeadStatusIdToHouseStatus } from 'utils/map-house-status';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.003;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
+const UNASSIGNED_AREA_STROKE = '#8B8682';
+const UNASSIGNED_AREA_FILL = 'rgba(161, 161, 170, 0.32)';
 interface DrawingMapProps {
     // canDraw: boolean;
     // stopDrawing: () => void;
@@ -41,7 +56,9 @@ LogBox.ignoreAllLogs(true);
 const PolygonCreator = ({ }: DrawingMapProps) => {
     const { session } = useSession()
     const isManager = session?.user?.role === 'manager';
+    const displayName = `${session?.user?.firstName ?? ''} ${session?.user?.lastName ?? ''}`.trim() || 'You';
     const [region, setRegion] = useState<Region | null>(null);
+    const [viewportRegion, setViewportRegion] = useState<Region | null>(null);
     const [polygons, setPolygons] = useState<Array<{
         id: number;
         assignee: any;
@@ -76,9 +93,19 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const [message, setMessage] = useState<string>('')
     const [mapType, setMapType] = useState<'satellite' | 'standard'>('satellite');
     const mapRef = useRef<MapView>(null);
+    const mapBuildings = useMapBuildings({
+        region: viewportRegion ?? region,
+        isEnabled: Boolean(session?.token) && !activeDrawing,
+    });
+    const areaIds = useMemo(() => polygons.map((polygon) => polygon.id), [polygons]);
+    const { houses: viewportHouses, replaceHouse } = useMapHousesViewport({
+        region: viewportRegion ?? region,
+        areaIds,
+        isEnabled: Boolean(session?.token) && !activeDrawing,
+    });
 
 
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const isSavingRoofRef = useRef(false);
 
 
     // TODO
@@ -89,10 +116,12 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     // Note: The Polygon object only has an 'onPress' prop and does not support 'onLongPress', 'onPressIn', or 'onPressOut'.
 
 
-    const handlePolygonPress = () => {
-        timeoutRef.current = setTimeout(() => {
-
-        }, 1000);
+    const openManageArea = (polygon: (typeof polygons)[number]) => {
+        if (activeDrawing) {
+            return;
+        }
+        setSelectedArea(polygon);
+        setOpenManageAreaModal(true);
     };
 
 
@@ -111,6 +140,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 longitudeDelta: LONGITUDE_DELTA,
             };
             setRegion(initialRegion);
+            setViewportRegion(initialRegion);
             setMyLocation({
                 latitude: location.coords.latitude,
                 longitude: location.coords.longitude,
@@ -122,6 +152,21 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             }, 100);
         })();
     }, []);
+
+    const loadFieldData = async () => {
+        const areas = await fetchMapAreas();
+        const houses = await fetchMapHouses(areas.map((area) => area.id));
+        setPolygons(convertMapAreasToPolygons(areas, houses));
+    };
+
+    useEffect(() => {
+        if (!session?.token) {
+            return;
+        }
+        loadFieldData().catch(() => {
+            Alert.alert('Could not load areas', 'Check login and EXPO_PUBLIC_API_URL.');
+        });
+    }, [session?.token]);
 
     const handleMyLocation = async () => {
         let location = await Location.getCurrentPositionAsync({});
@@ -140,11 +185,13 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             longitude: location.coords.longitude,
         });
         setRegion(newRegion);
+        setViewportRegion(newRegion);
         setIsAtCurrentLocation(true);
 
     };
 
     const handleRegionChangeComplete = (newRegion: Region) => {
+        setViewportRegion(newRegion);
         if (isAtCurrentLocation) {
             const currentLocation = {
                 latitude: newRegion.latitude,
@@ -175,99 +222,123 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         }
     }, [selectedBuilding]);
 
-    const handleBuildingPress = (building: any) => {
+    const handleBuildingPress = (building: BuildingProps) => {
         setSelectedBuilding(building);
         setOpenDetailedHouseModal(true);
+        fetchMapHouseDetail(Number(building.id))
+            .then((detail) => {
+                setSelectedBuilding(applyMapHouseDetailToBuilding(building, detail));
+            })
+            .catch(() => undefined);
     };
 
-    const handleBuildingLongPress = (building: any) => {
+    const saveHouseKnockStatus = async (building: BuildingProps, status: LeadStatus) => {
+        const detail = await createMapHouseStatus({
+            houseId: Number(building.id),
+            status: mapLeadStatusIdToHouseStatus(status.statusId),
+            notes: building.additionalDetails?.note,
+        });
+        const updatedBuilding = applyMapHouseDetailToBuilding(building, detail);
+        setPolygons(prevPolygons =>
+            prevPolygons.map(polygon => ({
+                ...polygon,
+                buildingMarkers: polygon.buildingMarkers?.map((marker: BuildingProps) =>
+                    marker.id === building.id ? updatedBuilding : marker
+                )
+            }))
+        );
+        setSelectedBuilding(updatedBuilding);
+        replaceHouse(convertMapHouseDetailToHouse(detail, building.additionalDetails?.externalId ?? null));
+    };
+
+    const handleBuildingLongPress = (building: BuildingProps) => {
         setSelectedBuilding(building);
         setOpenQuickStatusModal(true);
     };
-    const handleFetchOverpassData = async (polygon: any) => {
+
+    const handleFootprintPress = async (building: MapBuildingResponse) => {
+        if (activeDrawing || isSavingRoofRef.current) {
+            return;
+        }
+        const existing = viewportHouses.find((house) => house.externalId === building.id);
+        if (existing) {
+            handleBuildingPress(convertMapHousesToBuildings([existing])[0]);
+            return;
+        }
+        isSavingRoofRef.current = true;
+        try {
+            const detail = await createMapHouseFromBuilding({
+                overtureBuildingId: building.id,
+                roofLat: building.roofLat,
+                roofLng: building.roofLng,
+            });
+            replaceHouse(convertMapHouseDetailToHouse(detail, building.id));
+            const stub: BuildingProps = {
+                id: detail.id,
+                latitude: detail.latitude,
+                longitude: detail.longitude,
+                address: detail.address ?? 'Unknown Address',
+            };
+            handleBuildingPress(applyMapHouseDetailToBuilding(stub, detail));
+        } catch (error) {
+            Alert.alert('Could not open house', getApiErrorMessage(error, 'The roof was not saved. Check login and try again.'));
+        } finally {
+            isSavingRoofRef.current = false;
+        }
+    };
+
+    const handleFinish = async () => {
+        if (!editing) {
+            return;
+        }
+        if (!session?.user?.salesOrgId || !session?.user?.officeId) {
+            Alert.alert('Missing office', 'Set a current office on this user in Radiabase, then try again.');
+            return;
+        }
         try {
             setLoading(true);
-            const newMarkers = await fetchOverpassData(polygon);
-            setPolygons((prevPolygons: any) =>
-                prevPolygons.map((p: any) =>
-                    p.id === polygon.id
-                        ? { ...p, buildingMarkers: newMarkers }
-                        : p
-                )
-            );
-        } catch (error: any) {
-            Alert.alert("Error", error.message);
+            setActiveDrawing(false);
+            await createMapArea({
+                officeId: session.user.officeId,
+                salesOrgId: session.user.salesOrgId,
+                boundary: convertCoordinatesToGeoJsonPolygon(editing.coordinates),
+            });
+            setEditing(null);
+            setCanFinishArea(false);
+            await loadFieldData();
+            setMessage('Area is Created Successfully!');
+            setAlertVisible(true);
+        } catch (error) {
+            console.error("Error creating area:", error);
+            setMessage('Failed to create area. Please try again.');
+            setAlertVisible(true);
         } finally {
             setLoading(false);
         }
     };
 
-    const handleFinish = async () => {
-        if (editing) {
-            try {
-                // Pokažite loader
-                setLoading(true);
-
-                setActiveDrawing(false);
-                const newPolygon = JSON.parse(JSON.stringify(editing));
-                setEditing(null);
-
-                // Dodajte novi poligon u listu
-                await Promise.resolve(setPolygons(prevPolygons => [...prevPolygons, { ...newPolygon, assignee: null }]));
-
-                // Dohvatite podatke za poligon
-                await Promise.resolve(handleFetchOverpassData({ ...newPolygon }));
-
-                // Prikažite poruku o uspjehu
-                setCanFinishArea(false);
-                setMessage('Area is Created Successfully!');
-                setAlertVisible(true);
-                // setOpenAssignModal(true)
-            } catch (error) {
-                // Prikažite poruku o grešci
-                console.error("Error creating area:", error);
-                setMessage('Failed to create area. Please try again.');
-                setAlertVisible(true);
-            } finally {
-                // Sakrijte loader bez obzira na ishod
-                setLoading(false);
-            }
-        }
-    };
-
     const handleConfirmAndReassignArea = async () => {
-        if (selectedArea && selectedAgent) {
-            try {
-                // Update the polygons array with the new assignee
-                setPolygons(prevPolygons =>
-                    prevPolygons.map(polygon =>
-                        polygon.id === selectedArea.id
-                            ? {
-                                ...polygon, assignee: selectedAgent,
-                                buildingMarkers: polygon?.buildingMarkers?.map(building => ({
-                                    ...building,
-                                    assignee: selectedAgent
-                                }))
-                            }
-                            : polygon
-                    )
-                );
-
-                // Close the assign modal
-                setOpenAssignModal(false);
-                // Reset states
-                setSelectedArea(null);
-                setSelectedAgent(null);
-                setIsReassignment(false);
-                setMessage('Area is Reassigned Successfully!');
-                setAlertVisible(true);
-
-            } catch (error) {
-                console.error("Error reassigning area:", error);
-                Alert.alert("Error", "Failed to reassign the area. Please try again.");
-            }
-        } else {
+        if (!selectedArea || !selectedAgent) {
             Alert.alert("Error", "Please select an area and an agent to reassign.");
+            return;
+        }
+        try {
+            await assignMapAreaRep({ areaId: selectedArea.id, repId: selectedAgent.id });
+            setPolygons((prevPolygons) =>
+                prevPolygons.map((polygon) =>
+                    polygon.id === selectedArea.id ? { ...polygon, assignee: selectedAgent } : polygon
+                )
+            );
+            await loadFieldData();
+            setOpenAssignModal(false);
+            setSelectedArea(null);
+            setSelectedAgent(null);
+            setIsReassignment(false);
+            setMessage('Area is Reassigned Successfully!');
+            setAlertVisible(true);
+        } catch (error) {
+            console.error("Error reassigning area:", error);
+            Alert.alert("Error", "Failed to reassign the area. Please try again.");
         }
     };
 
@@ -282,11 +353,20 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         }
     }
     const handleDeleteExistingArea = async () => {
-        if (selectedArea) {
-            setPolygons(prevPolygons => prevPolygons.filter(polygon => polygon.id !== selectedArea.id));
+        if (!selectedArea) {
+            return;
+        }
+        try {
+            await deleteMapArea(selectedArea.id);
+            await loadFieldData();
             setSelectedArea(null);
             setIsReassignment(false);
             setOpenManageAreaModal(false);
+        } catch (error) {
+            Alert.alert(
+                'Could not delete area',
+                getApiErrorMessage(error, 'Only managers can delete areas, or the API is unreachable.'),
+            );
         }
     };
     const handleReassignArea = async () => {
@@ -349,41 +429,94 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         });
 
     }, []);
+    const hasFootprints = mapBuildings.length > 0;
     const memoizedPolygons = useMemo(() => {
         return polygons.map(polygon => (
-            // <TouchableOpacity
-            //     onLongPress={async () => await Promise.resolve(setSelectedArea(polygon)).then(() => setOpenManageAreaModal(true))}
-            // >
             <Polygon
                 key={polygon.id}
                 coordinates={polygon.coordinates}
-                strokeColor={polygon?.assignee ? polygon?.assignee?.color : '#32A0FF'}
-                fillColor={polygon?.assignee ? hexToRgba(polygon?.assignee?.color, 0.2) : 'rgba(50, 160, 255, 0.2)'}
+                strokeColor={polygon?.assignee ? polygon?.assignee?.color : UNASSIGNED_AREA_STROKE}
+                fillColor={polygon?.assignee ? hexToRgba(polygon?.assignee?.color, 0.2) : UNASSIGNED_AREA_FILL}
                 strokeWidth={2}
-                onPress={async () => {
-
-                    await Promise.resolve(setSelectedArea(polygon)).then(() => setOpenManageAreaModal(true))
-                }}
+                tappable={!activeDrawing}
+                zIndex={1}
+                onPress={() => openManageArea(polygon)}
             />
-            // </TouchableOpacity>
         ));
-    }, [polygons]);
-    const memoizedBuildingMarkers = useMemo(() => {
-        return polygons.map(polygon =>
-            polygon?.buildingMarkers?.map((marker: any, index) =>
-                marker.latitude && marker.longitude ? (
-                    <CustomMarker
-                        type='building'
-                        id={marker?.id}
-                        key={marker?.id}
-                        marker={marker}
-                        onClick={() => handleBuildingPress(marker)}
-                        onLongPress={() => handleBuildingLongPress(marker)}
-                    />
-                ) : null
-            )
+    }, [activeDrawing, polygons]);
+    const memoizedFootprints = useMemo(() => {
+        const houseByExternalId = new Map(
+            viewportHouses
+                .filter((house) => house.externalId)
+                .map((house) => [house.externalId as string, house]),
         );
-    }, [polygons]);
+        return mapBuildings.map((building) => {
+            const colors = pickFootprintColors(houseByExternalId.get(building.id)?.currentStatus);
+            return (
+                <Polygon
+                    key={building.id}
+                    coordinates={building.coordinates}
+                    strokeColor={colors.strokeColor}
+                    fillColor={colors.fillColor}
+                    strokeWidth={1}
+                    tappable={!activeDrawing}
+                    zIndex={2}
+                    onPress={() => {
+                        handleFootprintPress(building).catch(() => undefined);
+                    }}
+                />
+            );
+        });
+    }, [activeDrawing, mapBuildings, viewportHouses]);
+    const memoizedAssigneeLabels = useMemo(() => {
+        return polygons.flatMap((polygon) => {
+            const centroid = getPolygonCentroid(polygon.coordinates);
+            if (!centroid) {
+                return [];
+            }
+            if (!polygon.assignee) {
+                return (
+                    <UnassignedMapLabel
+                        key={`unassigned-${polygon.id}`}
+                        areaId={polygon.id}
+                        latitude={centroid.latitude}
+                        longitude={centroid.longitude}
+                        onPress={activeDrawing ? undefined : () => openManageArea(polygon)}
+                    />
+                );
+            }
+            return (
+                <AssigneeMapLabel
+                    key={`assignee-${polygon.id}-${polygon.assignee.id}`}
+                    areaId={polygon.id}
+                    latitude={centroid.latitude}
+                    longitude={centroid.longitude}
+                    name={polygon.assignee.name}
+                    lastname={polygon.assignee.lastname}
+                    imageUrl={polygon.assignee.avatarUrl}
+                    color={polygon.assignee.color}
+                    onPress={activeDrawing ? undefined : () => openManageArea(polygon)}
+                />
+            );
+        });
+    }, [activeDrawing, polygons]);
+    const memoizedBuildingMarkers = useMemo(() => {
+        const markers = hasFootprints
+            ? convertMapHousesToBuildings(viewportHouses)
+            : polygons.flatMap((polygon) => polygon.buildingMarkers ?? []);
+        return markers.map((marker) =>
+            marker.latitude && marker.longitude ? (
+                <CustomMarker
+                    type='building'
+                    id={marker.id}
+                    key={marker.id}
+                    marker={marker}
+                    onClick={() => handleBuildingPress(marker)}
+                    onLongPress={() => handleBuildingLongPress(marker)}
+                />
+            ) : null
+        );
+    }, [hasFootprints, polygons, viewportHouses]);
 
     const editingMarkers = useMemo(() => {
         if (!editing || editing.coordinates.length === 0) return null;
@@ -482,8 +615,8 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setAlertVisible(true)
                 }}
                 hasNoAssignee={!selectedArea?.assignee}
+                officeId={session?.user?.officeId ?? null}
                 onConfirmAndAssign={() => handleConfirmAndReassignArea()}
-                peopleData={peopleData}
             />
             <ManageAreaModal
                 visible={openManageAreaModal}
@@ -498,6 +631,9 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setAlertVisible(true)
                 }}
                 onReassignArea={handleReassignArea}
+                onEditArea={() => {
+                    Alert.alert('Edit area', 'Moving turf points is not available yet.');
+                }}
             />
             <QuickHouseOverviewModal
                 onClose={() => setOpenQuickStatusModal(false)}
@@ -513,28 +649,15 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setOpenDetailedHouseModal(true)
                     setOpenQuickStatusModal(false)
                 }}
-                onChangeHouseStatus={(status: LeadStatus) => {
-                    if (selectedBuilding) {
-                        setPolygons(prevPolygons =>
-                            prevPolygons.map(polygon => ({
-                                ...polygon,
-                                buildingMarkers: polygon.buildingMarkers?.map((building: BuildingProps) =>
-                                    building.id === selectedBuilding.id
-                                        ? {
-                                            ...building,
-                                            statusId: status.statusId,
-                                            statuses: [...(building?.statuses || []), status.statusId]
-                                        }
-                                        : building
-                                )
-                            }))
-                        );
-                        setSelectedBuilding((prevBuilding: BuildingProps) =>
-                            prevBuilding ? { ...prevBuilding, statusId: status.statusId, statuses: [...(prevBuilding?.statuses || []), status.statusId] } : null
-                        );
+                onChangeHouseStatus={async (status: LeadStatus) => {
+                    if (!selectedBuilding) {
+                        return;
+                    }
+                    try {
+                        await saveHouseKnockStatus(selectedBuilding, status);
                         setOpenQuickStatusModal(false);
-                        setMessage("House Status Updated Successfully!");
-                        setAlertVisible(true);
+                    } catch (error) {
+                        Alert.alert('Could not update status', getApiErrorMessage(error, 'The knock was not saved to the API.'));
                     }
                 }}
             />
@@ -542,25 +665,88 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 onClose={() => setOpenDetailedHouseModal(false)}
                 visible={openDetailedHouseModal}
                 selectedHouse={selectedBuilding}
-                onSaveAndClose={(updatedHouse) => {
-                    setSelectedBuilding(updatedHouse)
-                    setPolygons((prevPolygons: any) =>
-                        prevPolygons.map((polygon: any) => ({
-                            ...polygon,
-                            buildingMarkers: polygon.buildingMarkers?.map((building: BuildingProps) =>
-                                building.id === updatedHouse.id
-                                    ? {
-                                        ...building,
-                                        ...updatedHouse,
-                                        statuses: [...(building?.statuses || []), updatedHouse.statusId].filter((v, i, a) => a.indexOf(v) === i)
-                                    }
-                                    : building
-                            )
-                        }))
-                    );
-                    setOpenDetailedHouseModal(false)
+                onChangeHouseStatus={async (status: LeadStatus) => {
+                    if (!selectedBuilding) {
+                        return;
+                    }
+                    try {
+                        await saveHouseKnockStatus(selectedBuilding, status);
+                    } catch (error) {
+                        Alert.alert('Could not update status', getApiErrorMessage(error, 'The knock was not saved to the API.'));
+                    }
                 }}
-                onSaveAndSend={() => setOpenDetailedHouseModal(false)}
+                onSaveNotes={async (note: string) => {
+                    if (!selectedBuilding) {
+                        return;
+                    }
+                    try {
+                        const detail = await updateMapHouseNotes({
+                            houseId: Number(selectedBuilding.id),
+                            notes: note,
+                        });
+                        setSelectedBuilding(applyMapHouseDetailToBuilding(selectedBuilding, detail));
+                    } catch (error) {
+                        Alert.alert('Could not save note', getApiErrorMessage(error, 'The note was not saved.'));
+                    }
+                }}
+                onSaveHomeowner={async (updatedHouse: BuildingProps) => {
+                    setSelectedBuilding(updatedHouse);
+                    const leadId = updatedHouse.additionalDetails?.leadId;
+                    if (!leadId) {
+                        return;
+                    }
+                    try {
+                        await updateFieldLeadInfo({
+                            leadId: Number(leadId),
+                            firstName: updatedHouse.assignee?.name,
+                            lastName: updatedHouse.assignee?.lastname,
+                            phone: updatedHouse.assignee?.phone,
+                            email: updatedHouse.assignee?.email,
+                        });
+                    } catch (error) {
+                        Alert.alert('Could not save homeowner', getApiErrorMessage(error, 'The contact was not saved.'));
+                    }
+                }}
+                onSendCard={async (updatedHouse) => {
+                    if (!session?.user) {
+                        Alert.alert('Not signed in', 'Log in again, then submit the lead.');
+                        return;
+                    }
+                    try {
+                        const leadId = updatedHouse.additionalDetails?.leadId;
+                        if (leadId) {
+                            await updateFieldLeadInfo({
+                                leadId: Number(leadId),
+                                firstName: updatedHouse.assignee?.name,
+                                lastName: updatedHouse.assignee?.lastname,
+                                phone: updatedHouse.assignee?.phone,
+                                email: updatedHouse.assignee?.email,
+                            });
+                        } else {
+                            await createFieldLead({
+                                user: session.user,
+                                houseId: Number(updatedHouse.id),
+                                firstName: updatedHouse.assignee?.name ?? '',
+                                lastName: updatedHouse.assignee?.lastname ?? '',
+                                phone: updatedHouse.assignee?.phone,
+                                email: updatedHouse.assignee?.email,
+                                notes: updatedHouse.additionalDetails?.note,
+                                address: updatedHouse.address,
+                                city: updatedHouse.additionalDetails?.city,
+                                state: updatedHouse.additionalDetails?.state,
+                                zip: updatedHouse.additionalDetails?.zip,
+                                latitude: updatedHouse.latitude,
+                                longitude: updatedHouse.longitude,
+                                statusId: updatedHouse.statusId,
+                            });
+                        }
+                        setOpenDetailedHouseModal(false);
+                        setMessage(leadId ? 'Lead updated in Radiabase.' : 'Lead sent to Radiabase.');
+                        setAlertVisible(true);
+                    } catch (error) {
+                        Alert.alert('Could not send lead', error instanceof Error ? error.message : 'Check the API and try again.');
+                    }
+                }}
             />
             {loading && (
                 <View style={styles.loaderContainer}>
@@ -573,6 +759,11 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 ref={mapRef}
                 mapType={mapType}
                 initialRegion={region}
+                rotateEnabled={false}
+                pitchEnabled={false}
+                zoomEnabled
+                scrollEnabled
+                moveOnMarkerPress={false}
                 onPress={(e) => activeDrawing && handleMapPress(e)}
                 onRegionChangeComplete={handleRegionChangeComplete}
             >
@@ -580,20 +771,29 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     <Marker
                         key="my-location-marker"
                         coordinate={{ latitude: myLocation.latitude, longitude: myLocation.longitude }}
-                        title={"John Doe"}
+                        title={displayName}
+                        tappable={false}
+                        tracksViewChanges={false}
                     >
-                        <View style={styles.myLocationMarker}>
+                        <View style={styles.myLocationMarker} pointerEvents="none">
                             <Text style={styles.myLocationText}>
-                                {getAcronym("John Doe")}
+                                {getAcronym(displayName)}
                             </Text>
                         </View>
                     </Marker>
                 )}
                 {memoizedPolygons}
+                {memoizedFootprints}
+                {memoizedAssigneeLabels}
                 {memoizedBuildingMarkers}
                 {memoizedEditingPolygon}
                 {editingMarkers}
             </MapView>}
+            {hasFootprints && (
+                <Text style={styles.buildingAttribution} pointerEvents="none">
+                    Buildings © Overture Maps / OSM contributors
+                </Text>
+            )}
         </View >
     );
 };
@@ -606,6 +806,18 @@ const styles = StyleSheet.create({
     },
     map: {
         ...StyleSheet.absoluteFillObject,
+    },
+    buildingAttribution: {
+        position: 'absolute',
+        bottom: 8,
+        left: 8,
+        right: 8,
+        color: 'white',
+        fontSize: 10,
+        textShadowColor: 'rgba(0, 0, 0, 0.8)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 2,
+        zIndex: 7,
     },
     myLocationMarker: {
         backgroundColor: 'white',

@@ -1,0 +1,14 @@
+---
+description: Expo and React Native conventions for Radiabase_mobile
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Expo app conventions
+
+- Use functional components and Expo Router (`app/`). Do not add Next.js pages, `app/api` routes, or `'use client'`.
+- Style with React Native `StyleSheet` and existing components. Do not add Tailwind or Shadcn.
+- State: Zustand (`store/`) and TanStack React Query. Auth session lives in `context/AuthenticationContext.tsx`.
+- Call the sibling API (`sunnected_jose`) over HTTP. Do not import API server code into this app.
+- Match existing folders: `app/`, `components/`, `hooks/`, `store/`, `context/`, `services/`, `types/`.
+- Do not run the Expo bundler after implementing a change unless the user asks.

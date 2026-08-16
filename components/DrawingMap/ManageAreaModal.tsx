@@ -12,6 +12,7 @@ interface ManageAreaModalProps {
     setSelectedAgent: (agent: any) => void;
     onDeleteArea: () => void;
     onReassignArea: () => void;
+    onEditArea: () => void;
 }
 
 export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
@@ -21,13 +22,17 @@ export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
     setSelectedAgent,
     onDeleteArea,
     onReassignArea,
+    onEditArea,
 }) => {
-    const isAssigned = selectedArea?.assignee !== null;
+    const isAssigned = Boolean(selectedArea?.assignee);
     return (
         <PlainModal
             visible={visible}
             onClose={onClose}
-            title="Manage Area"
+            title={isAssigned
+                ? `Assigned to ${`${selectedArea?.assignee?.name ?? ''} ${selectedArea?.assignee?.lastname ?? ''}`.trim() || 'user'}`
+                : 'Manage Area'
+            }
             buttons={
                 <>
                     <Button
@@ -44,6 +49,7 @@ export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
                 </>
             }
         >
+            <>
             {isAssigned ? <>
                 <AgentCard
                     data={selectedArea?.assignee}
@@ -65,6 +71,13 @@ export const ManageAreaModal: React.FC<ManageAreaModalProps> = ({
                     </Text>
                 </View>
             }
+            <Button
+                text="Edit Area"
+                buttonStyle={styles.editButton}
+                textStyle={styles.editButtonText}
+                onPress={onEditArea}
+            />
+            </>
         </PlainModal>
     );
 };
@@ -84,5 +97,13 @@ const styles = StyleSheet.create({
     },
     boldText: {
         fontWeight: '600'
+    },
+    editButton: {
+        backgroundColor: '#F3F2EF',
+        width: '100%',
+        marginBottom: 8,
+    },
+    editButtonText: {
+        color: '#18181B',
     },
 });

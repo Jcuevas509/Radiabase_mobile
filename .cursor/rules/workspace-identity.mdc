@@ -1,0 +1,16 @@
+---
+description: This repo is the Expo mobile app; the NestJS API is a sibling folder, not part of this git repo.
+alwaysApply: true
+---
+
+# Workspace identity — App
+
+This folder is **Radiabase_mobile**, the Expo (React Native) app. The backend is **sunnected_jose** (NestJS), a separate GitHub repo next to this one.
+
+- Keep app / Expo rules and React Native code here.
+- Do not add NestJS modules, DTOs, Drizzle/ORM, or API server files to this repo.
+- Ignore Next.js, React Server Components, Tailwind, and Shadcn guidance while editing this folder. This app uses Expo Router, React Native, Zustand, and TanStack Query.
+- Do not merge git histories, use submodules, or create a monorepo.
+- Two folders, two `git status`, two PRs.
+- Prefer Local Agent in the multi-root workspace. Cloud Agents and git worktrees do not work well with two roots.
+- If the user only @-mentions this folder, do not edit the API.

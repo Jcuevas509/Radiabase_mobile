@@ -1,5 +1,4 @@
-import { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, ScrollView, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, TouchableOpacity, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { customerStatuses, leadStatuses } from 'constants/leadStatuses';
 
@@ -10,65 +9,65 @@ interface TooltipProps {
 /**
  * @description A component that shows tooltip with status details
  */
-
 export function StatusTooltip({
     onClose
 }: TooltipProps) {
     return (
-        <ScrollView style={styles.tooltipContent} >
-            <View style={styles.top}>
-                <Text style={styles.title}>Status Overview</Text>
-                <TouchableOpacity onPress={onClose} style={styles.iconContainer} >
-                    <Ionicons name="close" size={18} color="black" />
-                </TouchableOpacity>
+        <View style={styles.overlay}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Dismiss status overview" />
+            <View style={styles.tooltipContent}>
+                <View style={styles.top}>
+                    <Text style={styles.title}>Status Overview</Text>
+                    <TouchableOpacity onPress={onClose} style={styles.iconContainer} hitSlop={12} accessibilityLabel="Close status overview">
+                        <Ionicons name="close" size={22} color="black" />
+                    </TouchableOpacity>
+                </View>
+                <ScrollView showsVerticalScrollIndicator={false}>
+                    <Text style={styles.tooltipSubtitle}>Lead Status</Text>
+                    {leadStatuses.map((status) => (
+                        <View key={status.shortName} style={styles.tooltipItem}>
+                            <View style={[styles.tooltipIcon, { backgroundColor: status.color }]}>
+                                <status.icon color="white" />
+                            </View>
+                            <Text style={styles.tooltipText}>{status.shortName}: {status.fullName}</Text>
+                        </View>
+                    ))}
+                    <Text style={[styles.tooltipSubtitle, { marginTop: 16 }]}>Customer Status</Text>
+                    {customerStatuses.map((status) => (
+                        <View key={status.shortName} style={styles.tooltipItem}>
+                            <View style={[styles.tooltipIcon, { backgroundColor: status.color }]}>
+                                <status.icon color="white" />
+                            </View>
+                            <Text style={styles.tooltipText}>{status.shortName}: {status.fullName}</Text>
+                        </View>
+                    ))}
+                </ScrollView>
             </View>
-            <Text style={styles.tooltipSubtitle}>Lead Status</Text>
-            {leadStatuses.map((status) => (
-                <View key={status.shortName} style={styles.tooltipItem}>
-                    <View style={[styles.tooltipIcon, { backgroundColor: status.color }]}>
-                        <status.icon color="white" />
-                    </View>
-                    <Text style={styles.tooltipText}>{status.shortName}: {status.fullName}</Text>
-                </View>
-            ))}
-            <Text style={[styles.tooltipSubtitle, { marginTop: 16 }]}>Customer Status</Text>
-            {customerStatuses.map((status) => (
-                <View key={status.shortName} style={styles.tooltipItem}>
-                    <View style={[styles.tooltipIcon, { backgroundColor: status.color }]}>
-                        <status.icon color="white" />
-                    </View>
-                    <Text style={styles.tooltipText}>{status.shortName}: {status.fullName}</Text>
-                </View>
-            ))}
-        </ScrollView>
+        </View>
     );
 }
 
 const styles = StyleSheet.create({
-
-    tooltipContent: {
-        position: 'absolute',
-        left: 0,
-        bottom: 0,
-        width: 306,
-        maxHeight: 631,
-        backgroundColor: '#1F1F1F',
-        paddingVertical: 24,
-        paddingHorizontal: 36,
-        borderRadius: 24,
+    overlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0, 0, 0, 0.45)',
+        justifyContent: 'flex-end',
         zIndex: 1001,
     },
-    tooltipTitle: {
-        color: 'white',
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 16,
+    tooltipContent: {
+        width: '100%',
+        maxHeight: 480,
+        backgroundColor: '#1F1F1F',
+        paddingVertical: 24,
+        paddingHorizontal: 24,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
     },
     tooltipSubtitle: {
         color: 'white',
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: '500',
-        marginBottom: 24,
+        marginBottom: 16,
         marginTop: 18
     },
     tooltipItem: {
@@ -90,7 +89,6 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         marginLeft: 12,
     },
-
     title: {
         color: "white",
         fontSize: 16,
@@ -100,13 +98,14 @@ const styles = StyleSheet.create({
         flexDirection: "row",
         justifyContent: "space-between",
         alignItems: "center",
+        marginBottom: 8,
     },
     iconContainer: {
         justifyContent: "center",
         alignItems: "center",
         backgroundColor: "white",
-        borderRadius: 12,
-        width: 24,
-        height: 24,
+        borderRadius: 18,
+        width: 36,
+        height: 36,
     },
 });

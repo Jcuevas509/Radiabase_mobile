@@ -1,186 +1,267 @@
 import { useState } from 'react';
-import { useRouter } from 'expo-router';
-import { View, StyleSheet, SafeAreaView, Text, Image, TouchableWithoutFeedback, Keyboard } from 'react-native';
-import { Session } from 'context/AuthenticationContext';
-import { useLocalSettingStore } from 'store/LocalSettingsStore';
+import {
+    View,
+    StyleSheet,
+    Text,
+    KeyboardAvoidingView,
+    Platform,
+    ScrollView,
+    TouchableWithoutFeedback,
+    Keyboard,
+    Pressable,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
+import { Session } from 'types/storageTypes';
 import { InputField } from 'components/Input/InputField';
 import { Button } from 'components/Button/Button';
-import LogoImage from 'components/LogoImage/LogoImage';
+import { isUnauthorizedError, loginWithPassword } from 'services/auth-api';
+import { useRouter } from 'expo-router';
+
+const COLORS = {
+    gradientStart: '#000000',
+    gradientEnd: '#18181b',
+    card: '#27272a',
+    cardBorder: 'rgba(63, 63, 70, 0.5)',
+    inputBg: '#3f3f46',
+    inputBorder: '#52525b',
+    text: '#ffffff',
+    muted: '#a1a1aa',
+    primary: '#1890ff',
+    link: '#40a9ff',
+    errorBg: 'rgba(239, 68, 68, 0.1)',
+    errorBorder: 'rgba(239, 68, 68, 0.3)',
+    errorText: '#fecaca',
+    errorIcon: '#f87171',
+} as const;
 
 interface LoginProps {
     signIn: (session: Session) => void;
 }
 
 /**
- * @description Login component for the app
+ * Matches the Sunnected web login: dark gradient, centered card, bolt mark, blue CTA.
  */
-
-export function Login({
-    signIn,
-}: LoginProps) {
+export function Login({ signIn }: LoginProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState<boolean>(false);
     const [errorMessage, setErrorMessage] = useState<string>('');
-    const [password, setPassword] = useState<string>("")
-    const [email, setEmail] = useState<string>("")
-    const [isValidEmail, setIsValidEmail] = useState(true)
-    const { resetStore } = useLocalSettingStore();
-    /**
-     * @description Handles the login button press
-     */
+    const [password, setPassword] = useState<string>('');
+    const [email, setEmail] = useState<string>('');
+    const [isValidEmail, setIsValidEmail] = useState<boolean>(true);
 
     const handleLogin = async () => {
         setIsLoading(true);
         setErrorMessage('');
-
-
-
         try {
-            const loginResult = await login(email, password);
-            if (loginResult.success) {
-                let role: 'agent' | 'manager';
-                if (email.toLowerCase().includes('agent')) {
-                    role = 'agent';
-                } else if (email.toLowerCase().includes('manager')) {
-                    role = 'manager';
-                } else {
-                    // Default role if neither 'agent' nor 'manager' is in the email
-                    role = 'manager';
-                }
-
-                signIn({
-                    user: {
-                        id: '12345',
-                        firstName: 'Mock',
-                        lastName: 'User',
-                        email: loginResult.session.user.email,
-                        role: role
-                    },
-                    token: loginResult.session.token
-                });
-            } else {
-                setErrorMessage('Error occurred. Please try again.');
-            }
+            const session = await loginWithPassword({ email, password });
+            signIn(session);
         } catch (error) {
-            setErrorMessage('An error occurred. Please try again.');
+            if (isUnauthorizedError(error)) {
+                setErrorMessage('Invalid email or password.');
+            } else {
+                setErrorMessage('Could not reach the API. Check EXPO_PUBLIC_API_URL.');
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
-    async function login(username: string, password: string) {
-        // Simulate API call
-        await new Promise(resolve => setTimeout(resolve, 2000));
-
-        return {
-            success: true,
-            session: {
-                user: {
-                    email: username,
-                    role: 'user' // Add role here. In a real app, this would come from your backend.
-                },
-                token: 'mock-token-123',
-            },
-        };
+    function handleForgotPassword() {
+        router.push('/forgotPassword');
     }
 
-    async function handleForgotPassword() {
-        console.log('first step to send forgot password email');
-    }
+    const isSignInDisabled = !isValidEmail || password.length < 2 || email.length === 0;
 
     return (
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={styles.container}>
-                <SafeAreaView style={[styles.safeArea]}>
-                    {/* <ScrollView > */}
-                    <View style={{ paddingLeft: 24, paddingBottom: 24 }}>
-                        <Image
-                            source={require('../../../assets/images/TextLogoBlack.png')}
-                            style={{
-                                width: 247,
-                                height: 43
-                            }}
-                        />
-                    </View>
-                    <View style={styles.formContainer}>
-                        <Text style={styles.formName}>
-                            Sign In with Email
-                        </Text>
-                        <InputField
-                            value={email}
-                            placeholder="Email"
-                            onChange={(text, isValid) => {
-                                setEmail(text);
-                                setIsValidEmail(isValid || true)
-                            }}
-                            isSignInput
-                            keyboardType="email-address"
-                            isEmail={true}
-                            placeHolderColor='#6E6A62'
-                            style={styles.input}
-                        />
-                        <InputField
-                            placeholder='Password'
-                            value={password}
-                            isPassword
-                            onChange={setPassword}
-                            placeHolderColor='#6E6A62'
-                            style={[styles.input, { marginBottom: 34 }]}
-                        />
-                        <Button
-                            onPress={handleLogin}
-                            text='Sign In'
-                            buttonStyle={styles.signInButton}
-                            isLoading={isLoading}
-                            textStyle={{ color: 'white', fontSize: 16 }}
-                            isDisabled={!isValidEmail || password.length < 2 || email.length === 0}
-                        />
-                        <Button
-                            onPress={handleForgotPassword}
-                            text='Forgot Password'
-                            buttonStyle={{ width: '100%', height: 59 }}
-                            textStyle={{ color: 'black', fontSize: 14 }}
-                        />
-                    </View>
-                    {/* </ScrollView> */}
-                </SafeAreaView>
-                <LogoImage type='large' />
-            </View>
-        </TouchableWithoutFeedback >
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.gradient}>
+            <StatusBar style="light" />
+            <SafeAreaView style={styles.safeArea}>
+                <KeyboardAvoidingView
+                    style={styles.flex}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                >
+                    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+                        <ScrollView
+                            contentContainerStyle={styles.scrollContent}
+                            keyboardShouldPersistTaps="handled"
+                            bounces={false}
+                        >
+                            <View style={styles.card}>
+                                <View style={styles.header}>
+                                    <View style={styles.boltWrap}>
+                                        <Ionicons name="flash" size={64} color={COLORS.primary} />
+                                    </View>
+                                    <Text style={styles.title}>Welcome back</Text>
+                                    <Text style={styles.subtitle}>Sign in to your account</Text>
+                                </View>
+                                <Text style={styles.label}>Email</Text>
+                                <InputField
+                                    value={email}
+                                    placeholder="name@example.com"
+                                    onChange={(text, isValid) => {
+                                        setEmail(text);
+                                        setIsValidEmail(isValid ?? true);
+                                    }}
+                                    isSignInput
+                                    keyboardType="email-address"
+                                    isEmail
+                                    placeHolderColor={COLORS.muted}
+                                    iconColor={COLORS.muted}
+                                    style={styles.input}
+                                />
+                                <Text style={[styles.label, styles.passwordLabel]}>Password</Text>
+                                <InputField
+                                    placeholder="Password"
+                                    value={password}
+                                    isPassword
+                                    onChange={setPassword}
+                                    placeHolderColor={COLORS.muted}
+                                    iconColor={COLORS.muted}
+                                    style={styles.input}
+                                />
+                                {errorMessage ? (
+                                    <View style={styles.errorBox}>
+                                        <Ionicons name="close-circle" size={20} color={COLORS.errorIcon} />
+                                        <Text style={styles.errorText}>{errorMessage}</Text>
+                                    </View>
+                                ) : null}
+                                <Button
+                                    onPress={handleLogin}
+                                    text={isLoading ? 'Signing in...' : 'Sign In'}
+                                    buttonStyle={styles.signInButton}
+                                    isLoading={isLoading}
+                                    textStyle={styles.signInText}
+                                    isDisabled={isSignInDisabled}
+                                />
+                                <Pressable onPress={handleForgotPassword} style={styles.forgotWrap}>
+                                    <Text style={styles.forgotText}>Forgot your password?</Text>
+                                </Pressable>
+                            </View>
+                        </ScrollView>
+                    </TouchableWithoutFeedback>
+                </KeyboardAvoidingView>
+            </SafeAreaView>
+        </LinearGradient>
     );
 }
 
 const styles = StyleSheet.create({
-    container: {
+    gradient: {
         flex: 1,
-        backgroundColor: 'white',
-        justifyContent: 'flex-end',
     },
     safeArea: {
-        backgroundColor: 'white',
+        flex: 1,
     },
-    formContainer: {
+    flex: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        justifyContent: 'center',
+        padding: 16,
+    },
+    card: {
         width: '100%',
-        padding: 24,
-        marginBottom: 56,
+        maxWidth: 448,
+        alignSelf: 'center',
+        backgroundColor: COLORS.card,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: COLORS.cardBorder,
+        padding: 32,
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: 24 },
+        shadowOpacity: 0.45,
+        shadowRadius: 32,
+        elevation: 16,
     },
-    formName: {
-        fontSize: 16,
-        fontWeight: 600,
-        marginBottom: 12
+    header: {
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+    boltWrap: {
+        width: 64,
+        height: 64,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: COLORS.primary,
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0.5,
+        shadowRadius: 8,
+    },
+    title: {
+        marginTop: 24,
+        fontSize: 30,
+        fontWeight: '800',
+        color: COLORS.text,
+        textAlign: 'center',
+    },
+    subtitle: {
+        marginTop: 8,
+        fontSize: 14,
+        color: COLORS.muted,
+        textAlign: 'center',
+    },
+    label: {
+        color: COLORS.text,
+        fontSize: 14,
+        fontWeight: '500',
+        marginBottom: 6,
+    },
+    passwordLabel: {
+        marginTop: 16,
     },
     input: {
         width: '100%',
-        height: 56,
-        borderWidth: 0,
-        backgroundColor: '#F3F2EF',
-        fontSize: 16
+        height: 48,
+        marginBottom: 0,
+        borderWidth: 1,
+        borderColor: COLORS.inputBorder,
+        backgroundColor: COLORS.inputBg,
+        color: COLORS.text,
+        fontSize: 16,
+        borderRadius: 8,
+    },
+    errorBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginTop: 20,
+        padding: 16,
+        borderRadius: 8,
+        backgroundColor: COLORS.errorBg,
+        borderWidth: 1,
+        borderColor: COLORS.errorBorder,
+    },
+    errorText: {
+        flex: 1,
+        color: COLORS.errorText,
+        fontSize: 14,
+        fontWeight: '500',
     },
     signInButton: {
-        backgroundColor: 'black',
-        maxWidth: 350,
-        height: 59,
-        marginBottom: 16,
-        width: '100%'
-    }
+        backgroundColor: COLORS.primary,
+        width: '100%',
+        maxWidth: '100%',
+        height: 48,
+        marginTop: 24,
+        marginBottom: 0,
+        borderRadius: 8,
+    },
+    signInText: {
+        color: COLORS.text,
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    forgotWrap: {
+        marginTop: 24,
+        alignItems: 'center',
+    },
+    forgotText: {
+        fontSize: 14,
+        color: COLORS.link,
+    },
 });

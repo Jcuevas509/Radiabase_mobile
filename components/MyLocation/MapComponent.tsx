@@ -31,6 +31,7 @@ LogBox.ignoreAllLogs(true);
 const MapComponent = () => {
     const { session } = useSession();
     const isManager = session?.user?.role === 'manager';
+    const displayName = `${session?.user?.firstName ?? ''} ${session?.user?.lastName ?? ''}`.trim() || 'You';
     const [region, setRegion] = useState<Region | null>(null);
     const [buildingMarkers, setBuildingMarkers] = useState<Array<BuildingProps>>([]);
     const [myLocation, setMyLocation] = useState<CoordinateProps>({} as CoordinateProps);
@@ -191,11 +192,11 @@ const MapComponent = () => {
                         <Marker
                             key="my-location-marker"
                             coordinate={{ latitude: myLocation.latitude, longitude: myLocation.longitude }}
-                            title={"John Doe"}
+                            title={displayName}
                         >
                             <View style={styles.myLocationMarker}>
                                 <Text style={styles.myLocationText}>
-                                    {getAcronym("John Doe")}
+                                    {getAcronym(displayName)}
                                 </Text>
                             </View>
                         </Marker>

@@ -1,0 +1,25 @@
+This folder is Radiabase_mobile, an Expo (React Native) app. It is not Next.js and not the API.
+
+The backend is the sibling GitHub repo sunnected_jose (NestJS). Keep git separate. Edit NestJS only in sunnected_jose.
+
+## Stack
+
+- Expo, Expo Router, React Native, TypeScript
+- Zustand and TanStack React Query
+- React Native StyleSheet and existing UI components (not Tailwind, Shadcn, or RSC)
+
+## Code
+
+- Use English for all code and documentation.
+- Declare types for variables, parameters, and return values. Avoid `any`.
+- Use camelCase for variables and functions, PascalCase for components.
+- Name booleans with verbs: isLoading, hasError, canDelete.
+- Prefer functional components. Keep functions short and single-purpose.
+- Use early returns instead of nested blocks.
+- Colocate screens under `app/`, reusable UI under `components/`, hooks under `hooks/`.
+
+## Git and workspace
+
+- Do not merge this repo with sunnected_jose.
+- Do not add git submodules.
+- Two folders, two git statuses, two PRs.

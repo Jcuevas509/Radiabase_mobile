@@ -1,5 +1,5 @@
 import DrawerNavigator from '@/navigation/DrawerNavigator';
-import { menuItemsAgent, menuItemsManager } from 'constants/dataExample';
+import { menuItemsAgent, menuItemsManager } from 'constants/menu-items';
 import { useSession } from 'context/AuthenticationContext';
 
 export default function Layout() {

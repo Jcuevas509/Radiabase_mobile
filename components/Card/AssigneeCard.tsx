@@ -1,27 +1,48 @@
 import React from 'react';
-import { View, StyleSheet, Text, Image } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import moment from 'moment';
-import { customerStatuses, leadStatuses } from 'constants/leadStatuses';
+import { UserAvatar } from 'components/Avatar/UserAvatar';
 
 interface AssigneeCardProps {
-    assignee: any;
+    assignee: {
+        name?: string;
+        lastname?: string;
+        email?: string;
+        description?: string;
+        color?: string;
+        avatarUrl?: string | null;
+        officeName?: string | null;
+        salesRole?: string | null;
+    };
     current?: boolean;
 }
 
-/**
- * @description A component that can be used as a assignee card
- */
+function formatRoleLabel(role?: string | null): string | null {
+    if (!role) {
+        return null;
+    }
+    return role
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
 
+/**
+ * Shows who a house/area is assigned to. Uses a photo only when the user has one.
+ */
 export function AssigneeCard({
     assignee,
-    current
+    current,
 }: AssigneeCardProps) {
+    const fullName = `${assignee?.name ?? ''} ${assignee?.lastname ?? ''}`.trim() || 'Unassigned';
+    const roleLabel = formatRoleLabel(assignee?.salesRole);
+    const metaLine = [roleLabel, assignee?.officeName].filter(Boolean).join(' · ');
+    const subtitle = metaLine;
 
     return (
         <View style={[styles.rowContainer, { marginBottom: 16 }]}>
             <View style={styles.columnContainer}>
                 <Text style={current ? styles.boldText : styles.greyBoldText}>
-                    House Assigned
+                    Assigned to
                 </Text>
                 <Text style={styles.text}>
                     Area assigned on { }<Text style={styles.boldText}>
@@ -30,19 +51,22 @@ export function AssigneeCard({
                 </Text>
             </View>
             <View style={styles.personDetails}>
-                <View >
-                    <Image
-                        source={{ uri: 'https://media.istockphoto.com/id/1388648617/photo/confident-caucasian-young-man-in-casual-denim-clothes-with-arms-crossed-looking-at-camera.jpg?s=612x612&w=0&k=20&c=YxctPklAOJMmy6Tolyvn45rJL3puk5RlKt39FO46ZeA=' }}
-                        style={[styles.image, { borderColor: assignee?.color }]}
-                    />
-                </View>
-                <View>
-                    <Text style={styles.name}>
-                        {assignee?.name} {assignee?.lastname}
+                <UserAvatar
+                    firstName={assignee?.name}
+                    lastName={assignee?.lastname}
+                    imageUrl={assignee?.avatarUrl}
+                    color={assignee?.color ?? '#32A0FF'}
+                    size={32}
+                />
+                <View style={styles.textColumn}>
+                    <Text style={styles.name} numberOfLines={1}>
+                        {fullName}
                     </Text>
-                    <Text style={styles.description}>
-                        {assignee?.description}
-                    </Text>
+                    {subtitle ? (
+                        <Text style={styles.description} numberOfLines={1}>
+                            {subtitle}
+                        </Text>
+                    ) : null}
                 </View>
             </View>
         </View>
@@ -58,47 +82,44 @@ const styles = StyleSheet.create({
     columnContainer: {
         flexDirection: 'column',
         justifyContent: 'center',
-        alignItems: 'flex-start'
+        alignItems: 'flex-start',
+        flexShrink: 1,
+        paddingRight: 8,
     },
     text: {
         fontSize: 12,
-        fontWeight: 300
+        fontWeight: 300,
     },
     boldText: {
         fontSize: 12,
         color: 'black',
-        fontWeight: '600'
+        fontWeight: '600',
     },
     greyBoldText: {
         fontSize: 12,
         color: '#1F1F1F',
-        fontWeight: '600'
-    },
-    greyText: {
-        color: '#1F1F1F'
+        fontWeight: '600',
     },
     name: {
         color: 'black',
         fontSize: 12,
-        marginBottom: 4,
-        fontWeight: 600
+        marginBottom: 2,
+        fontWeight: 600,
     },
     description: {
-        color: 'black',
-        fontSize: 8,
-        fontWeight: 400
+        color: '#3F3F46',
+        fontSize: 10,
+        fontWeight: 400,
     },
     personDetails: {
         flexDirection: 'row',
         justifyContent: 'flex-start',
         alignItems: 'center',
+        flexShrink: 1,
+        maxWidth: '55%',
     },
-    image: {
-        height: 32,
-        width: 32,
-        borderRadius: 16,
-        marginRight: 6,
-        borderWidth: 2
-    }
-    ,
+    textColumn: {
+        marginLeft: 6,
+        flexShrink: 1,
+    },
 });

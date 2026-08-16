@@ -13,6 +13,7 @@ interface InputProps {
     isEmail?: boolean;
     isPassword?: boolean;
     isSignInput?: boolean;
+    iconColor?: string;
     onFocus?: () => void;
     onBlur?: () => void;
 }
@@ -29,6 +30,7 @@ export function InputField({
     onFocus,
     onBlur,
     isSignInput = false,
+    iconColor = '#6E6A62',
     placeHolderColor = '#D9D9D9',
 }: InputProps) {
     const [isValid, setIsValid] = useState(true);
@@ -83,7 +85,9 @@ export function InputField({
                     multiline={multiline}
                     onChangeText={handleChange}
                     onBlur={handleBlur}
-                    autoCapitalize={isEmail ? 'none' : 'sentences'}
+                    autoCapitalize={isEmail || isPassword ? 'none' : 'sentences'}
+                    autoCorrect={!isEmail && !isPassword}
+                    textContentType={isEmail ? 'username' : isPassword ? 'password' : 'none'}
                     onFocus={onFocus}
                     secureTextEntry={isPassword && !showPassword}
                 />
@@ -92,7 +96,7 @@ export function InputField({
                         <Ionicons
                             name={showPassword ? 'eye-off' : 'eye'}
                             size={24}
-                            color="#6E6A62"
+                            color={iconColor}
                         />
                     </TouchableOpacity>
                 )}
