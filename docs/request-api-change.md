@@ -9,7 +9,7 @@ Testers do **not** get the Nest repo. GitHub cannot hide folders: anyone who can
 3. Open **API change** on this repo ([new issue](https://github.com/Jcuevas509/Radiabase_mobile/issues/new?template=api-change.yml)).
 4. Keep app work on a **feature branch** of this repo. Do not invent Nest files.
 
-The issue is labeled `needs-api`. That is the handoff.
+The issue is labeled `needs-api`. A GitHub Action then calls the Cursor automation (GitHub webhooks cannot send Cursor’s Bearer token, so they will 401).
 
 ## What happens next
 

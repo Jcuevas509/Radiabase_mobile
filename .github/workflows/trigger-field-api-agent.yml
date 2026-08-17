@@ -1,0 +1,58 @@
+name: Trigger field API agent
+
+on:
+  issues:
+    types: [opened, labeled]
+
+jobs:
+  trigger-cursor:
+    if: >
+      github.event.issue.state == 'open' &&
+      (
+        github.event.label.name == 'needs-api' ||
+        (github.event.action == 'opened' && contains(join(github.event.issue.labels.*.name, ','), 'needs-api'))
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      issues: read
+    steps:
+      - name: Call Cursor automation webhook
+        env:
+          WEBHOOK_URL: ${{ secrets.CURSOR_AUTOMATION_WEBHOOK_URL }}
+          AUTH_HEADER: ${{ secrets.CURSOR_AUTOMATION_AUTH_HEADER }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_USER: ${{ github.event.issue.user.login }}
+        run: |
+          set -euo pipefail
+          if [ -z "${WEBHOOK_URL:-}" ] || [ -z "${AUTH_HEADER:-}" ]; then
+            echo "Set repository secrets CURSOR_AUTOMATION_WEBHOOK_URL and CURSOR_AUTOMATION_AUTH_HEADER."
+            exit 1
+          fi
+          AUTH_VALUE="$AUTH_HEADER"
+          case "$AUTH_VALUE" in
+            Bearer\ *) ;;
+            *) AUTH_VALUE="Bearer $AUTH_VALUE" ;;
+          esac
+          jq -n \
+            --arg number "$ISSUE_NUMBER" \
+            --arg title "$ISSUE_TITLE" \
+            --arg body "$ISSUE_BODY" \
+            --arg url "$ISSUE_URL" \
+            --arg user "$ISSUE_USER" \
+            --arg repo "${{ github.repository }}" \
+            '{
+              source: "radiabase-mobile-needs-api",
+              repo: $repo,
+              issue_number: ($number | tonumber),
+              issue_title: $title,
+              issue_body: $body,
+              issue_url: $url,
+              issue_user: $user
+            }' > payload.json
+          curl -fsS -X POST "$WEBHOOK_URL" \
+            -H "Authorization: $AUTH_VALUE" \
+            -H "Content-Type: application/json" \
+            --data-binary @payload.json
