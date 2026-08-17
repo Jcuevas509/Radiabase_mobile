@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Field API routes (what already exists)
+    url: https://github.com/Jcuevas509/Radiabase_mobile/blob/main/docs/backend-routes.md
+    about: Read this before requesting a new route or filter.

@@ -20,6 +20,7 @@ Testers do **not** need `sunnected_jose` or a local database. Start here:
 - [docs/starter-guide.md](docs/starter-guide.md) — run the app and walk the field flow
 - [docs/backend-routes.md](docs/backend-routes.md) — API routes the app uses
 - [docs/plans/field-map-roofs.md](docs/plans/field-map-roofs.md) — product plan
+- [docs/request-api-change.md](docs/request-api-change.md) — request a route/filter (issue form, label `needs-api`)
 
 They need:
 

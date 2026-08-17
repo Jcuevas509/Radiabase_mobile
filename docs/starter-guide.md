@@ -9,6 +9,7 @@ This is the Expo field app. Testers do **not** need the NestJS repo or a local d
 | [starter-guide.md](./starter-guide.md) | Run the app and walk the field flow |
 | [backend-routes.md](./backend-routes.md) | Every API route this app uses |
 | [plans/field-map-roofs.md](./plans/field-map-roofs.md) | Product plan: satellite → turf → roofs → tap → lead |
+| [request-api-change.md](./request-api-change.md) | Ask for a new route or filter without the Nest repo |
 
 ## What you need
 
