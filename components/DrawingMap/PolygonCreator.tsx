@@ -23,6 +23,7 @@ import { AssignAreaModal } from './AssignAreaModal';
 import { ManageAreaModal } from './ManageAreaModal';
 import { QuickHouseOverviewModal } from './QuickHouseOverviewModal';
 import { DetailedHouseOverviewModal } from './DetailedHouseOverviewModal';
+import { SubmitLeadFromHouseModal } from './SubmitLeadFromHouseModal';
 import { CustomAlert } from 'components/Alert/Alert';
 import { useSession } from 'context/AuthenticationContext';
 import { assignMapAreaRep, createMapArea, createMapHouseFromBuilding, createMapHouseStatus, deleteMapArea, fetchMapAreas, fetchMapHouseDetail, fetchMapHouses, MapBuildingResponse, updateMapHouseNotes } from 'services/area-api';
@@ -32,7 +33,7 @@ import { convertMapHousesToBuildings } from 'utils/convert-map-houses-to-buildin
 import { convertMapHouseDetailToHouse } from 'utils/convert-map-house-detail-to-house';
 import { pickFootprintColors } from 'utils/pick-footprint-colors';
 import { getApiErrorMessage } from 'utils/get-api-error-message';
-import { createFieldLead, updateFieldLeadInfo } from 'services/leads-api';
+import { updateFieldLeadInfo } from 'services/leads-api';
 import { convertCoordinatesToGeoJsonPolygon } from 'utils/convert-coordinates-to-geojson';
 import { convertMapAreasToPolygons } from 'utils/convert-map-areas-to-polygons';
 import { applyMapHouseDetailToBuilding } from 'utils/apply-map-house-detail-to-building';
@@ -88,6 +89,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const [isReassignment, setIsReassignment] = useState(false)
     const [openQuickStatusModal, setOpenQuickStatusModal] = useState<boolean>(false)
     const [openDetailedHouseModal, setOpenDetailedHouseModal] = useState<boolean>(false)
+    const [openSubmitLeadModal, setOpenSubmitLeadModal] = useState<boolean>(false)
     const [alertVisible, setAlertVisible] = useState<boolean>(false)
     const [deleteType, setDeleteType] = useState<'house' | 'area' | null>(null)
     const [message, setMessage] = useState<string>('')
@@ -707,47 +709,55 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                         Alert.alert('Could not save homeowner', getApiErrorMessage(error, 'The contact was not saved.'));
                     }
                 }}
-                onSendCard={async (updatedHouse) => {
+                onOpenSubmitLead={(updatedHouse) => {
                     if (!session?.user) {
-                        Alert.alert('Not signed in', 'Log in again, then submit the lead.');
+                        Alert.alert('Not signed in', 'Log in again, then submit this lead.');
+                        return;
+                    }
+                    setSelectedBuilding(updatedHouse);
+                    setOpenDetailedHouseModal(false);
+                    setOpenSubmitLeadModal(true);
+                }}
+                onUpdateLead={async (updatedHouse) => {
+                    const existingLeadId = updatedHouse.additionalDetails?.leadId;
+                    if (!existingLeadId) {
                         return;
                     }
                     try {
-                        const leadId = updatedHouse.additionalDetails?.leadId;
-                        if (leadId) {
-                            await updateFieldLeadInfo({
-                                leadId: Number(leadId),
-                                firstName: updatedHouse.assignee?.name,
-                                lastName: updatedHouse.assignee?.lastname,
-                                phone: updatedHouse.assignee?.phone,
-                                email: updatedHouse.assignee?.email,
-                            });
-                        } else {
-                            await createFieldLead({
-                                user: session.user,
-                                houseId: Number(updatedHouse.id),
-                                firstName: updatedHouse.assignee?.name ?? '',
-                                lastName: updatedHouse.assignee?.lastname ?? '',
-                                phone: updatedHouse.assignee?.phone,
-                                email: updatedHouse.assignee?.email,
-                                notes: updatedHouse.additionalDetails?.note,
-                                address: updatedHouse.address,
-                                city: updatedHouse.additionalDetails?.city,
-                                state: updatedHouse.additionalDetails?.state,
-                                zip: updatedHouse.additionalDetails?.zip,
-                                latitude: updatedHouse.latitude,
-                                longitude: updatedHouse.longitude,
-                                statusId: updatedHouse.statusId,
-                            });
-                        }
-                        setOpenDetailedHouseModal(false);
-                        setMessage(leadId ? 'Lead updated in Radiabase.' : 'Lead sent to Radiabase.');
+                        await updateFieldLeadInfo({
+                            leadId: Number(existingLeadId),
+                            firstName: updatedHouse.assignee?.name,
+                            lastName: updatedHouse.assignee?.lastname,
+                            phone: updatedHouse.assignee?.phone,
+                            email: updatedHouse.assignee?.email,
+                        });
+                        setSelectedBuilding(updatedHouse);
+                        setMessage('Lead updated in Radiabase.');
                         setAlertVisible(true);
                     } catch (error) {
-                        Alert.alert('Could not send lead', error instanceof Error ? error.message : 'Check the API and try again.');
+                        Alert.alert('Could not update lead', getApiErrorMessage(error, 'The contact was not saved.'));
                     }
                 }}
             />
+            {selectedBuilding && session?.user ? (
+                <SubmitLeadFromHouseModal
+                    visible={openSubmitLeadModal}
+                    house={selectedBuilding}
+                    user={session.user}
+                    onBack={() => {
+                        setOpenSubmitLeadModal(false);
+                        setOpenDetailedHouseModal(true);
+                    }}
+                    onSubmitted={async () => {
+                        const detail = await fetchMapHouseDetail(Number(selectedBuilding.id));
+                        setSelectedBuilding(applyMapHouseDetailToBuilding(selectedBuilding, detail));
+                        setOpenSubmitLeadModal(false);
+                        setOpenDetailedHouseModal(true);
+                        setMessage('Lead submitted to Radiabase.');
+                        setAlertVisible(true);
+                    }}
+                />
+            ) : null}
             {loading && (
                 <View style={styles.loaderContainer}>
                     <ActivityIndicator size="large" color="#32A0FF" />

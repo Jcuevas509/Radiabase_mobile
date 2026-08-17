@@ -15,7 +15,13 @@ When the user only wants app changes, stay in this folder. When they want both s
 
 ## Tester handover (no backend repo)
 
-Testers do **not** need `sunnected_jose` or a local database. They need:
+Testers do **not** need `sunnected_jose` or a local database. Start here:
+
+- [docs/starter-guide.md](docs/starter-guide.md) — run the app and walk the field flow
+- [docs/backend-routes.md](docs/backend-routes.md) — API routes the app uses
+- [docs/plans/field-map-roofs.md](docs/plans/field-map-roofs.md) — product plan
+
+They need:
 
 1. An Expo/EAS **preview or internal** build of this app (or Expo Go with env set).
 2. `EXPO_PUBLIC_API_URL` pointing at **staging**, not production. Example: `https://YOUR-STAGING-HOST/api`.

@@ -16,7 +16,8 @@ interface DetailedHouseOverviewModalProps {
     visible: boolean;
     onClose: () => void;
     selectedHouse: BuildingProps;
-    onSendCard: (value: BuildingProps) => void;
+    onOpenSubmitLead: (value: BuildingProps) => void;
+    onUpdateLead: (value: BuildingProps) => Promise<void> | void;
     onChangeHouseStatus: (status: LeadStatus) => void;
     onSaveNotes: (note: string) => void;
     onSaveHomeowner: (value: BuildingProps) => void;
@@ -26,7 +27,8 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
     visible,
     onClose,
     selectedHouse,
-    onSendCard,
+    onOpenSubmitLead,
+    onUpdateLead,
     onChangeHouseStatus,
     onSaveNotes,
     onSaveHomeowner,
@@ -47,7 +49,11 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
     const [isTooltipVisible, setIsTooltipVisible] = useState(false);
     const [isNoteFocused, setIsNoteFocused] = useState(false)
     const [isValidEmail, setIsValidEmail] = useState(true)
+    const [isConverting, setIsConverting] = useState(false)
     const currentStatus = leadStatuses.find(status => status?.statusId === selectedHouse?.statusId) || null;
+    const leadId = selectedHouse?.additionalDetails?.leadId as number | null | undefined;
+    const hasLead = Boolean(leadId);
+    const hasInvalidEmail = email.trim().length > 0 && !isValidEmail;
 
     const buildUpdatedHouse = (): BuildingProps => ({
         ...selectedHouse,
@@ -104,6 +110,21 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
 
     const persistHomeowner = () => {
         onSaveHomeowner(buildUpdatedHouse());
+    };
+
+    const handleLeadAction = async () => {
+        const updatedHouse = buildUpdatedHouse();
+        persistHomeowner();
+        if (!hasLead) {
+            onOpenSubmitLead(updatedHouse);
+            return;
+        }
+        setIsConverting(true);
+        try {
+            await onUpdateLead(updatedHouse);
+        } finally {
+            setIsConverting(false);
+        }
     };
 
     const persistAndClose = () => {
@@ -208,13 +229,12 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
             }
             buttons={
                 <Button
-                    text='Send Card'
+                    text={hasLead ? 'Update Lead' : 'Convert to Lead'}
                     buttonStyle={{ backgroundColor: 'black', width: '100%' }}
                     textStyle={{ color: 'white' }}
-                    onPress={() => {
-                        onSendCard(buildUpdatedHouse())
-                    }}
-                    isDisabled={!isValidEmail}
+                    onPress={handleLeadAction}
+                    isDisabled={hasLead && hasInvalidEmail}
+                    isLoading={isConverting}
                 />
             }
         >
@@ -248,6 +268,9 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                             <MaterialIcons name="solar-power" size={28} color="#32A0FF" />
                         </View>
                     </View>
+                    {hasLead ? (
+                        <Text style={styles.leadBadge}>Lead #{leadId}</Text>
+                    ) : null}
                     <View style={styles.mainInputContainer}>
                         <View style={{ width: '49%' }}>
                             <InputField
@@ -464,6 +487,18 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 400,
         color: '#1F1F1F',
+    },
+    leadBadge: {
+        alignSelf: 'flex-start',
+        backgroundColor: '#DCFCE7',
+        color: '#166534',
+        fontSize: 11,
+        fontWeight: '700',
+        overflow: 'hidden',
+        borderRadius: 12,
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        marginBottom: 12,
     },
     statusContainer: {
         justifyContent: 'center',

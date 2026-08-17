@@ -11,6 +11,8 @@ Welcome to the Radiabase Mobile App!
 5. [Key Dependencies](#key-dependencies)
 6. [Scripts](#scripts)
 
+Field testers: start at [docs/starter-guide.md](docs/starter-guide.md). API map: [docs/backend-routes.md](docs/backend-routes.md). Product plan: [docs/plans/field-map-roofs.md](docs/plans/field-map-roofs.md).
+
 ## Environment
 
 Before you begin, ensure you have the following installed:
