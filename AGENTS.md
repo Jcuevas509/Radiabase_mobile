@@ -24,7 +24,7 @@ Testers do **not** need `sunnected_jose` or a local database. Start here:
 They need:
 
 1. An Expo/EAS **preview or internal** build of this app (or Expo Go with env set).
-2. `EXPO_PUBLIC_API_URL` pointing at **staging**, not production. Example: `https://YOUR-STAGING-HOST/api`.
+2. `EXPO_PUBLIC_API_URL` pointing at **staging**, not production: `https://sunnected-jose-1.onrender.com/api`.
 3. A **staging login** (email + password). Local default password is only for local DB, not staging.
 
 Native apps send no CORS origin, so staging already accepts them. Do not share `.env.staging`, database URLs, or AWS keys. After pulling this branch they must **log out and log in again** so session includes sales org / office / vertical.

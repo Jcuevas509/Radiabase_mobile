@@ -9,7 +9,7 @@ Base URL is whatever `EXPO_PUBLIC_API_URL` is set to, and it **must include `/ap
 | Local API | `http://localhost:3010/api` |
 | Android emulator → your Mac | `http://10.0.2.2:3010/api` |
 | Phone on the same Wi‑Fi | `http://YOUR-LAN-IP:3010/api` |
-| Staging | `https://YOUR-STAGING-HOST/api` (paste the public host in [starter-guide.md](./starter-guide.md) when you have it) |
+| Staging | `https://sunnected-jose-1.onrender.com/api` |
 
 Every path below is relative to that base. `POST /auth/login` means `POST {EXPO_PUBLIC_API_URL}/auth/login`.
 
@@ -498,8 +498,8 @@ Deals, pay, Airtable, reporting, campaigns, compliance, onboarding, structures C
 
 Testers do not need `sunnected_jose`. Staging must already have:
 
-1. API deployed from branch `feat/expo-canvassing` (field-map routes live there, not necessarily on API `main`).
-2. `EXPO_PUBLIC_API_URL` pointing at that staging host + `/api`.
+1. API deployed from branch `feat/expo-canvassing` (field-map routes live there, not necessarily on API `main`). Host: `https://sunnected-jose-1.onrender.com`.
+2. `EXPO_PUBLIC_API_URL=https://sunnected-jose-1.onrender.com/api`.
 3. A sales-org login (not a system user).
 4. Migration `drizzle/0018_leads_house_id.sql` applied (`leads.house_id`). Without it, tapping a roof 500s when the API loads the house sheet, and Submit Lead cannot link the door.
 5. `REGRID_API_TOKEN` set on the **Nest service** (Render env), then a restart / redeploy. Setting it only in a local `.env` does nothing for testers.

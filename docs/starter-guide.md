@@ -26,10 +26,10 @@ Copy `.env.example` to `.env` in this repo.
 **Staging (testers)**
 
 ```bash
-EXPO_PUBLIC_API_URL=https://YOUR-STAGING-HOST/api
+EXPO_PUBLIC_API_URL=https://sunnected-jose-1.onrender.com/api
 ```
 
-Paste the public staging API URL here when you have it (the `https://…/api` host, nothing else). Until then the placeholder above is what testers set themselves.
+That host is the staging Nest API. The `/api` suffix is required.
 
 **Local API on this machine**
 
