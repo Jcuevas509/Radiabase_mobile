@@ -22,13 +22,14 @@ export function useMapHousesViewport(input: UseMapHousesViewportInput): {
   const [houses, setHouses] = useState<MapHouseResponse[]>([]);
   const requestIdRef = useRef(0);
   useEffect(() => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     if (!input.isEnabled || !input.region || !isStreetZoomRegion(input.region)) {
+      setHouses([]);
       return;
     }
     const visibleRegion = input.region;
     const timeoutId = setTimeout(() => {
-      const requestId = requestIdRef.current + 1;
-      requestIdRef.current = requestId;
       fetchMapHouses(input.areaIds, getRegionBbox(visibleRegion))
         .then((nextHouses) => {
           if (requestIdRef.current === requestId) {
@@ -38,6 +39,7 @@ export function useMapHousesViewport(input: UseMapHousesViewportInput): {
         .catch(() => undefined);
     }, FETCH_DEBOUNCE_MS);
     return () => {
+      requestIdRef.current += 1;
       clearTimeout(timeoutId);
     };
   }, [input.areaIds, input.isEnabled, input.region]);

@@ -1,6 +1,8 @@
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Marker } from 'react-native-maps';
-import { BuildingProps, LeadStatus, MarkerProps } from 'types/componentsTypes';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import Location01Icon from '@hugeicons/core-free-icons/Location01Icon';
+import { BuildingProps } from 'types/componentsTypes';
 import { leadStatuses } from 'constants/leadStatuses';
 import React, { useCallback, useMemo } from 'react';
 
@@ -32,8 +34,6 @@ export function CustomMarker({
         leadStatuses.find(s => s.statusId === marker.statusId),
         [marker.statusId]
     );
-
-    const StatusIcon = status?.icon;
 
     const markerStyle = useMemo(() => {
         if (type === 'polygon') return styles.polygonMarker;
@@ -83,15 +83,25 @@ export function CustomMarker({
                 {onLongPress ? (
                     <TouchableOpacity onLongPress={onLongPress} activeOpacity={0.7}>
                         <View style={markerStyle}>
-                            {type === 'building' && StatusIcon && (
-                                <StatusIcon color={status?.color || 'gray'} />
+                            {type === 'building' && (
+                                <HugeiconsIcon
+                                    icon={Location01Icon}
+                                    size={18}
+                                    color={status?.color || '#18181B'}
+                                    strokeWidth={2}
+                                />
                             )}
                         </View>
                     </TouchableOpacity>
                 ) : (
                     <View style={markerStyle}>
-                        {type === 'building' && StatusIcon && (
-                            <StatusIcon color={status?.color || 'gray'} />
+                        {type === 'building' && (
+                            <HugeiconsIcon
+                                icon={Location01Icon}
+                                size={18}
+                                color={status?.color || '#18181B'}
+                                strokeWidth={2}
+                            />
                         )}
                     </View>
                 )}

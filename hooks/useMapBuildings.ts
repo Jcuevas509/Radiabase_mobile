@@ -18,7 +18,10 @@ export function useMapBuildings(input: UseMapBuildingsInput): MapBuildingRespons
   const [buildings, setBuildings] = useState<MapBuildingResponse[]>([]);
   const requestIdRef = useRef(0);
   useEffect(() => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
     if (!input.isEnabled || !input.region) {
+      setBuildings([]);
       return;
     }
     if (!isStreetZoomRegion(input.region)) {
@@ -27,8 +30,6 @@ export function useMapBuildings(input: UseMapBuildingsInput): MapBuildingRespons
     }
     const visibleRegion = input.region;
     const timeoutId = setTimeout(() => {
-      const requestId = requestIdRef.current + 1;
-      requestIdRef.current = requestId;
       fetchMapBuildings(getRegionBbox(visibleRegion))
         .then((nextBuildings) => {
           if (requestIdRef.current === requestId) {
@@ -38,6 +39,7 @@ export function useMapBuildings(input: UseMapBuildingsInput): MapBuildingRespons
         .catch(() => undefined);
     }, FETCH_DEBOUNCE_MS);
     return () => {
+      requestIdRef.current += 1;
       clearTimeout(timeoutId);
     };
   }, [input.isEnabled, input.region]);

@@ -25,7 +25,6 @@ yarn-error.*
 
 #yarn cache
 .yarn/cache
-package-lock.json
 
 coverage
 

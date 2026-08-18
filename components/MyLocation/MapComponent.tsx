@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import * as Location from 'expo-location';
 import {
     StyleSheet,
@@ -9,7 +9,7 @@ import {
     LogBox,
     ActivityIndicator,
 } from 'react-native';
-import { debounce } from 'lodash';
+import { debounce, throttle } from 'lodash';
 
 import MapView, { Marker, Region } from 'react-native-maps';
 import { MyLocationSvg } from 'components/svg';
@@ -19,6 +19,7 @@ import { BuildingProps, CoordinateProps } from 'types/componentsTypes';
 import { useSession } from 'context/AuthenticationContext';
 import FloatingButtons from 'components/DrawingMap/FloatingButtons';
 import { fetchOverpassData } from 'services/overpassApi';
+import { MapCompass } from 'components/DrawingMap/MapCompass';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -38,8 +39,28 @@ const MapComponent = () => {
     const [isAtCurrentLocation, setIsAtCurrentLocation] = useState(true);
     const [mapType, setMapType] = useState<'satellite' | 'standard'>('satellite');
     const [loading, setLoading] = useState(false);
+    const [mapHeading, setMapHeading] = useState(0);
     const mapRef = useRef<MapView>(null);
     const [lastFetchedRegion, setLastFetchedRegion] = useState<Region | null>(null);
+    const requestIdRef = useRef(0);
+
+    const updateCompassHeading = useMemo(
+        () => throttle(async () => {
+            try {
+                const camera = await mapRef.current?.getCamera();
+                if (!camera || !Number.isFinite(camera.heading)) {
+                    return;
+                }
+                const normalizedHeading = ((camera.heading % 360) + 360) % 360;
+                setMapHeading((current) =>
+                    Math.abs(current - normalizedHeading) >= 0.5 ? normalizedHeading : current,
+                );
+            } catch {
+                // The native map can disappear while a throttled camera read is in flight.
+            }
+        }, 100, { leading: true, trailing: true }),
+        [],
+    );
 
     useEffect(() => {
         (async () => {
@@ -75,6 +96,8 @@ const MapComponent = () => {
 
     const fetchBuildingData = useCallback(async (newRegion: Region) => {
         if (!newRegion) return;
+        const requestId = requestIdRef.current + 1;
+        requestIdRef.current = requestId;
         try {
             setLoading(true);
             const visibleRegion = {
@@ -89,19 +112,34 @@ const MapComponent = () => {
             };
 
             const newMarkers = await fetchOverpassData(visibleRegion);
-            if (newMarkers && Array.isArray(newMarkers)) {
+            if (requestIdRef.current === requestId && newMarkers && Array.isArray(newMarkers)) {
                 setBuildingMarkers(newMarkers);
                 setLastFetchedRegion(newRegion);
             }
         } catch (error) {
-            console.error("Error fetching building data:", error);
-            setBuildingMarkers([]);
+            if (requestIdRef.current === requestId) {
+                console.error("Error fetching building data:", error);
+                setBuildingMarkers([]);
+            }
         } finally {
-            setLoading(false);
+            if (requestIdRef.current === requestId) {
+                setLoading(false);
+            }
         }
     }, []);
 
-    const debouncedFetchBuildingData = useCallback(debounce(fetchBuildingData, 500), [fetchBuildingData]);
+    const debouncedFetchBuildingData = useMemo(
+        () => debounce(fetchBuildingData, 500),
+        [fetchBuildingData],
+    );
+
+    useEffect(() => {
+        return () => {
+            requestIdRef.current += 1;
+            debouncedFetchBuildingData.cancel();
+            updateCompassHeading.cancel();
+        };
+    }, [debouncedFetchBuildingData, updateCompassHeading]);
 
     const handleRegionChangeComplete = useCallback((newRegion: Region) => {
         if (!newRegion || !region) return;
@@ -127,11 +165,20 @@ const MapComponent = () => {
         }
 
         if (newRegion.latitudeDelta <= ZOOM_THRESHOLD && isSignificantChange) {
-            fetchBuildingData(newRegion);
+            debouncedFetchBuildingData(newRegion);
         } else if (newRegion.latitudeDelta > ZOOM_THRESHOLD) {
+            requestIdRef.current += 1;
+            debouncedFetchBuildingData.cancel();
             setBuildingMarkers([]);
+            setLoading(false);
         }
-    }, [region, isAtCurrentLocation, fetchBuildingData, lastFetchedRegion]);
+        updateCompassHeading();
+    }, [region, isAtCurrentLocation, debouncedFetchBuildingData, lastFetchedRegion, updateCompassHeading]);
+
+    const resetMapToNorth = useCallback(() => {
+        mapRef.current?.animateCamera({ heading: 0 }, { duration: 250 });
+        setMapHeading(0);
+    }, []);
 
     const handleMyLocation = useCallback(async () => {
         try {
@@ -186,6 +233,10 @@ const MapComponent = () => {
                     ref={mapRef}
                     mapType={mapType}
                     initialRegion={region}
+                    rotateEnabled
+                    pitchEnabled={false}
+                    showsCompass={false}
+                    onRegionChange={updateCompassHeading}
                     onRegionChangeComplete={handleRegionChangeComplete}
                 >
                     {myLocation?.latitude && myLocation?.longitude && (
@@ -212,6 +263,7 @@ const MapComponent = () => {
                     ))}
                 </MapView>
             )}
+            {region ? <MapCompass heading={mapHeading} onResetNorth={resetMapToNorth} /> : null}
             {loading && (
                 <View style={styles.loaderContainer}>
                     <ActivityIndicator size="large" color="#32A0FF" />

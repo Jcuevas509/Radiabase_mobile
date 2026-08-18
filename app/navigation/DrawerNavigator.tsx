@@ -107,6 +107,8 @@ const DrawerNavigator = ({ menuItems }: DrawerNavigatorProps) => {
         >
             <Drawer.Screen name="index" options={{ drawerLabel: 'Field map' }} />
             <Drawer.Screen name="dashboard" options={{ drawerLabel: 'Home' }} />
+            <Drawer.Screen name="myLeads" options={{ drawerLabel: 'My Leads' }} />
+            <Drawer.Screen name="myDeals" options={{ drawerLabel: 'My Deals' }} />
             <Drawer.Screen name="myLocation" options={{ drawerLabel: 'My location' }} />
             <Drawer.Screen name="profile" options={{ drawerLabel: 'Profile' }} />
             <Drawer.Screen name="settings" options={{ drawerLabel: 'Settings' }} />

@@ -9,7 +9,7 @@ import {
     LogBox,
     ActivityIndicator,
 } from 'react-native';
-import { debounce } from 'lodash';
+import { debounce, throttle } from 'lodash';
 
 import MapView, { Marker, Polygon, Region } from 'react-native-maps';
 import { AddHouse, MyLocationSvg } from 'components/svg';
@@ -31,7 +31,6 @@ import { useMapBuildings } from 'hooks/useMapBuildings';
 import { useMapHousesViewport } from 'hooks/useMapHousesViewport';
 import { convertMapHousesToBuildings } from 'utils/convert-map-houses-to-buildings';
 import { convertMapHouseDetailToHouse } from 'utils/convert-map-house-detail-to-house';
-import { pickFootprintColors } from 'utils/pick-footprint-colors';
 import { getApiErrorMessage } from 'utils/get-api-error-message';
 import { updateFieldLeadInfo } from 'services/leads-api';
 import { convertCoordinatesToGeoJsonPolygon } from 'utils/convert-coordinates-to-geojson';
@@ -39,6 +38,8 @@ import { convertMapAreasToPolygons } from 'utils/convert-map-areas-to-polygons';
 import { applyMapHouseDetailToBuilding } from 'utils/apply-map-house-detail-to-building';
 import { getPolygonCentroid } from 'utils/get-polygon-centroid';
 import { mapLeadStatusIdToHouseStatus } from 'utils/map-house-status';
+import { isStreetZoomRegion } from 'utils/is-street-zoom-region';
+import { MapCompass } from './MapCompass';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -94,6 +95,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const [deleteType, setDeleteType] = useState<'house' | 'area' | null>(null)
     const [message, setMessage] = useState<string>('')
     const [mapType, setMapType] = useState<'satellite' | 'standard'>('satellite');
+    const [mapHeading, setMapHeading] = useState(0);
     const mapRef = useRef<MapView>(null);
     const mapBuildings = useMapBuildings({
         region: viewportRegion ?? region,
@@ -108,6 +110,30 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
 
 
     const isSavingRoofRef = useRef(false);
+
+    const updateCompassHeading = useMemo(
+        () => throttle(async () => {
+            try {
+                const camera = await mapRef.current?.getCamera();
+                if (!camera || !Number.isFinite(camera.heading)) {
+                    return;
+                }
+                const normalizedHeading = ((camera.heading % 360) + 360) % 360;
+                setMapHeading((current) =>
+                    Math.abs(current - normalizedHeading) >= 0.5 ? normalizedHeading : current,
+                );
+            } catch {
+                // The native map can disappear while a throttled camera read is in flight.
+            }
+        }, 100, { leading: true, trailing: true }),
+        [],
+    );
+
+    useEffect(() => {
+        return () => {
+            updateCompassHeading.cancel();
+        };
+    }, [updateCompassHeading]);
 
 
     // TODO
@@ -193,21 +219,37 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     };
 
     const handleRegionChangeComplete = (newRegion: Region) => {
+        if (
+            !Number.isFinite(newRegion.latitude) ||
+            !Number.isFinite(newRegion.longitude) ||
+            !Number.isFinite(newRegion.latitudeDelta) ||
+            !Number.isFinite(newRegion.longitudeDelta) ||
+            newRegion.latitudeDelta <= 0 ||
+            newRegion.longitudeDelta <= 0
+        ) {
+            return;
+        }
         setViewportRegion(newRegion);
-        if (isAtCurrentLocation) {
+        if (isAtCurrentLocation && region) {
             const currentLocation = {
                 latitude: newRegion.latitude,
                 longitude: newRegion.longitude,
             };
             const locationThreshold = 0.0001; // Adjust this value as needed
             if (
-                Math.abs(currentLocation.latitude - region!.latitude) > locationThreshold ||
-                Math.abs(currentLocation.longitude - region!.longitude) > locationThreshold
+                Math.abs(currentLocation.latitude - region.latitude) > locationThreshold ||
+                Math.abs(currentLocation.longitude - region.longitude) > locationThreshold
             ) {
                 setIsAtCurrentLocation(false);
             }
         }
+        updateCompassHeading();
     };
+
+    const resetMapToNorth = useCallback(() => {
+        mapRef.current?.animateCamera({ heading: 0 }, { duration: 250 });
+        setMapHeading(0);
+    }, []);
 
     const handleDeletePin = useCallback(() => {
         if (selectedBuilding) {
@@ -431,7 +473,9 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         });
 
     }, []);
-    const hasFootprints = mapBuildings.length > 0;
+    const visibleRegion = viewportRegion ?? region;
+    const isStreetZoom = Boolean(visibleRegion && isStreetZoomRegion(visibleRegion));
+    const hasFootprints = isStreetZoom && mapBuildings.length > 0;
     const memoizedPolygons = useMemo(() => {
         return polygons.map(polygon => (
             <Polygon
@@ -446,29 +490,21 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             />
         ));
     }, [activeDrawing, polygons]);
-    const memoizedFootprints = useMemo(() => {
-        const houseByExternalId = new Map(
-            viewportHouses
-                .filter((house) => house.externalId)
-                .map((house) => [house.externalId as string, house]),
-        );
-        return mapBuildings.map((building) => {
-            const colors = pickFootprintColors(houseByExternalId.get(building.id)?.currentStatus);
-            return (
-                <Polygon
-                    key={building.id}
-                    coordinates={building.coordinates}
-                    strokeColor={colors.strokeColor}
-                    fillColor={colors.fillColor}
-                    strokeWidth={1}
-                    tappable={!activeDrawing}
-                    zIndex={2}
-                    onPress={() => {
-                        handleFootprintPress(building).catch(() => undefined);
-                    }}
-                />
-            );
-        });
+    const memoizedBuildingHitAreas = useMemo(() => {
+        return mapBuildings.map((building) => (
+            <Polygon
+                key={building.id}
+                coordinates={building.coordinates}
+                strokeColor="transparent"
+                fillColor="rgba(0, 0, 0, 0.001)"
+                strokeWidth={0}
+                tappable={!activeDrawing}
+                zIndex={2}
+                onPress={() => {
+                    handleFootprintPress(building).catch(() => undefined);
+                }}
+            />
+        ));
     }, [activeDrawing, mapBuildings, viewportHouses]);
     const memoizedAssigneeLabels = useMemo(() => {
         return polygons.flatMap((polygon) => {
@@ -503,6 +539,9 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         });
     }, [activeDrawing, polygons]);
     const memoizedBuildingMarkers = useMemo(() => {
+        if (!isStreetZoom) {
+            return [];
+        }
         const markers = hasFootprints
             ? convertMapHousesToBuildings(viewportHouses)
             : polygons.flatMap((polygon) => polygon.buildingMarkers ?? []);
@@ -518,7 +557,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 />
             ) : null
         );
-    }, [hasFootprints, polygons, viewportHouses]);
+    }, [hasFootprints, isStreetZoom, polygons, viewportHouses]);
 
     const editingMarkers = useMemo(() => {
         if (!editing || editing.coordinates.length === 0) return null;
@@ -769,15 +808,17 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 ref={mapRef}
                 mapType={mapType}
                 initialRegion={region}
-                rotateEnabled={false}
+                rotateEnabled
                 pitchEnabled={false}
+                showsCompass={false}
                 zoomEnabled
                 scrollEnabled
                 moveOnMarkerPress={false}
                 onPress={(e) => activeDrawing && handleMapPress(e)}
+                onRegionChange={updateCompassHeading}
                 onRegionChangeComplete={handleRegionChangeComplete}
             >
-                {myLocation && (
+                {Number.isFinite(myLocation.latitude) && Number.isFinite(myLocation.longitude) && (
                     <Marker
                         key="my-location-marker"
                         coordinate={{ latitude: myLocation.latitude, longitude: myLocation.longitude }}
@@ -793,12 +834,13 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     </Marker>
                 )}
                 {memoizedPolygons}
-                {memoizedFootprints}
+                {memoizedBuildingHitAreas}
                 {memoizedAssigneeLabels}
                 {memoizedBuildingMarkers}
                 {memoizedEditingPolygon}
                 {editingMarkers}
             </MapView>}
+            {region ? <MapCompass heading={mapHeading} onResetNorth={resetMapToNorth} /> : null}
             {hasFootprints && (
                 <Text style={styles.buildingAttribution} pointerEvents="none">
                     Buildings © Overture Maps / OSM contributors
