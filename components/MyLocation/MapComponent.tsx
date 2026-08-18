@@ -20,13 +20,12 @@ import { useSession } from 'context/AuthenticationContext';
 import FloatingButtons from 'components/DrawingMap/FloatingButtons';
 import { fetchOverpassData } from 'services/overpassApi';
 import { MapCompass } from 'components/DrawingMap/MapCompass';
+import { isStreetZoomRegion } from 'utils/is-street-zoom-region';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.03;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
-const ZOOM_THRESHOLD = 0.01;
-
 LogBox.ignoreAllLogs(true);
 
 const MapComponent = () => {
@@ -149,6 +148,7 @@ const MapComponent = () => {
             Math.abs(newRegion.latitude - lastFetchedRegion.latitude) > 0.0001 ||
             Math.abs(newRegion.longitude - lastFetchedRegion.longitude) > 0.0001 ||
             Math.abs(newRegion.latitudeDelta - lastFetchedRegion.latitudeDelta) > 0.0001;
+        const isStreetZoom = isStreetZoomRegion(newRegion);
 
         if (isAtCurrentLocation) {
             const currentLocation = {
@@ -164,12 +164,13 @@ const MapComponent = () => {
             }
         }
 
-        if (newRegion.latitudeDelta <= ZOOM_THRESHOLD && isSignificantChange) {
+        if (isStreetZoom && isSignificantChange) {
             debouncedFetchBuildingData(newRegion);
-        } else if (newRegion.latitudeDelta > ZOOM_THRESHOLD) {
+        } else if (!isStreetZoom) {
             requestIdRef.current += 1;
             debouncedFetchBuildingData.cancel();
             setBuildingMarkers([]);
+            setLastFetchedRegion(null);
             setLoading(false);
         }
         updateCompassHeading();

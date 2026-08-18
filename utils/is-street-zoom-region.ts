@@ -2,7 +2,7 @@ type MapRegion = {
   readonly latitudeDelta: number;
 };
 
-const MAX_LATITUDE_DELTA = 0.012;
+const MAX_LATITUDE_DELTA = 0.006;
 
 /**
  * Returns true when the map is zoomed in enough to overlay building footprints.

@@ -37,16 +37,8 @@ export function CustomMarker({
 
     const markerStyle = useMemo(() => {
         if (type === 'polygon') return styles.polygonMarker;
-
-        if (type === 'building' && marker.statusId !== undefined) {
-            return {
-                ...styles.buildingMarker,
-                borderColor: status ? status.color : 'black',
-            };
-        }
-
         return styles.buildingMarker;
-    }, [type, marker.statusId, status]);
+    }, [type]);
 
     // Koristimo useCallback za handlere
     const handleDragEnd = useCallback((e: any) => {
@@ -114,10 +106,6 @@ const styles = StyleSheet.create({
     buildingMarker: {
         width: 30,
         height: 30,
-        borderRadius: 15,
-        borderWidth: 2,
-        borderColor: "black",
-        backgroundColor: 'white',
         justifyContent: 'center',
         alignItems: 'center'
     },
