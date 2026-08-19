@@ -171,7 +171,9 @@ export function FieldMapScreen() {
       const lag = now - lastTick - 1000;
       const wasBackgrounded = lastBackgroundedAt >= lastTick;
       lastTick = now;
-      if (lag > 300 && !wasBackgrounded) {
+      // Lags beyond 30s are app suspensions the AppState listener missed
+      // (iOS can suspend before the event reaches JS), not real stalls.
+      if (lag > 300 && lag < 30_000 && !wasBackgrounded) {
         console.warn(`[Perf] JS thread stalled ~${lag}ms`);
       }
     }, 1000);
