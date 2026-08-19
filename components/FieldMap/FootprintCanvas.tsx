@@ -13,7 +13,7 @@ import {
 
 const MAX_RENDERED_FOOTPRINTS = 400;
 const MAX_RING_POINTS = 24;
-const OFFSCREEN_MARGIN_PX = 120;
+const OFFSCREEN_MARGIN_PX = 60;
 const CALIBRATION_SAMPLES = 6;
 
 type FootprintCanvasProps = {

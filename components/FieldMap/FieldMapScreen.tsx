@@ -52,6 +52,7 @@ import {
 import { updateFieldLeadInfo } from 'services/leads-api';
 import { BuildingProps, CoordinateProps, LeadStatus } from 'types/componentsTypes';
 import { applyMapHouseDetailToBuilding } from 'utils/apply-map-house-detail-to-building';
+import { buildAreaName } from 'utils/build-area-name';
 import { getPolygonAreaSquareMeters } from 'utils/get-polygon-area-square-meters';
 import { prepareDrawnStrokeVertices } from 'utils/prepare-drawn-stroke';
 import {
@@ -67,6 +68,7 @@ import { getApiErrorMessage } from 'utils/get-api-error-message';
 import { getPolygonCentroid } from 'utils/get-polygon-centroid';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
+import { isCloseZoomRegion } from 'utils/is-close-zoom-region';
 import { isMapRouteReady } from 'utils/is-map-route-ready';
 import { isStreetZoomRegion } from 'utils/is-street-zoom-region';
 import { mapLeadStatusIdToHouseStatus } from 'utils/map-house-status';
@@ -504,7 +506,23 @@ export function FieldMapScreen() {
     const previousAreaIds = new Set(polygons.map((polygon) => polygon.id));
     try {
       setLoading(true);
+      // Name the turf after the city under its centroid; the Home cards show
+      // it, the map circle keeps its assignee label. Never block the save on
+      // a failed geocode.
+      let areaName: string | undefined;
+      const centroid = getPolygonCentroid(draftCoordinates);
+      if (centroid) {
+        try {
+          const [geocoded] = await Location.reverseGeocodeAsync(centroid);
+          areaName = buildAreaName({
+            city: geocoded?.city ?? geocoded?.district ?? geocoded?.subregion,
+          });
+        } catch {
+          areaName = undefined;
+        }
+      }
       await createMapArea({
+        name: areaName,
         officeId: session.user.officeId,
         salesOrgId: session.user.salesOrgId,
         boundary: convertCoordinatesToGeoJsonPolygon(draftCoordinates),
@@ -589,6 +607,7 @@ export function FieldMapScreen() {
 
   const visibleRegion = viewportRegion ?? region;
   const isStreetZoom = Boolean(visibleRegion && isStreetZoomRegion(visibleRegion));
+  const isCloseZoom = Boolean(visibleRegion && isCloseZoomRegion(visibleRegion));
   const hasFootprints = isStreetZoom && mapBuildings.length > 0;
   const hasMapDataError = isStreetZoom && (hasBuildingDataError || hasHouseDataError);
   const selectedHousePendingStatusId = pendingKnock && pendingKnock.houseId === selectedBuilding?.id
@@ -966,7 +985,7 @@ export function FieldMapScreen() {
           />
           {isStreetZoom && isIdle ? (
             <HouseLayer
-              footprints={savedFootprints}
+              footprints={isCloseZoom ? savedFootprints : []}
               houses={nearbyBuildingMarkers}
               onHousePress={handleHousePinPress}
             />
@@ -976,7 +995,7 @@ export function FieldMapScreen() {
           ) : null}
         </MapView>
       )}
-      {isStreetZoom && isIdle ? (
+      {isCloseZoom && isIdle ? (
         <FootprintCanvas
           footprints={unsavedFootprints}
           mapRef={mapRef}

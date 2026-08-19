@@ -32,14 +32,6 @@ function getAreaTileLabel(area: MapAreaResponse): string {
     return 'Unassigned';
 }
 
-function getHouseCountLabel(area: MapAreaResponse): string {
-    const count = area.houseCount ?? 0;
-    if (count === 1) {
-        return '1 house';
-    }
-    return `${count} houses`;
-}
-
 const DashboardScreen = () => {
     const navigation = useNavigation();
     const { session } = useSession();
@@ -201,7 +193,6 @@ const DashboardScreen = () => {
                                         <Text style={styles.areaName} numberOfLines={1}>
                                             {getAreaTileLabel(area)}
                                         </Text>
-                                        <Text style={styles.areaMeta}>{getHouseCountLabel(area)}</Text>
                                     </TouchableOpacity>
                                 );
                             })}
