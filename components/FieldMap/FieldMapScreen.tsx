@@ -29,7 +29,7 @@ import { AreaLayer, type AreaDisplay } from 'components/FieldMap/AreaLayer';
 import { DraftAreaPolygon, DraftVertexHandles } from 'components/FieldMap/DraftAreaEditor';
 import { DrawingCanvas, type CanvasSize } from 'components/FieldMap/DrawingCanvas';
 import { FootprintCanvas } from 'components/FieldMap/FootprintCanvas';
-import { HouseLayer } from 'components/FieldMap/HouseLayer';
+import { HouseDecalOverlay } from 'components/FieldMap/HouseDecalOverlay';
 import {
   MapCompassController,
   type CompassControllerHandle,
@@ -705,24 +705,6 @@ export function FieldMapScreen() {
     [visibleBuildingMarkers, visibleRegion],
   );
 
-  const savedExternalIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const house of viewportHouses) {
-      if (typeof house.externalId === 'string' && house.externalId.length > 0) {
-        ids.add(house.externalId);
-      }
-    }
-    return ids;
-  }, [viewportHouses]);
-  const savedFootprints = useMemo(
-    () => mapBuildings.filter((building) => savedExternalIds.has(building.id)),
-    [mapBuildings, savedExternalIds],
-  );
-  const unsavedFootprints = useMemo(
-    () => mapBuildings.filter((building) => !savedExternalIds.has(building.id)),
-    [mapBuildings, savedExternalIds],
-  );
-
   const isRouteReady = isMapRouteReady({
     housesReady: isHouseViewportReady,
     buildingsReady: isBuildingViewportReady,
@@ -1025,14 +1007,6 @@ export function FieldMapScreen() {
             </View>
           </Marker>
           <AreaLayer areas={areaDisplays} />
-          {isStreetZoom && isIdle ? (
-            <HouseLayer
-              footprints={isCloseZoom ? savedFootprints : []}
-              houses={nearbyBuildingMarkers}
-              unworkedDotsEnabled={isCloseZoom}
-              onHousePress={handleHousePinPress}
-            />
-          ) : null}
           {mode === 'reviewingDraft' && draftCoordinates ? (
             <DraftAreaPolygon coordinates={draftCoordinates} />
           ) : null}
@@ -1040,9 +1014,18 @@ export function FieldMapScreen() {
       )}
       {isCloseZoom && isIdle ? (
         <FootprintCanvas
-          footprints={unsavedFootprints}
+          footprints={mapBuildings}
+          houses={nearbyBuildingMarkers}
           fit={projectionFit}
           hidden={isMapMoving}
+        />
+      ) : null}
+      {isStreetZoom && isIdle ? (
+        <HouseDecalOverlay
+          houses={nearbyBuildingMarkers}
+          fit={projectionFit}
+          hidden={isMapMoving}
+          onHousePress={handleHousePinPress}
         />
       ) : null}
       <AreaLabelOverlay
