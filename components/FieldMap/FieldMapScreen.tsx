@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  AppState,
   Dimensions,
   Linking,
   Platform,
@@ -152,11 +153,18 @@ export function FieldMapScreen() {
       return;
     }
     let lastTick = Date.now();
+    let lastBackgroundedAt = 0;
+    const appStateProbe = AppState.addEventListener('change', (nextState) => {
+      if (nextState !== 'active') {
+        lastBackgroundedAt = Date.now();
+      }
+    });
     const lagProbe = setInterval(() => {
       const now = Date.now();
       const lag = now - lastTick - 1000;
+      const wasBackgrounded = lastBackgroundedAt >= lastTick;
       lastTick = now;
-      if (lag > 300) {
+      if (lag > 300 && !wasBackgrounded) {
         console.warn(`[Perf] JS thread stalled ~${lag}ms`);
       }
     }, 1000);
@@ -167,6 +175,7 @@ export function FieldMapScreen() {
       renderCountRef.current = 0;
     }, 2000);
     return () => {
+      appStateProbe.remove();
       clearInterval(lagProbe);
       clearInterval(renderProbe);
     };
