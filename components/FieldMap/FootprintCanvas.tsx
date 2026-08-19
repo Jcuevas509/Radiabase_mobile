@@ -1,12 +1,8 @@
-import type { RefObject } from 'react';
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { StyleSheet, useWindowDimensions, View } from 'react-native';
-import type MapView from 'react-native-maps';
-import type { Region } from 'react-native-maps';
 import Svg, { Path } from 'react-native-svg';
 import type { MapBuildingResponse } from 'services/area-api';
 import {
-  fitScreenProjection,
   projectCoordinateWithFit,
   type ScreenProjectionFit,
 } from 'utils/fit-screen-projection';
@@ -14,12 +10,10 @@ import {
 const MAX_RENDERED_FOOTPRINTS = 400;
 const MAX_RING_POINTS = 16;
 const OFFSCREEN_MARGIN_PX = 60;
-const CALIBRATION_SAMPLES = 6;
 
 type FootprintCanvasProps = {
   readonly footprints: MapBuildingResponse[];
-  readonly mapRef: RefObject<MapView | null>;
-  readonly region: Region | null;
+  readonly fit: ScreenProjectionFit | null;
   readonly hidden: boolean;
 };
 
@@ -27,56 +21,26 @@ type FootprintCanvasProps = {
  * Untouched roof outlines drawn as ONE screen-space SVG path — churning
  * hundreds of native children (map polygons or even individual SVG shapes)
  * freezes or crashes iOS Fabric, and since every outline shares one style
- * they can share one path. A handful of roofs are projected through the
- * map's own pointForCoordinate to calibrate a projection fit (only when the
- * camera settles, not when data refreshes), then every ring is placed with
- * local math. Hidden while the map moves; saved houses stay native so their
- * boxes track the camera perfectly.
+ * they can share one path. Rings are placed with the shared projection fit;
+ * hidden while the map moves. Saved houses stay native so their boxes track
+ * the camera perfectly.
  */
 export const FootprintCanvas = memo(function FootprintCanvas({
   footprints,
-  mapRef,
-  region,
+  fit,
   hidden,
 }: FootprintCanvasProps) {
   const { width, height } = useWindowDimensions();
-  const [fit, setFit] = useState<ScreenProjectionFit | null>(null);
-  const requestIdRef = useRef(0);
-  const footprintsRef = useRef(footprints);
-  footprintsRef.current = footprints;
-  const hasFootprints = footprints.length > 0;
 
   useEffect(() => {
-    const map = mapRef.current;
-    if (hidden || !map || !region || !hasFootprints) {
-      return;
+    if (__DEV__) {
+      console.log('[Touch] FootprintCanvas mounted');
+      return () => {
+        console.log('[Touch] FootprintCanvas unmounted');
+      };
     }
-    const requestId = requestIdRef.current + 1;
-    requestIdRef.current = requestId;
-    const sampleSource = footprintsRef.current;
-    const stride = Math.max(1, Math.floor(sampleSource.length / CALIBRATION_SAMPLES));
-    const samples = sampleSource
-      .filter((_, index) => index % stride === 0)
-      .slice(0, CALIBRATION_SAMPLES);
-    Promise.all(samples.map(async (building) => {
-      try {
-        const coordinate = { latitude: building.roofLat, longitude: building.roofLng };
-        const point = await map.pointForCoordinate(coordinate);
-        return Number.isFinite(point.x) && Number.isFinite(point.y)
-          ? { coordinate, point }
-          : null;
-      } catch {
-        return null;
-      }
-    })).then((pairs) => {
-      if (requestIdRef.current !== requestId) {
-        return;
-      }
-      setFit(fitScreenProjection(pairs.filter(
-        (pair): pair is NonNullable<typeof pair> => pair !== null,
-      )));
-    });
-  }, [hasFootprints, hidden, mapRef, region]);
+    return undefined;
+  }, []);
 
   const pathData = useMemo(() => {
     if (!fit || footprints.length === 0) {
@@ -114,16 +78,6 @@ export const FootprintCanvas = memo(function FootprintCanvas({
     }
     return segments.join('');
   }, [fit, footprints, height, width]);
-
-  useEffect(() => {
-    if (__DEV__) {
-      console.log('[Touch] FootprintCanvas mounted');
-      return () => {
-        console.log('[Touch] FootprintCanvas unmounted');
-      };
-    }
-    return undefined;
-  }, []);
 
   if (hidden || !pathData) {
     return null;

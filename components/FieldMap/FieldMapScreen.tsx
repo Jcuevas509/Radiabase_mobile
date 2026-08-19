@@ -24,6 +24,7 @@ import FloatingButtons from 'components/DrawingMap/FloatingButtons';
 import { ManageAreaModal } from 'components/DrawingMap/ManageAreaModal';
 import { QuickHouseOverviewModal } from 'components/DrawingMap/QuickHouseOverviewModal';
 import { SubmitLeadFromHouseModal } from 'components/DrawingMap/SubmitLeadFromHouseModal';
+import { AreaLabelOverlay } from 'components/FieldMap/AreaLabelOverlay';
 import { AreaLayer, type AreaDisplay } from 'components/FieldMap/AreaLayer';
 import { DraftAreaPolygon, DraftVertexHandles } from 'components/FieldMap/DraftAreaEditor';
 import { DrawingCanvas, type CanvasSize } from 'components/FieldMap/DrawingCanvas';
@@ -39,6 +40,7 @@ import { useAppIsActive } from 'hooks/useAppIsActive';
 import { useLiveForegroundLocation } from 'hooks/useLiveForegroundLocation';
 import { useMapBuildings } from 'hooks/useMapBuildings';
 import { useMapHousesViewport } from 'hooks/useMapHousesViewport';
+import { useScreenProjectionFit } from 'hooks/useScreenProjectionFit';
 import {
   assignMapAreaRep,
   createMapArea,
@@ -142,6 +144,11 @@ export function FieldMapScreen() {
 
   const isIdle = mode === 'idle';
   const compassControllerRef = useRef<CompassControllerHandle | null>(null);
+  const projectionFit = useScreenProjectionFit({
+    mapRef,
+    region: viewportRegion ?? region,
+    isEnabled: isScreenFocused && Boolean(region),
+  });
 
   // Dev-only freeze probes: a stalled JS thread logs its stall length, a
   // render storm logs its rate. Silence during a visible freeze means the
@@ -1017,17 +1024,7 @@ export function FieldMapScreen() {
               </Text>
             </View>
           </Marker>
-          <AreaLayer
-            areas={areaDisplays}
-            labelsEnabled={isIdle}
-            labelScale={areaLabelScale}
-            onAreaPress={(areaId) => {
-              const polygon = polygons.find((candidate) => candidate.id === areaId);
-              if (polygon) {
-                openManageArea(polygon);
-              }
-            }}
-          />
+          <AreaLayer areas={areaDisplays} />
           {isStreetZoom && isIdle ? (
             <HouseLayer
               footprints={isCloseZoom ? savedFootprints : []}
@@ -1043,11 +1040,22 @@ export function FieldMapScreen() {
       {isCloseZoom && isIdle ? (
         <FootprintCanvas
           footprints={unsavedFootprints}
-          mapRef={mapRef}
-          region={viewportRegion ?? region}
+          fit={projectionFit}
           hidden={isMapMoving}
         />
       ) : null}
+      <AreaLabelOverlay
+        areas={areaDisplays}
+        fit={projectionFit}
+        hidden={isMapMoving || !isIdle}
+        labelScale={areaLabelScale}
+        onAreaPress={(areaId) => {
+          const polygon = polygons.find((candidate) => candidate.id === areaId);
+          if (polygon) {
+            openManageArea(polygon);
+          }
+        }}
+      />
       {mode === 'reviewingDraft' && draftCoordinates ? (
         <DraftVertexHandles
           coordinates={draftCoordinates}
