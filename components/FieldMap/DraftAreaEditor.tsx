@@ -1,13 +1,17 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import type { GestureResponderEvent, LayoutChangeEvent } from 'react-native';
+import type MapView from 'react-native-maps';
 import { Polygon } from 'react-native-maps';
 import type { Region } from 'react-native-maps';
+import type { RefObject } from 'react';
 import type { CoordinateProps } from 'types/componentsTypes';
 import {
-  projectCoordinateToScreenPoint,
-  projectScreenPointToCoordinate,
-} from 'utils/project-screen-points-to-coordinates';
+  fitScreenProjection,
+  invertScreenPointWithFit,
+  type ScreenProjectionFit,
+} from 'utils/fit-screen-projection';
+import type { StrokePoint } from 'utils/simplify-stroke-points';
 
 type DraftAreaPolygonProps = {
   readonly coordinates: CoordinateProps[];
@@ -35,53 +39,87 @@ export function DraftAreaPolygon({ coordinates }: DraftAreaPolygonProps) {
 type DraftVertexHandlesProps = {
   readonly coordinates: CoordinateProps[];
   readonly region: Region | null;
+  readonly mapRef: RefObject<MapView | null>;
   readonly hidden: boolean;
   readonly onMoveVertex: (index: number, coordinate: CoordinateProps) => void;
 };
 
 /**
- * Screen-space vertex handles for the draft boundary. Native marker dragging
- * loses to the map pan gesture on iOS, so each dot is an ordinary view that
- * captures any touch that starts on it (44pt target) and converts finger
- * movement to coordinates with local Mercator math — dragging a dot reshapes
- * the polygon live, while touches anywhere else still pan and zoom the map.
+ * Screen-space vertex handles for the draft boundary. Dot positions come
+ * from the map's own `pointForCoordinate`, so they sit exactly on the drawn
+ * line; those samples calibrate a local projection fit, and drags invert the
+ * finger position through that fit — the dot and the polygon follow the
+ * finger exactly, with no native calls during the gesture. Touches that miss
+ * the dots pass through and pan the map normally.
  */
 export function DraftVertexHandles({
   coordinates,
   region,
+  mapRef,
   hidden,
   onMoveVertex,
 }: DraftVertexHandlesProps) {
-  const [layerSize, setLayerSize] = useState({ width: 0, height: 0 });
+  const [points, setPoints] = useState<Array<StrokePoint | null>>([]);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  const draggingRef = useRef(false);
+  const projectionRequestIdRef = useRef(0);
+  const fitRef = useRef<ScreenProjectionFit | null>(null);
   const layerOriginRef = useRef({ x: 0, y: 0 });
   const layerRef = useRef<View>(null);
 
-  const handleLayout = useCallback((event: LayoutChangeEvent) => {
-    const { width, height } = event.nativeEvent.layout;
-    setLayerSize({ width, height });
+  useEffect(() => {
+    const map = mapRef.current;
+    if (hidden || draggingRef.current || !map || coordinates.length < 3) {
+      return;
+    }
+    const requestId = projectionRequestIdRef.current + 1;
+    projectionRequestIdRef.current = requestId;
+    Promise.all(coordinates.map(async (coordinate) => {
+      try {
+        const point = await map.pointForCoordinate(coordinate);
+        return Number.isFinite(point.x) && Number.isFinite(point.y) ? point : null;
+      } catch {
+        return null;
+      }
+    })).then((projected) => {
+      if (projectionRequestIdRef.current !== requestId || draggingRef.current) {
+        return;
+      }
+      const pairs = coordinates.flatMap((coordinate, index) => {
+        const point = projected[index];
+        return point ? [{ coordinate, point }] : [];
+      });
+      fitRef.current = fitScreenProjection(pairs);
+      setPoints(projected);
+    });
+  }, [coordinates, hidden, mapRef, region]);
+
+  const handleLayout = useCallback((_event: LayoutChangeEvent) => {
     layerRef.current?.measureInWindow((x, y) => {
       layerOriginRef.current = { x, y };
     });
   }, []);
 
   const moveVertexToTouch = useCallback((index: number, event: GestureResponderEvent) => {
-    if (!region || layerSize.width <= 0 || layerSize.height <= 0) {
+    const fit = fitRef.current;
+    if (!fit) {
       return;
     }
     const point = {
       x: event.nativeEvent.pageX - layerOriginRef.current.x,
       y: event.nativeEvent.pageY - layerOriginRef.current.y,
     };
-    const coordinate = projectScreenPointToCoordinate(point, {
-      region,
-      width: layerSize.width,
-      height: layerSize.height,
-    });
-    if (coordinate) {
-      onMoveVertex(index, coordinate);
+    const coordinate = invertScreenPointWithFit(fit, point);
+    if (!coordinate) {
+      return;
     }
-  }, [layerSize.height, layerSize.width, onMoveVertex, region]);
+    setPoints((current) => {
+      const next = [...current];
+      next[index] = point;
+      return next;
+    });
+    onMoveVertex(index, coordinate);
+  }, [onMoveVertex]);
 
   if (hidden || !region || coordinates.length < 3) {
     return null;
@@ -94,13 +132,8 @@ export function DraftVertexHandles({
       style={styles.layer}
       onLayout={handleLayout}
     >
-      {layerSize.width > 0 && coordinates.map((coordinate, index) => {
-        const point = projectCoordinateToScreenPoint(coordinate, {
-          region,
-          width: layerSize.width,
-          height: layerSize.height,
-        });
-        if (!point) {
+      {points.map((point, index) => {
+        if (!point || index >= coordinates.length) {
           return null;
         }
         const isDragging = draggingIndex === index;
@@ -108,17 +141,24 @@ export function DraftVertexHandles({
           <View
             key={`draft-vertex-${index}`}
             accessibilityLabel={`Area corner ${index + 1}. Drag to adjust the boundary.`}
-            style={[styles.touchTarget, { left: point.x - 22, top: point.y - 22 }]}
+            style={[styles.touchTarget, { left: point.x - 26, top: point.y - 26 }]}
             onStartShouldSetResponder={() => true}
             onMoveShouldSetResponder={() => true}
             onResponderTerminationRequest={() => false}
-            onResponderGrant={() => setDraggingIndex(index)}
+            onResponderGrant={() => {
+              draggingRef.current = true;
+              setDraggingIndex(index);
+            }}
             onResponderMove={(event) => moveVertexToTouch(index, event)}
             onResponderRelease={(event) => {
               moveVertexToTouch(index, event);
+              draggingRef.current = false;
               setDraggingIndex(null);
             }}
-            onResponderTerminate={() => setDraggingIndex(null)}
+            onResponderTerminate={() => {
+              draggingRef.current = false;
+              setDraggingIndex(null);
+            }}
           >
             <View style={[styles.vertexHandle, isDragging && styles.vertexHandleActive]} />
           </View>
@@ -135,15 +175,15 @@ const styles = StyleSheet.create({
   },
   touchTarget: {
     position: 'absolute',
-    width: 44,
-    height: 44,
+    width: 52,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
   vertexHandle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: 'white',
     borderWidth: 3,
     borderColor: '#32A0FF',

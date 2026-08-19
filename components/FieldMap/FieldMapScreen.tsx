@@ -51,7 +51,8 @@ import {
 import { updateFieldLeadInfo } from 'services/leads-api';
 import { BuildingProps, CoordinateProps, LeadStatus } from 'types/componentsTypes';
 import { applyMapHouseDetailToBuilding } from 'utils/apply-map-house-detail-to-building';
-import { buildDrawnAreaPolygon } from 'utils/build-drawn-area-polygon';
+import { getPolygonAreaSquareMeters } from 'utils/get-polygon-area-square-meters';
+import { prepareDrawnStrokeVertices } from 'utils/prepare-drawn-stroke';
 import {
   buildWalkingDirectionsUrl,
   formatWalkingDistance,
@@ -441,23 +442,34 @@ export function FieldMapScreen() {
     setMode((current) => (current === 'idle' ? 'drawing' : 'idle'));
   }, []);
 
-  const handleStrokeComplete = useCallback((points: StrokePoint[], size: CanvasSize) => {
-    const strokeRegion = viewportRegion ?? region;
-    if (!strokeRegion) {
+  const handleStrokeComplete = useCallback(async (points: StrokePoint[], _size: CanvasSize) => {
+    const map = mapRef.current;
+    if (!map) {
       return;
     }
-    const polygon = buildDrawnAreaPolygon(points, {
-      region: strokeRegion,
-      width: size.width,
-      height: size.height,
-    });
-    if (!polygon) {
+    const vertices = prepareDrawnStrokeVertices(points);
+    if (vertices.length < 3) {
       Alert.alert('Keep painting', 'Paint a loop around at least a few homes, then lift your finger.');
       return;
     }
-    setDraftCoordinates(polygon);
-    setMode('reviewingDraft');
-  }, [region, viewportRegion]);
+    try {
+      // The map's own projection turns the stroke into coordinates, so the
+      // saved boundary lands exactly where it was painted.
+      const projected = await Promise.all(
+        vertices.map((vertex) => map.coordinateForPoint(vertex)),
+      );
+      const polygon = projected.filter((coordinate) =>
+        Number.isFinite(coordinate?.latitude) && Number.isFinite(coordinate?.longitude));
+      if (polygon.length < 3 || getPolygonAreaSquareMeters(polygon) < 120) {
+        Alert.alert('Keep painting', 'Paint a loop around at least a few homes, then lift your finger.');
+        return;
+      }
+      setDraftCoordinates(polygon);
+      setMode('reviewingDraft');
+    } catch {
+      Alert.alert('Could not read the map', 'Try painting the area again.');
+    }
+  }, []);
 
   const handleMoveDraftVertex = useCallback((index: number, coordinate: CoordinateProps) => {
     setDraftCoordinates((current) => {
@@ -512,6 +524,13 @@ export function FieldMapScreen() {
         setAlertVisible(true);
       }
     } catch (error) {
+      const status = (error as { response?: { status?: number } })?.response?.status;
+      const responseBody = (error as { response?: { data?: unknown } })?.response?.data;
+      console.warn(
+        '[FieldMap] create-area failed',
+        status ?? 'no-status',
+        JSON.stringify(responseBody ?? null),
+      );
       setMessage(getApiErrorMessage(error, 'Failed to create area. Please try again.'));
       setAlertVisible(true);
     } finally {
@@ -942,6 +961,7 @@ export function FieldMapScreen() {
         <DraftVertexHandles
           coordinates={draftCoordinates}
           region={viewportRegion ?? region}
+          mapRef={mapRef}
           hidden={isMapMoving}
           onMoveVertex={handleMoveDraftVertex}
         />
