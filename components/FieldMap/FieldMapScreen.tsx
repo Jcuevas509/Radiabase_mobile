@@ -21,18 +21,20 @@ import { AssignAreaModal } from 'components/DrawingMap/AssignAreaModal';
 import { DetailedHouseOverviewModal } from 'components/DrawingMap/DetailedHouseOverviewModal';
 import FloatingButtons from 'components/DrawingMap/FloatingButtons';
 import { ManageAreaModal } from 'components/DrawingMap/ManageAreaModal';
-import { MapHouseStatusFilter } from 'components/DrawingMap/MapHouseStatusFilter';
 import { QuickHouseOverviewModal } from 'components/DrawingMap/QuickHouseOverviewModal';
 import { SubmitLeadFromHouseModal } from 'components/DrawingMap/SubmitLeadFromHouseModal';
 import { AreaLayer, type AreaDisplay } from 'components/FieldMap/AreaLayer';
 import { DraftAreaEditor } from 'components/FieldMap/DraftAreaEditor';
 import { DrawingCanvas, type CanvasSize } from 'components/FieldMap/DrawingCanvas';
 import { HouseLayer } from 'components/FieldMap/HouseLayer';
+import { TrueNorthCompass } from 'components/FieldMap/TrueNorthCompass';
 import { MyLocationSvg } from 'components/svg';
 import { useSession } from 'context/AuthenticationContext';
 import { useAppIsActive } from 'hooks/useAppIsActive';
+import { useDeviceTrueHeading } from 'hooks/useDeviceTrueHeading';
 import { useLiveForegroundLocation } from 'hooks/useLiveForegroundLocation';
 import { useMapBuildings } from 'hooks/useMapBuildings';
+import { useMapCameraHeading } from 'hooks/useMapCameraHeading';
 import { useMapHousesViewport } from 'hooks/useMapHousesViewport';
 import {
   assignMapAreaRep,
@@ -58,10 +60,6 @@ import { convertCoordinatesToGeoJsonPolygon } from 'utils/convert-coordinates-to
 import { convertMapAreasToPolygons } from 'utils/convert-map-areas-to-polygons';
 import { convertMapHouseDetailToHouse } from 'utils/convert-map-house-detail-to-house';
 import { convertMapHousesToBuildings } from 'utils/convert-map-houses-to-buildings';
-import {
-  filterMapHousesByOutcome,
-  type MapHouseOutcomeFilter,
-} from 'utils/filter-map-houses-by-outcome';
 import { containsCoordinate, findMapBuildingAtCoordinate } from 'utils/find-map-building-at-coordinate';
 import { getApiErrorMessage } from 'utils/get-api-error-message';
 import { getPolygonCentroid } from 'utils/get-polygon-centroid';
@@ -129,13 +127,19 @@ export function FieldMapScreen() {
   const [pendingKnock, setPendingKnock] = useState<{ houseId: number; statusId: number } | null>(null);
   const [loadingHouseDetail, setLoadingHouseDetail] = useState(false);
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
-  const [houseOutcomeFilter, setHouseOutcomeFilter] = useState<MapHouseOutcomeFilter>('all');
   const mapRef = useRef<MapView>(null);
   const pendingKnockHouseIdRef = useRef<number | null>(null);
   const houseSelectionRequestIdRef = useRef(0);
   const isSavingRoofRef = useRef(false);
 
   const isIdle = mode === 'idle';
+  const deviceHeading = useDeviceTrueHeading(isScreenFocused && isAppActive);
+  const {
+    heading: mapHeading,
+    requestHeadingUpdate,
+    resetMapToNorth,
+    alignMapToHeading,
+  } = useMapCameraHeading(mapRef);
   const {
     buildings: mapBuildings,
     hasError: hasBuildingDataError,
@@ -256,6 +260,7 @@ export function FieldMapScreen() {
       return;
     }
     setViewportRegion(newRegion);
+    requestHeadingUpdate();
     if (isAtCurrentLocation && region) {
       const locationThreshold = 0.0001;
       if (
@@ -584,10 +589,6 @@ export function FieldMapScreen() {
       : [],
     [visibleBuildingMarkers, visibleRegion],
   );
-  const filteredVisibleBuildingMarkers = useMemo(
-    () => filterMapHousesByOutcome(nearbyBuildingMarkers, houseOutcomeFilter),
-    [houseOutcomeFilter, nearbyBuildingMarkers],
-  );
 
   const isRouteReady = isMapRouteReady({
     housesReady: isHouseViewportReady,
@@ -868,9 +869,10 @@ export function FieldMapScreen() {
           initialRegion={region}
           rotateEnabled
           pitchEnabled={false}
-          showsCompass
+          showsCompass={false}
           moveOnMarkerPress={false}
           onPress={handleMapPress}
+          onRegionChange={() => requestHeadingUpdate()}
           onRegionChangeComplete={handleRegionChangeComplete}
         >
           <Marker
@@ -902,7 +904,7 @@ export function FieldMapScreen() {
           {isStreetZoom && isIdle ? (
             <HouseLayer
               footprints={mapBuildings}
-              houses={filteredVisibleBuildingMarkers}
+              houses={nearbyBuildingMarkers}
               onHousePress={handleHousePinPress}
             />
           ) : null}
@@ -917,6 +919,12 @@ export function FieldMapScreen() {
       {mode === 'drawing' ? (
         <DrawingCanvas onStrokeComplete={handleStrokeComplete} />
       ) : null}
+      <TrueNorthCompass
+        mapHeading={mapHeading}
+        deviceHeading={deviceHeading}
+        onResetNorth={resetMapToNorth}
+        onAlignToDevice={deviceHeading !== null ? () => alignMapToHeading(deviceHeading) : undefined}
+      />
       {mode === 'reviewingDraft' ? (
         <View style={styles.draftActions}>
           <Text style={styles.draftHint}>Drag the handles to fine-tune the boundary</Text>
@@ -941,13 +949,6 @@ export function FieldMapScreen() {
           </View>
         </View>
       ) : null}
-      {isStreetZoom && isIdle && !hasMapDataError ? (
-        <MapHouseStatusFilter
-          houses={nearbyBuildingMarkers}
-          value={houseOutcomeFilter}
-          onChange={setHouseOutcomeFilter}
-        />
-      ) : null}
       {hasMapDataError ? (
         <Pressable
           accessibilityRole="button"
@@ -959,11 +960,6 @@ export function FieldMapScreen() {
           <Text style={styles.mapDataErrorAction}>Tap to retry</Text>
         </Pressable>
       ) : null}
-      {hasFootprints && (
-        <Text style={styles.buildingAttribution} pointerEvents="none">
-          Buildings © Overture Maps / OSM contributors
-        </Text>
-      )}
     </View>
   );
 }
@@ -976,18 +972,6 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFillObject,
-  },
-  buildingAttribution: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    right: 8,
-    color: 'white',
-    fontSize: 10,
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    zIndex: 7,
   },
   mapDataError: {
     position: 'absolute',

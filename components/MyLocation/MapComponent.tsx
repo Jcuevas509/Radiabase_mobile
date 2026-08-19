@@ -4,8 +4,12 @@ import { Alert, Dimensions, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 
 import FloatingButtons from 'components/DrawingMap/FloatingButtons';
+import { TrueNorthCompass } from 'components/FieldMap/TrueNorthCompass';
 import { MyLocationSvg } from 'components/svg';
 import { useSession } from 'context/AuthenticationContext';
+import { useAppIsActive } from 'hooks/useAppIsActive';
+import { useDeviceTrueHeading } from 'hooks/useDeviceTrueHeading';
+import { useMapCameraHeading } from 'hooks/useMapCameraHeading';
 import { CoordinateProps } from 'types/componentsTypes';
 import { getAcronym } from 'utils/helperFunctions';
 
@@ -26,6 +30,14 @@ const MapComponent = () => {
     const [myLocation, setMyLocation] = useState<CoordinateProps | null>(null);
     const [isAtCurrentLocation, setIsAtCurrentLocation] = useState(true);
     const mapRef = useRef<MapView>(null);
+    const isAppActive = useAppIsActive();
+    const deviceHeading = useDeviceTrueHeading(isAppActive);
+    const {
+        heading: mapHeading,
+        requestHeadingUpdate,
+        resetMapToNorth,
+        alignMapToHeading,
+    } = useMapCameraHeading(mapRef);
 
     useEffect(() => {
         let cancelled = false;
@@ -87,6 +99,7 @@ const MapComponent = () => {
     };
 
     const handleRegionChangeComplete = (newRegion: Region) => {
+        requestHeadingUpdate();
         if (!region || !isAtCurrentLocation) {
             return;
         }
@@ -120,7 +133,8 @@ const MapComponent = () => {
                     initialRegion={region}
                     rotateEnabled
                     pitchEnabled={false}
-                    showsCompass
+                    showsCompass={false}
+                    onRegionChange={() => requestHeadingUpdate()}
                     onRegionChangeComplete={handleRegionChangeComplete}
                 >
                     {myLocation ? (
@@ -140,6 +154,12 @@ const MapComponent = () => {
                     ) : null}
                 </MapView>
             )}
+            <TrueNorthCompass
+                mapHeading={mapHeading}
+                deviceHeading={deviceHeading}
+                onResetNorth={resetMapToNorth}
+                onAlignToDevice={deviceHeading !== null ? () => alignMapToHeading(deviceHeading) : undefined}
+            />
         </View>
     );
 };
