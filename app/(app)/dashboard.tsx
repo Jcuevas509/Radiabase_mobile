@@ -19,12 +19,13 @@ import { pickFieldStatsBucket } from 'utils/pick-field-stats-bucket';
 import { getMapRegionFromCoordinates } from 'utils/get-map-region-from-coordinates';
 import { pickAssigneeColor } from 'utils/pick-assignee-color';
 import { hexToRgba } from 'utils/helperFunctions';
+import { isHumanAreaName } from 'utils/is-human-area-name';
 
 const PERIODS = ['Today', 'This Week', 'This Month'] as const;
 
 function getAreaTileLabel(area: MapAreaResponse): string {
-    if (area.name) {
-        return area.name;
+    if (isHumanAreaName(area.name)) {
+        return area.name as string;
     }
     if (area.assignee) {
         return `${area.assignee.firstName} ${area.assignee.lastName}`.trim();

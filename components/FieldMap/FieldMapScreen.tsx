@@ -141,6 +141,36 @@ export function FieldMapScreen() {
 
   const isIdle = mode === 'idle';
   const compassControllerRef = useRef<CompassControllerHandle | null>(null);
+
+  // Dev-only freeze probes: a stalled JS thread logs its stall length, a
+  // render storm logs its rate. Silence during a visible freeze means the
+  // stall is on the native side (map / markers), not in JS.
+  const renderCountRef = useRef(0);
+  renderCountRef.current += 1;
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+    let lastTick = Date.now();
+    const lagProbe = setInterval(() => {
+      const now = Date.now();
+      const lag = now - lastTick - 1000;
+      lastTick = now;
+      if (lag > 300) {
+        console.warn(`[Perf] JS thread stalled ~${lag}ms`);
+      }
+    }, 1000);
+    const renderProbe = setInterval(() => {
+      if (renderCountRef.current > 30) {
+        console.warn(`[Perf] FieldMapScreen rendered ${renderCountRef.current}x in 2s`);
+      }
+      renderCountRef.current = 0;
+    }, 2000);
+    return () => {
+      clearInterval(lagProbe);
+      clearInterval(renderProbe);
+    };
+  }, []);
   const {
     buildings: mapBuildings,
     hasError: hasBuildingDataError,
@@ -603,6 +633,15 @@ export function FieldMapScreen() {
   const visibleRegion = viewportRegion ?? region;
   const isStreetZoom = Boolean(visibleRegion && isStreetZoomRegion(visibleRegion));
   const isCloseZoom = Boolean(visibleRegion && isCloseZoomRegion(visibleRegion));
+  // Full-size labels near street zoom, shrinking as the camera pulls out so
+  // the chip scales with its turf instead of dominating the screen.
+  const areaLabelScale = useMemo(() => {
+    const latitudeDelta = visibleRegion?.latitudeDelta;
+    if (!latitudeDelta || latitudeDelta <= 0.0045) {
+      return 1;
+    }
+    return Math.min(1, Math.max(0.3, 0.0045 / latitudeDelta));
+  }, [visibleRegion?.latitudeDelta]);
   const hasFootprints = isStreetZoom && mapBuildings.length > 0;
   const hasMapDataError = isStreetZoom && (hasBuildingDataError || hasHouseDataError);
   const selectedHousePendingStatusId = pendingKnock && pendingKnock.houseId === selectedBuilding?.id
@@ -971,6 +1010,7 @@ export function FieldMapScreen() {
           <AreaLayer
             areas={areaDisplays}
             labelsEnabled={isIdle}
+            labelScale={areaLabelScale}
             onAreaPress={(areaId) => {
               const polygon = polygons.find((candidate) => candidate.id === areaId);
               if (polygon) {
