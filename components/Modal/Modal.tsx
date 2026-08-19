@@ -5,9 +5,9 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 
 interface ModalProps {
     onClose: () => void;
-    customTitle?: JSX.Element;
-    children: JSX.Element;
-    buttons: JSX.Element;
+    customTitle?: React.ReactElement;
+    children: React.ReactElement;
+    buttons: React.ReactElement;
     visible: boolean;
     title?: string;
     isLoading?: boolean;

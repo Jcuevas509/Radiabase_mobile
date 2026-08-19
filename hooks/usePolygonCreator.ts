@@ -50,7 +50,7 @@ export const usePolygonCreator = () => {
 
     const handleFinish = useCallback(() => {
         if (editing && editing.coordinates.length >= 3) {
-            setPolygons(prev => [...prev, editing]);
+            setPolygons(prev => [...prev, { ...editing, assignee: null }]);
             setEditing(null);
             setCanFinishArea(false);
         }

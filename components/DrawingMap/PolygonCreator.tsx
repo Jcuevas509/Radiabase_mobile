@@ -6,17 +6,16 @@ import {
     Text,
     Dimensions,
     Alert,
-    LogBox,
     ActivityIndicator,
+    Linking,
+    Platform,
+    Pressable,
 } from 'react-native';
-import { debounce, throttle } from 'lodash';
+import { useIsFocused } from '@react-navigation/native';
 
-import MapView, { Marker, Polygon, Region } from 'react-native-maps';
-import { AddHouse, MyLocationSvg } from 'components/svg';
+import MapView, { MapPressEvent, Marker, Polygon, Region } from 'react-native-maps';
+import { MyLocationSvg } from 'components/svg';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
-import { CustomMarker } from 'components/Marker/Marker';
-import { AssigneeMapLabel } from 'components/DrawingMap/AssigneeMapLabel';
-import { UnassignedMapLabel } from 'components/DrawingMap/UnassignedMapLabel';
 import { BuildingProps, CoordinateProps, LeadStatus } from 'types/componentsTypes';
 import FloatingButtons from './FloatingButtons';
 import { AssignAreaModal } from './AssignAreaModal';
@@ -29,6 +28,9 @@ import { useSession } from 'context/AuthenticationContext';
 import { assignMapAreaRep, createMapArea, createMapHouseFromBuilding, createMapHouseStatus, deleteMapArea, fetchMapAreas, fetchMapHouseDetail, fetchMapHouses, MapBuildingResponse, updateMapHouseNotes } from 'services/area-api';
 import { useMapBuildings } from 'hooks/useMapBuildings';
 import { useMapHousesViewport } from 'hooks/useMapHousesViewport';
+import { useAppIsActive } from 'hooks/useAppIsActive';
+import { useLiveForegroundLocation } from 'hooks/useLiveForegroundLocation';
+import { getUserScopeKey } from 'utils/get-user-scope-key';
 import { convertMapHousesToBuildings } from 'utils/convert-map-houses-to-buildings';
 import { convertMapHouseDetailToHouse } from 'utils/convert-map-house-detail-to-house';
 import { getApiErrorMessage } from 'utils/get-api-error-message';
@@ -40,6 +42,25 @@ import { getPolygonCentroid } from 'utils/get-polygon-centroid';
 import { mapLeadStatusIdToHouseStatus } from 'utils/map-house-status';
 import { isStreetZoomRegion } from 'utils/is-street-zoom-region';
 import { MapCompass } from './MapCompass';
+import { containsCoordinate, findMapBuildingAtCoordinate } from 'utils/find-map-building-at-coordinate';
+import { MapDynamicOverlay, type MapAreaOverlay } from './MapDynamicOverlay';
+import { mergeHouseDetailIntoPolygons } from 'utils/merge-house-detail-into-polygons';
+import { MapHouseStatusFilter } from './MapHouseStatusFilter';
+import {
+    filterMapHousesByOutcome,
+    type MapHouseOutcomeFilter,
+} from 'utils/filter-map-houses-by-outcome';
+import { selectMapOverlayItems } from 'utils/select-map-overlay-items';
+import Route01Icon from '@hugeicons/core-free-icons/Route01Icon';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import { rankUnworkedDoorTargets } from 'utils/rank-unworked-door-targets';
+import {
+    buildWalkingDirectionsUrl,
+    formatWalkingDistance,
+} from 'utils/build-walking-directions-url';
+import { isMapRouteReady } from 'utils/is-map-route-ready';
+import { CircleDrawingOverlay } from './CircleDrawingOverlay';
+import { useMapCameraHeading } from 'hooks/useMapCameraHeading';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
@@ -47,6 +68,11 @@ const LATITUDE_DELTA = 0.003;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
 const UNASSIGNED_AREA_STROKE = '#8B8682';
 const UNASSIGNED_AREA_FILL = 'rgba(161, 161, 170, 0.32)';
+const HIDDEN_POLYGON_COORDINATES = [
+    { latitude: 0, longitude: 0 },
+    { latitude: 0, longitude: 0.000001 },
+    { latitude: 0.000001, longitude: 0 },
+];
 interface DrawingMapProps {
     // canDraw: boolean;
     // stopDrawing: () => void;
@@ -54,9 +80,10 @@ interface DrawingMapProps {
     // setShowDrawButton: (value: boolean) => void;
     // showDrawButton: boolean;
 }
-LogBox.ignoreAllLogs(true);
 const PolygonCreator = ({ }: DrawingMapProps) => {
     const { session } = useSession()
+    const isScreenFocused = useIsFocused();
+    const isAppActive = useAppIsActive();
     const isManager = session?.user?.role === 'manager';
     const displayName = `${session?.user?.firstName ?? ''} ${session?.user?.lastName ?? ''}`.trim() || 'You';
     const [region, setRegion] = useState<Region | null>(null);
@@ -77,14 +104,15 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         id: number;
         assignee: any;
         coordinates: Array<{ latitude: number; longitude: number }>;
-        buildingMarkers: Array<{ latitude: number; longitude: number }>;
+        buildingMarkers: Array<BuildingProps>;
     } | null>(null)
     const [canFinishArea, setCanFinishArea] = useState<boolean>(false)
     const [myLocation, setMyLocation] = useState<CoordinateProps>({} as CoordinateProps)
+    const [hasLocationPermission, setHasLocationPermission] = useState(false);
     const [activeDrawing, setActiveDrawing] = useState(false)
     const [loading, setLoading] = useState(false)
     const [isAtCurrentLocation, setIsAtCurrentLocation] = useState(true);
-    const [forceRender, setForceRender] = useState(false);
+    const [isMapMoving, setIsMapMoving] = useState(false);
     const [openManageAreaModal, setOpenManageAreaModal] = useState(false)
     const [selectedBuilding, setSelectedBuilding] = useState<any | null>(null);
     const [isReassignment, setIsReassignment] = useState(false)
@@ -94,47 +122,44 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     const [alertVisible, setAlertVisible] = useState<boolean>(false)
     const [deleteType, setDeleteType] = useState<'house' | 'area' | null>(null)
     const [message, setMessage] = useState<string>('')
-    const [mapType, setMapType] = useState<'satellite' | 'standard'>('satellite');
-    const [mapHeading, setMapHeading] = useState(0);
+    const [pendingKnock, setPendingKnock] = useState<{ houseId: number; statusId: number } | null>(null);
+    const [loadingHouseDetail, setLoadingHouseDetail] = useState(false);
+    const [mapRefreshKey, setMapRefreshKey] = useState(0);
+    const [houseOutcomeFilter, setHouseOutcomeFilter] = useState<MapHouseOutcomeFilter>('all');
     const mapRef = useRef<MapView>(null);
-    const mapBuildings = useMapBuildings({
+    const isMapMovingRef = useRef(false);
+    const pendingKnockHouseIdRef = useRef<number | null>(null);
+    const houseSelectionRequestIdRef = useRef(0);
+    const {
+        heading: mapHeading,
+        requestHeadingUpdate: updateCompassHeading,
+        resetMapToNorth,
+    } = useMapCameraHeading(mapRef);
+    const {
+        buildings: mapBuildings,
+        hasError: hasBuildingDataError,
+        isReady: isBuildingViewportReady,
+    } = useMapBuildings({
         region: viewportRegion ?? region,
-        isEnabled: Boolean(session?.token) && !activeDrawing,
+        isEnabled: Boolean(session?.token) && !activeDrawing && isScreenFocused && isAppActive,
+        refreshKey: mapRefreshKey,
     });
     const areaIds = useMemo(() => polygons.map((polygon) => polygon.id), [polygons]);
-    const { houses: viewportHouses, replaceHouse } = useMapHousesViewport({
+    const {
+        houses: viewportHouses,
+        replaceHouse,
+        hasError: hasHouseDataError,
+        isReady: isHouseViewportReady,
+    } = useMapHousesViewport({
         region: viewportRegion ?? region,
         areaIds,
-        isEnabled: Boolean(session?.token) && !activeDrawing,
+        isEnabled: Boolean(session?.token) && !activeDrawing && isScreenFocused,
+        refreshKey: mapRefreshKey,
+        scopeKey: getUserScopeKey(session?.user),
     });
 
 
     const isSavingRoofRef = useRef(false);
-
-    const updateCompassHeading = useMemo(
-        () => throttle(async () => {
-            try {
-                const camera = await mapRef.current?.getCamera();
-                if (!camera || !Number.isFinite(camera.heading)) {
-                    return;
-                }
-                const normalizedHeading = ((camera.heading % 360) + 360) % 360;
-                setMapHeading((current) =>
-                    Math.abs(current - normalizedHeading) >= 0.5 ? normalizedHeading : current,
-                );
-            } catch {
-                // The native map can disappear while a throttled camera read is in flight.
-            }
-        }, 100, { leading: true, trailing: true }),
-        [],
-    );
-
-    useEffect(() => {
-        return () => {
-            updateCompassHeading.cancel();
-        };
-    }, [updateCompassHeading]);
-
 
     // TODO
 
@@ -154,13 +179,24 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
 
 
     useEffect(() => {
+        let cancelled = false;
+        let animationTimeout: ReturnType<typeof setTimeout> | null = null;
         (async () => {
-            let { status } = await Location.requestForegroundPermissionsAsync();
+            const { status } = await Location.requestForegroundPermissionsAsync();
+            if (cancelled) {
+                return;
+            }
             if (status !== 'granted') {
                 Alert.alert('Permission to access location was denied');
                 return;
             }
-            const location = await Location.getCurrentPositionAsync({});
+            setHasLocationPermission(true);
+            const location = await Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Balanced,
+            });
+            if (cancelled) {
+                return;
+            }
             const initialRegion = {
                 latitude: location.coords.latitude,
                 longitude: location.coords.longitude,
@@ -173,13 +209,28 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 latitude: location.coords.latitude,
                 longitude: location.coords.longitude,
             });
-            setTimeout(() => {
+            animationTimeout = setTimeout(() => {
                 if (mapRef.current) {
                     mapRef.current.animateToRegion(initialRegion, 1000);
                 }
             }, 100);
-        })();
+        })().catch(() => {
+            if (!cancelled) {
+                Alert.alert('Could not get your location', 'Check Location Services and try again.');
+            }
+        });
+        return () => {
+            cancelled = true;
+            if (animationTimeout !== null) {
+                clearTimeout(animationTimeout);
+            }
+        };
     }, []);
+
+    const hasFreshRouteLocation = useLiveForegroundLocation({
+        isEnabled: hasLocationPermission && isScreenFocused && isAppActive,
+        onCoordinate: setMyLocation,
+    });
 
     const loadFieldData = async () => {
         const areas = await fetchMapAreas();
@@ -219,6 +270,8 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
     };
 
     const handleRegionChangeComplete = (newRegion: Region) => {
+        isMapMovingRef.current = false;
+        setIsMapMoving(false);
         if (
             !Number.isFinite(newRegion.latitude) ||
             !Number.isFinite(newRegion.longitude) ||
@@ -246,10 +299,13 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         updateCompassHeading();
     };
 
-    const resetMapToNorth = useCallback(() => {
-        mapRef.current?.animateCamera({ heading: 0 }, { duration: 250 });
-        setMapHeading(0);
-    }, []);
+    const handleRegionChange = () => {
+        if (!isMapMovingRef.current) {
+            isMapMovingRef.current = true;
+            setIsMapMoving(true);
+        }
+        updateCompassHeading();
+    };
 
     const handleDeletePin = useCallback(() => {
         if (selectedBuilding) {
@@ -266,42 +322,90 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         }
     }, [selectedBuilding]);
 
-    const handleBuildingPress = (building: BuildingProps) => {
+    const openDetailedBuilding = (building: BuildingProps) => {
         setSelectedBuilding(building);
         setOpenDetailedHouseModal(true);
+    };
+
+    const handleBuildingPress = (building: BuildingProps) => {
+        if (pendingKnockHouseIdRef.current !== null) {
+            return;
+        }
+        const requestId = houseSelectionRequestIdRef.current + 1;
+        houseSelectionRequestIdRef.current = requestId;
+        setLoadingHouseDetail(true);
+        setOpenDetailedHouseModal(false);
         fetchMapHouseDetail(Number(building.id))
             .then((detail) => {
-                setSelectedBuilding(applyMapHouseDetailToBuilding(building, detail));
+                if (houseSelectionRequestIdRef.current === requestId) {
+                    setPolygons((current) => mergeHouseDetailIntoPolygons(
+                        current,
+                        detail,
+                        building.additionalDetails?.externalId ?? null,
+                    ));
+                    openDetailedBuilding(applyMapHouseDetailToBuilding(building, detail));
+                }
             })
-            .catch(() => undefined);
+            .catch((error) => {
+                if (houseSelectionRequestIdRef.current === requestId) {
+                    Alert.alert(
+                        'Could not load house details',
+                        getApiErrorMessage(error, 'The latest lead and knock history could not be loaded. Try again.'),
+                    );
+                }
+            })
+            .finally(() => {
+                if (houseSelectionRequestIdRef.current === requestId) {
+                    setLoadingHouseDetail(false);
+                }
+            });
     };
 
     const saveHouseKnockStatus = async (building: BuildingProps, status: LeadStatus) => {
-        const detail = await createMapHouseStatus({
-            houseId: Number(building.id),
-            status: mapLeadStatusIdToHouseStatus(status.statusId),
-            notes: building.additionalDetails?.note,
-        });
-        const updatedBuilding = applyMapHouseDetailToBuilding(building, detail);
-        setPolygons(prevPolygons =>
-            prevPolygons.map(polygon => ({
-                ...polygon,
-                buildingMarkers: polygon.buildingMarkers?.map((marker: BuildingProps) =>
-                    marker.id === building.id ? updatedBuilding : marker
-                )
-            }))
-        );
-        setSelectedBuilding(updatedBuilding);
-        replaceHouse(convertMapHouseDetailToHouse(detail, building.additionalDetails?.externalId ?? null));
+        const houseId = Number(building.id);
+        if (pendingKnockHouseIdRef.current !== null) {
+            return;
+        }
+        pendingKnockHouseIdRef.current = houseId;
+        setPendingKnock({ houseId, statusId: status.statusId });
+        try {
+            const detail = await createMapHouseStatus({
+                houseId,
+                status: mapLeadStatusIdToHouseStatus(status.statusId),
+                notes: building.additionalDetails?.note,
+            });
+            setPolygons((current) => mergeHouseDetailIntoPolygons(
+                current,
+                detail,
+                building.additionalDetails?.externalId ?? null,
+            ));
+            setSelectedBuilding((current: BuildingProps | null) =>
+                current?.id === building.id
+                    ? applyMapHouseDetailToBuilding(current, detail)
+                    : current,
+            );
+            replaceHouse(convertMapHouseDetailToHouse(
+                detail,
+                building.additionalDetails?.externalId ?? null,
+            ));
+        } finally {
+            pendingKnockHouseIdRef.current = null;
+            setPendingKnock(null);
+        }
     };
 
     const handleBuildingLongPress = (building: BuildingProps) => {
+        if (pendingKnockHouseIdRef.current !== null) {
+            return;
+        }
+        houseSelectionRequestIdRef.current += 1;
+        setLoadingHouseDetail(false);
         setSelectedBuilding(building);
         setOpenQuickStatusModal(true);
     };
 
     const handleFootprintPress = async (building: MapBuildingResponse) => {
-        if (activeDrawing || isSavingRoofRef.current) {
+        if (activeDrawing || isSavingRoofRef.current || pendingKnockHouseIdRef.current !== null) {
             return;
         }
         const existing = viewportHouses.find((house) => house.externalId === building.id);
@@ -309,7 +413,10 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
             handleBuildingPress(convertMapHousesToBuildings([existing])[0]);
             return;
         }
+        const selectionRequestId = houseSelectionRequestIdRef.current + 1;
+        houseSelectionRequestIdRef.current = selectionRequestId;
         isSavingRoofRef.current = true;
+        setLoadingHouseDetail(true);
         try {
             const detail = await createMapHouseFromBuilding({
                 overtureBuildingId: building.id,
@@ -317,17 +424,25 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 roofLng: building.roofLng,
             });
             replaceHouse(convertMapHouseDetailToHouse(detail, building.id));
+            setPolygons((current) => mergeHouseDetailIntoPolygons(current, detail, building.id));
             const stub: BuildingProps = {
                 id: detail.id,
                 latitude: detail.latitude,
                 longitude: detail.longitude,
                 address: detail.address ?? 'Unknown Address',
             };
-            handleBuildingPress(applyMapHouseDetailToBuilding(stub, detail));
+            if (houseSelectionRequestIdRef.current === selectionRequestId) {
+                openDetailedBuilding(applyMapHouseDetailToBuilding(stub, detail));
+            }
         } catch (error) {
-            Alert.alert('Could not open house', getApiErrorMessage(error, 'The roof was not saved. Check login and try again.'));
+            if (houseSelectionRequestIdRef.current === selectionRequestId) {
+                Alert.alert('Could not open house', getApiErrorMessage(error, 'The roof was not saved. Check login and try again.'));
+            }
         } finally {
             isSavingRoofRef.current = false;
+            if (houseSelectionRequestIdRef.current === selectionRequestId) {
+                setLoadingHouseDetail(false);
+            }
         }
     };
 
@@ -419,178 +534,161 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         setOpenManageAreaModal(false)
         setOpenAssignModal(true)
     }
-    const handleUndo = useCallback(() => {
-        setEditing(prev => {
-            if (!prev || prev.coordinates.length === 0) return null;
-            const newCoords = [...prev.coordinates];
-            newCoords.pop();
-            if (newCoords.length < 3) {
-                setCanFinishArea(false)
-            }
-            return { ...prev, coordinates: newCoords };
-        });
+    const handleCircleChange = useCallback((coordinates: CoordinateProps[]) => {
+        if (coordinates.length < 3) {
+            return;
+        }
+        setCanFinishArea(true);
+        setEditing({ id: Date.now(), coordinates });
     }, []);
 
-
-    const debouncedSetEditing = useCallback(
-        debounce((newCoordinates) => {
-            setEditing(prev => {
-                if (!prev) return null;
-                return { ...prev, coordinates: newCoordinates };
-            });
-        }, 16), // 16ms debounce, which is roughly 60fps
-        []
-    );
-    const handleMarkerDragEnd = useCallback((e: any, index: number) => {
-        const { latitude, longitude } = e.nativeEvent.coordinate;
-        setEditing(prev => {
-            if (!prev) return null;
-            const newCoordinates = [...prev.coordinates];
-            newCoordinates[index] = { latitude, longitude };
-            debouncedSetEditing(newCoordinates);
-            return prev; // Return the previous state to avoid unnecessary re-renders
-        });
-    }, [debouncedSetEditing]);
-
-    const handleMapPress = useCallback((e: any) => {
-        const newCoord = e.nativeEvent.coordinate;
-        setEditing(prev => {
-            if (!prev) {
-                return {
-                    id: Date.now(),
-                    coordinates: [newCoord],
-                };
-            }
-            if ([...prev.coordinates, newCoord]?.length > 2) {
-                setCanFinishArea(true);
-            }
-            const updatedEditing = {
-                ...prev,
-                coordinates: [...prev.coordinates, newCoord],
-            };
-            setForceRender(prev => !prev); // Forsira re-render
-            return updatedEditing;
-        });
-
+    const handleToggleDrawing = useCallback(() => {
+        setActiveDrawing((current) => !current);
+        setEditing(null);
+        setCanFinishArea(false);
     }, []);
+
+    const openRoofAtCoordinate = (coordinate: CoordinateProps): boolean => {
+        const building = findMapBuildingAtCoordinate(mapBuildings, coordinate);
+        if (!building) {
+            return false;
+        }
+        void handleFootprintPress(building);
+        return true;
+    };
+
+    const handleMapPress = (event: MapPressEvent) => {
+        if (activeDrawing) {
+            return;
+        }
+        const coordinate = event.nativeEvent.coordinate;
+        if (openRoofAtCoordinate(coordinate)) {
+            return;
+        }
+        const selectedPolygon = polygons.find((polygon) =>
+            containsCoordinate(polygon.coordinates, coordinate),
+        );
+        if (selectedPolygon) {
+            openManageArea(selectedPolygon);
+        }
+    };
+
     const visibleRegion = viewportRegion ?? region;
     const isStreetZoom = Boolean(visibleRegion && isStreetZoomRegion(visibleRegion));
     const hasFootprints = isStreetZoom && mapBuildings.length > 0;
-    const memoizedPolygons = useMemo(() => {
-        return polygons.map(polygon => (
-            <Polygon
-                key={polygon.id}
-                coordinates={polygon.coordinates}
-                strokeColor={polygon?.assignee ? polygon?.assignee?.color : UNASSIGNED_AREA_STROKE}
-                fillColor={polygon?.assignee ? hexToRgba(polygon?.assignee?.color, 0.2) : UNASSIGNED_AREA_FILL}
-                strokeWidth={2}
-                tappable={!activeDrawing}
-                zIndex={1}
-                onPress={() => openManageArea(polygon)}
-            />
-        ));
-    }, [activeDrawing, polygons]);
-    const memoizedBuildingHitAreas = useMemo(() => {
-        return mapBuildings.map((building) => (
-            <Polygon
-                key={building.id}
-                coordinates={building.coordinates}
-                strokeColor="transparent"
-                fillColor="rgba(0, 0, 0, 0.001)"
-                strokeWidth={0}
-                tappable={!activeDrawing}
-                zIndex={2}
-                onPress={() => {
-                    handleFootprintPress(building).catch(() => undefined);
-                }}
-            />
-        ));
-    }, [activeDrawing, mapBuildings, viewportHouses]);
-    const memoizedAssigneeLabels = useMemo(() => {
+    const hasMapDataError = isStreetZoom && (hasBuildingDataError || hasHouseDataError);
+    const selectedHousePendingStatusId = pendingKnock && pendingKnock.houseId === selectedBuilding?.id
+        ? pendingKnock.statusId
+        : null;
+    const areaOverlays = useMemo<MapAreaOverlay[]>(() => {
         return polygons.flatMap((polygon) => {
             const centroid = getPolygonCentroid(polygon.coordinates);
             if (!centroid) {
                 return [];
             }
-            if (!polygon.assignee) {
-                return (
-                    <UnassignedMapLabel
-                        key={`unassigned-${polygon.id}`}
-                        areaId={polygon.id}
-                        latitude={centroid.latitude}
-                        longitude={centroid.longitude}
-                        onPress={activeDrawing ? undefined : () => openManageArea(polygon)}
-                    />
-                );
-            }
-            return (
-                <AssigneeMapLabel
-                    key={`assignee-${polygon.id}-${polygon.assignee.id}`}
-                    areaId={polygon.id}
-                    latitude={centroid.latitude}
-                    longitude={centroid.longitude}
-                    name={polygon.assignee.name}
-                    lastname={polygon.assignee.lastname}
-                    imageUrl={polygon.assignee.avatarUrl}
-                    color={polygon.assignee.color}
-                    onPress={activeDrawing ? undefined : () => openManageArea(polygon)}
-                />
-            );
+            return [{
+                id: polygon.id,
+                coordinate: centroid,
+                coordinates: polygon.coordinates,
+                strokeColor: polygon.assignee?.color ?? UNASSIGNED_AREA_STROKE,
+                fillColor: polygon.assignee
+                    ? hexToRgba(polygon.assignee.color, 0.2)
+                    : UNASSIGNED_AREA_FILL,
+                assignee: polygon.assignee ? {
+                    id: polygon.assignee.id,
+                    name: polygon.assignee.name,
+                    lastname: polygon.assignee.lastname,
+                    avatarUrl: polygon.assignee.avatarUrl,
+                    color: polygon.assignee.color,
+                } : null,
+            }];
         });
-    }, [activeDrawing, polygons]);
-    const memoizedBuildingMarkers = useMemo(() => {
+    }, [polygons]);
+    const visibleBuildingMarkers = useMemo(() => {
         if (!isStreetZoom) {
             return [];
         }
-        const markers = hasFootprints
+        return hasFootprints
             ? convertMapHousesToBuildings(viewportHouses)
             : polygons.flatMap((polygon) => polygon.buildingMarkers ?? []);
-        return markers.map((marker) =>
-            marker.latitude && marker.longitude ? (
-                <CustomMarker
-                    type='building'
-                    id={marker.id}
-                    key={marker.id}
-                    marker={marker}
-                    onClick={() => handleBuildingPress(marker)}
-                    onLongPress={() => handleBuildingLongPress(marker)}
-                />
-            ) : null
-        );
     }, [hasFootprints, isStreetZoom, polygons, viewportHouses]);
+    const nearbyBuildingMarkers = useMemo(
+        () => visibleRegion
+            ? selectMapOverlayItems(visibleRegion, visibleBuildingMarkers, []).houses
+            : [],
+        [visibleBuildingMarkers, visibleRegion],
+    );
+    const filteredVisibleBuildingMarkers = useMemo(
+        () => filterMapHousesByOutcome(nearbyBuildingMarkers, houseOutcomeFilter),
+        [houseOutcomeFilter, nearbyBuildingMarkers],
+    );
+    const isRouteReady = isMapRouteReady({
+        housesReady: isHouseViewportReady,
+        buildingsReady: isBuildingViewportReady,
+        buildingsFailed: hasBuildingDataError,
+        locationReady: hasFreshRouteLocation,
+    });
+    const nextUnworkedDoor = useMemo(
+        () => isRouteReady && visibleRegion
+            ? rankUnworkedDoorTargets(myLocation, mapBuildings, viewportHouses, visibleRegion)[0] ?? null
+            : null,
+        [isRouteReady, mapBuildings, myLocation, viewportHouses, visibleRegion],
+    );
 
-    const editingMarkers = useMemo(() => {
-        if (!editing || editing.coordinates.length === 0) return null;
-        return editing.coordinates.map((marker, index) =>
-            marker.latitude && marker.longitude ? (
-                <CustomMarker
-                    key={index}
-                    type='polygon'
-                    id={`${index}`}
-                    marker={{
-                        ...marker,
-                        id: index,
-                        title: `Marker ${index + 1}`,
-                        subtitle: `Marker ${index + 1}`
-                    }}
-                    draggable={true}
-                    onDragEnd={(e: any) => handleMarkerDragEnd(e, index)}
-                />
-            ) : null
+    const handleNavigateToNextDoor = useCallback(() => {
+        if (!hasFreshRouteLocation) {
+            Alert.alert('Updating your location', 'Wait for the live location marker, then try again.');
+            return;
+        }
+        if (!isHouseViewportReady) {
+            Alert.alert('Updating door statuses', 'Wait for the current street data, then try again.');
+            return;
+        }
+        if (!isBuildingViewportReady && !hasBuildingDataError) {
+            Alert.alert('Updating nearby roofs', 'Wait for the current street footprints, then try again.');
+            return;
+        }
+        if (!nextUnworkedDoor) {
+            Alert.alert(
+                'No unworked doors nearby',
+                'Pan to another street-level area and wait for the roofs to load.',
+            );
+            return;
+        }
+        const label = nextUnworkedDoor.address?.trim() &&
+            nextUnworkedDoor.address.trim().toLowerCase() !== 'unknown address'
+            ? nextUnworkedDoor.address.trim()
+            : 'Nearest unworked door';
+        const distance = formatWalkingDistance(nextUnworkedDoor.distanceMeters);
+        Alert.alert(
+            label,
+            `${distance} away. Open walking directions?`,
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Walk there',
+                    onPress: () => {
+                        Linking.openURL(buildWalkingDirectionsUrl(
+                            nextUnworkedDoor.coordinate,
+                            Platform.OS,
+                        )).catch(() => {
+                            Alert.alert('Could not open directions', 'Open your Maps app and try again.');
+                        });
+                    },
+                },
+            ],
         );
-    }, [editing, forceRender]);
+    }, [hasBuildingDataError, hasFreshRouteLocation, isBuildingViewportReady, isHouseViewportReady, nextUnworkedDoor]);
 
     const memoizedEditingPolygon = useMemo(() => {
-        if (!editing || editing.coordinates.length === 0) return null;
+        const isVisible = Boolean(editing && editing.coordinates.length >= 3);
         return (
             <Polygon
-                coordinates={editing.coordinates}
-                strokeColor="#32A0FF"
-                fillColor="rgba(50, 160, 255, 0.2)"
+                coordinates={isVisible ? editing!.coordinates : HIDDEN_POLYGON_COORDINATES}
+                strokeColor={isVisible ? '#32A0FF' : 'transparent'}
+                fillColor={isVisible ? 'rgba(50, 160, 255, 0.2)' : 'transparent'}
                 strokeWidth={2}
-                onPress={() => {
-                    console.log('first')
-                }}
+                tappable={false}
             />
         );
     }, [editing]);
@@ -598,25 +696,23 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
         <View style={styles.container}>
             <FloatingButtons
                 buttons={[
-                    ...(polygons.length > 0 ? [{ icon: <AddHouse />, onPress: () => console.log('add') }] : []),
+                    ...(isStreetZoom && !activeDrawing && isRouteReady ? [{
+                        icon: <HugeiconsIcon icon={Route01Icon} size={22} color="#1F1F1F" strokeWidth={2} />,
+                        onPress: handleNavigateToNextDoor,
+                        accessibilityLabel: 'Navigate to the nearest unworked door',
+                    }] : []),
                     {
                         icon: <MyLocationSvg color={isAtCurrentLocation ? "white" : "#1F1F1F"} />,
                         onPress: handleMyLocation,
-                        style: { backgroundColor: isAtCurrentLocation ? "#32A0FF" : "white" }
+                        style: { backgroundColor: isAtCurrentLocation ? "#32A0FF" : "white" },
+                        accessibilityLabel: 'Center map on my location',
                     },
                 ]}
-                setMapType={setMapType}
-                mapType={mapType}
                 canFinishArea={canFinishArea}
                 onFinish={handleFinish}
                 activeDrawing={activeDrawing}
-                onToggleDrawing={() => {
-                    setActiveDrawing(!activeDrawing);
-                    setCanFinishArea(false);
-                }}
+                onToggleDrawing={handleToggleDrawing}
                 isManager={isManager}
-                showUndoButton={!!editing && editing?.coordinates?.length > 0}
-                onUndo={handleUndo}
             />
             <CustomAlert
                 visible={alertVisible}
@@ -663,7 +759,7 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 visible={openManageAreaModal}
                 onClose={() => setOpenManageAreaModal(false)}
                 selectedArea={selectedArea}
-                setSelectedAgent={setSelectedAgent}
+                canManage={isManager}
                 onDeleteArea={() => {
                     setIsReassignment(true)
                     setOpenManageAreaModal(false)
@@ -672,14 +768,13 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setAlertVisible(true)
                 }}
                 onReassignArea={handleReassignArea}
-                onEditArea={() => {
-                    Alert.alert('Edit area', 'Moving turf points is not available yet.');
-                }}
             />
             <QuickHouseOverviewModal
                 onClose={() => setOpenQuickStatusModal(false)}
                 visible={openQuickStatusModal}
                 selectedHouse={selectedBuilding}
+                isStatusSaving={pendingKnock !== null}
+                savingStatusId={selectedHousePendingStatusId}
                 onDeletePin={() => {
                     setOpenQuickStatusModal(false)
                     setDeleteType('house')
@@ -687,8 +782,10 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     setAlertVisible(true)
                 }}
                 onOpenHouseInfo={() => {
-                    setOpenDetailedHouseModal(true)
                     setOpenQuickStatusModal(false)
+                    if (selectedBuilding) {
+                        handleBuildingPress(selectedBuilding);
+                    }
                 }}
                 onChangeHouseStatus={async (status: LeadStatus) => {
                     if (!selectedBuilding) {
@@ -706,6 +803,8 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                 onClose={() => setOpenDetailedHouseModal(false)}
                 visible={openDetailedHouseModal}
                 selectedHouse={selectedBuilding}
+                isStatusSaving={pendingKnock !== null}
+                savingStatusId={selectedHousePendingStatusId}
                 onChangeHouseStatus={async (status: LeadStatus) => {
                     if (!selectedBuilding) {
                         return;
@@ -725,6 +824,11 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                             houseId: Number(selectedBuilding.id),
                             notes: note,
                         });
+                        setPolygons((current) => mergeHouseDetailIntoPolygons(
+                            current,
+                            detail,
+                            selectedBuilding.additionalDetails?.externalId ?? null,
+                        ));
                         setSelectedBuilding(applyMapHouseDetailToBuilding(selectedBuilding, detail));
                     } catch (error) {
                         Alert.alert('Could not save note', getApiErrorMessage(error, 'The note was not saved.'));
@@ -789,6 +893,15 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     }}
                     onSubmitted={async () => {
                         const detail = await fetchMapHouseDetail(Number(selectedBuilding.id));
+                        setPolygons((current) => mergeHouseDetailIntoPolygons(
+                            current,
+                            detail,
+                            selectedBuilding.additionalDetails?.externalId ?? null,
+                        ));
+                        replaceHouse(convertMapHouseDetailToHouse(
+                            detail,
+                            selectedBuilding.additionalDetails?.externalId ?? null,
+                        ));
                         setSelectedBuilding(applyMapHouseDetailToBuilding(selectedBuilding, detail));
                         setOpenSubmitLeadModal(false);
                         setOpenDetailedHouseModal(true);
@@ -803,44 +916,91 @@ const PolygonCreator = ({ }: DrawingMapProps) => {
                     <Text style={styles.loaderText}>Creating area...</Text>
                 </View>
             )}
+            {loadingHouseDetail && (
+                <View style={styles.loaderContainer}>
+                    <ActivityIndicator size="large" color="#32A0FF" />
+                    <Text style={styles.loaderText}>Loading house...</Text>
+                </View>
+            )}
             {region && <MapView
                 style={styles.map}
                 ref={mapRef}
-                mapType={mapType}
+                mapType="satellite"
                 initialRegion={region}
-                rotateEnabled
+                rotateEnabled={!activeDrawing}
                 pitchEnabled={false}
                 showsCompass={false}
-                zoomEnabled
-                scrollEnabled
+                zoomEnabled={!activeDrawing}
+                scrollEnabled={!activeDrawing}
                 moveOnMarkerPress={false}
-                onPress={(e) => activeDrawing && handleMapPress(e)}
-                onRegionChange={updateCompassHeading}
+                onPress={handleMapPress}
+                onRegionChange={handleRegionChange}
                 onRegionChangeComplete={handleRegionChangeComplete}
             >
-                {Number.isFinite(myLocation.latitude) && Number.isFinite(myLocation.longitude) && (
-                    <Marker
-                        key="my-location-marker"
-                        coordinate={{ latitude: myLocation.latitude, longitude: myLocation.longitude }}
-                        title={displayName}
-                        tappable={false}
-                        tracksViewChanges={false}
-                    >
-                        <View style={styles.myLocationMarker} pointerEvents="none">
-                            <Text style={styles.myLocationText}>
-                                {getAcronym(displayName)}
-                            </Text>
-                        </View>
-                    </Marker>
-                )}
-                {memoizedPolygons}
-                {memoizedBuildingHitAreas}
-                {memoizedAssigneeLabels}
-                {memoizedBuildingMarkers}
+                <Marker
+                    key="my-location-marker"
+                    coordinate={Number.isFinite(myLocation.latitude) && Number.isFinite(myLocation.longitude)
+                        ? { latitude: myLocation.latitude, longitude: myLocation.longitude }
+                        : { latitude: region.latitude, longitude: region.longitude }}
+                    title={displayName}
+                    opacity={Number.isFinite(myLocation.latitude) && Number.isFinite(myLocation.longitude) ? 1 : 0}
+                    tappable={false}
+                    tracksViewChanges={false}
+                >
+                    <View style={styles.myLocationMarker} pointerEvents="none">
+                        <Text style={styles.myLocationText}>
+                            {getAcronym(displayName)}
+                        </Text>
+                    </View>
+                </Marker>
                 {memoizedEditingPolygon}
-                {editingMarkers}
             </MapView>}
-            {region ? <MapCompass heading={mapHeading} onResetNorth={resetMapToNorth} /> : null}
+            {region ? (
+                <CircleDrawingOverlay
+                    active={activeDrawing}
+                    mapRef={mapRef}
+                    onCircleChange={handleCircleChange}
+                />
+            ) : null}
+            {region ? (
+                <MapDynamicOverlay
+                    mapRef={mapRef}
+                    region={visibleRegion}
+                    hidden={isMapMoving}
+                    interactiveHidden={activeDrawing}
+                    houses={filteredVisibleBuildingMarkers}
+                    areas={areaOverlays}
+                    onHousePress={handleBuildingPress}
+                    onHouseLongPress={handleBuildingLongPress}
+                    onAreaPress={(areaId) => {
+                        const polygon = polygons.find((candidate) => candidate.id === areaId);
+                        if (polygon) {
+                            openManageArea(polygon);
+                        }
+                    }}
+                />
+            ) : null}
+            {region && !activeDrawing ? (
+                <MapCompass heading={mapHeading} onResetNorth={resetMapToNorth} />
+            ) : null}
+            {isStreetZoom && !activeDrawing && !hasMapDataError ? (
+                <MapHouseStatusFilter
+                    houses={nearbyBuildingMarkers}
+                    value={houseOutcomeFilter}
+                    onChange={setHouseOutcomeFilter}
+                />
+            ) : null}
+            {hasMapDataError ? (
+                <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Retry loading street and house data"
+                    onPress={() => setMapRefreshKey((current) => current + 1)}
+                    style={({ pressed }) => [styles.mapDataError, pressed && styles.mapDataErrorPressed]}
+                >
+                    <Text style={styles.mapDataErrorTitle}>Some map data could not load</Text>
+                    <Text style={styles.mapDataErrorAction}>Tap to retry</Text>
+                </Pressable>
+            ) : null}
             {hasFootprints && (
                 <Text style={styles.buildingAttribution} pointerEvents="none">
                     Buildings © Overture Maps / OSM contributors
@@ -870,6 +1030,32 @@ const styles = StyleSheet.create({
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 2,
         zIndex: 7,
+    },
+    mapDataError: {
+        position: 'absolute',
+        top: 72,
+        left: 16,
+        right: 16,
+        minHeight: 48,
+        borderRadius: 12,
+        backgroundColor: 'rgba(24, 24, 27, 0.92)',
+        paddingHorizontal: 14,
+        paddingVertical: 9,
+        zIndex: 9,
+    },
+    mapDataErrorPressed: {
+        opacity: 0.72,
+    },
+    mapDataErrorTitle: {
+        color: 'white',
+        fontSize: 13,
+        fontWeight: '700',
+    },
+    mapDataErrorAction: {
+        color: '#BAE6FD',
+        fontSize: 11,
+        fontWeight: '600',
+        marginTop: 2,
     },
     myLocationMarker: {
         backgroundColor: 'white',

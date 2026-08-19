@@ -1,12 +1,848 @@
+import AlarmClockCheckIcon from '@hugeicons/core-free-icons/AlarmClockCheckIcon';
+import AlarmClockPlusIcon from '@hugeicons/core-free-icons/AlarmClockPlusIcon';
+import Calendar03Icon from '@hugeicons/core-free-icons/Calendar03Icon';
+import Call02Icon from '@hugeicons/core-free-icons/Call02Icon';
+import Location01Icon from '@hugeicons/core-free-icons/Location01Icon';
+import Message01Icon from '@hugeicons/core-free-icons/Message01Icon';
+import Search01Icon from '@hugeicons/core-free-icons/Search01Icon';
 import UserGroupIcon from '@hugeicons/core-free-icons/UserGroupIcon';
-import { EmptyCollectionScreen } from 'components/screens/EmptyCollectionScreen';
+import { HugeiconsIcon } from '@hugeicons/react-native';
+import { useIsFocused } from '@react-navigation/native';
+import { useSession } from 'context/AuthenticationContext';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  Linking,
+  Pressable,
+  RefreshControl,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import {
+  buildLeadAppointmentReminderKey,
+  cancelLeadAppointmentRemindersForScope,
+  listLeadAppointmentReminderKeys,
+  scheduleLeadAppointmentReminder,
+} from 'services/lead-appointment-reminders';
+import { fetchMyLeads } from 'services/leads-api';
+import type { MyLead, MyLeadFilter } from 'types/my-leads.types';
+import { getApiErrorMessage } from 'utils/get-api-error-message';
+import { getUserScopeKey } from 'utils/get-user-scope-key';
 
-export default function MyLeadsScreen() {
+const FILTERS: ReadonlyArray<{ value: MyLeadFilter; label: string }> = [
+  { value: 'all', label: 'All' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'follow_up', label: 'Follow-up' },
+];
+
+const STATUS_COLORS: Record<string, string> = {
+  new: '#1687E8',
+  assigned: '#0F766E',
+  follow_up: '#7C3AED',
+  rescheduled: '#A16207',
+  unresponsive: '#D97706',
+  unqualified: '#71717A',
+  not_interested: '#DC2626',
+  sold: '#15803D',
+  canceled: '#B91C1C',
+};
+
+function formatStatus(status: string): string {
+  return status
+    .split('_')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ') || 'New';
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return 'Date unavailable';
+  }
+  return date.toLocaleString(undefined, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+function mergeLeadPages(current: MyLead[], incoming: MyLead[]): MyLead[] {
+  const byId = new Map(current.map((lead) => [lead.id, lead]));
+  for (const lead of incoming) {
+    byId.set(lead.id, lead);
+  }
+  return [...byId.values()];
+}
+
+function openContactUrl(url: string, failureMessage: string): void {
+  Linking.openURL(url).catch(() => {
+    Alert.alert('Could not open contact action', failureMessage);
+  });
+}
+
+function LeadCard({
+  lead,
+  isReminderPending,
+  isReminderScheduled,
+  onScheduleReminder,
+}: {
+  readonly lead: MyLead;
+  readonly isReminderPending: boolean;
+  readonly isReminderScheduled: boolean;
+  readonly onScheduleReminder: (lead: MyLead) => void;
+}) {
+  const statusColor = STATUS_COLORS[lead.status] ?? '#52525B';
+  const phoneDigits = lead.phone?.replace(/[^\d+]/g, '') ?? '';
+  const appointmentMs = lead.appointmentAt ? Date.parse(lead.appointmentAt) : Number.NaN;
+  const canScheduleReminder = Number.isFinite(appointmentMs) && appointmentMs > Date.now() + 5_000;
+
   return (
-    <EmptyCollectionScreen
-      title="My Leads"
-      message="Leads you submit from the field map will appear here."
-      icon={UserGroupIcon}
-    />
+    <View style={styles.card}>
+      <View style={styles.cardHeader}>
+        <View style={styles.nameBlock}>
+          <Text style={styles.name} numberOfLines={1}>{lead.fullName}</Text>
+          <Text style={styles.leadNumber}>Lead #{lead.id}</Text>
+        </View>
+        <View style={[styles.statusPill, { backgroundColor: `${statusColor}18` }]}>
+          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
+          <Text style={[styles.statusText, { color: statusColor }]}>
+            {formatStatus(lead.status)}
+          </Text>
+        </View>
+      </View>
+
+      {lead.address ? (
+        <View style={styles.detailRow}>
+          <HugeiconsIcon icon={Location01Icon} size={17} color="#71717A" strokeWidth={1.8} />
+          <Text style={styles.detailText} numberOfLines={2}>{lead.address}</Text>
+        </View>
+      ) : null}
+
+      {lead.appointmentAt ? (
+        <View style={[styles.detailRow, styles.appointmentRow]}>
+          <HugeiconsIcon icon={Calendar03Icon} size={17} color="#7C3AED" strokeWidth={1.8} />
+          <View style={styles.detailCopy}>
+            <Text style={styles.appointmentLabel}>Appointment</Text>
+            <Text style={styles.appointmentText}>{formatDateTime(lead.appointmentAt)}</Text>
+          </View>
+          {canScheduleReminder ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isReminderScheduled
+                ? `Appointment reminder set for ${lead.fullName}`
+                : `Set appointment reminder for ${lead.fullName}`}
+              accessibilityState={{
+                busy: isReminderPending,
+                disabled: isReminderPending || isReminderScheduled,
+              }}
+              disabled={isReminderPending || isReminderScheduled}
+              hitSlop={6}
+              onPress={() => onScheduleReminder(lead)}
+              style={({ pressed }) => [
+                styles.reminderButton,
+                isReminderScheduled && styles.reminderButtonScheduled,
+                pressed && styles.pressed,
+              ]}
+            >
+              {isReminderPending ? (
+                <ActivityIndicator size="small" color="#7C3AED" />
+              ) : (
+                <HugeiconsIcon
+                  icon={isReminderScheduled ? AlarmClockCheckIcon : AlarmClockPlusIcon}
+                  size={19}
+                  color={isReminderScheduled ? '#15803D' : '#7C3AED'}
+                  strokeWidth={2}
+                />
+              )}
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
+      <View style={styles.cardFooter}>
+        <View style={styles.metaBlock}>
+          {lead.officeName ? <Text style={styles.metaText}>{lead.officeName}</Text> : null}
+          {lead.verticalName ? <Text style={styles.metaText}>{lead.verticalName}</Text> : null}
+        </View>
+        {phoneDigits ? (
+          <View style={styles.contactActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Call ${lead.fullName}`}
+              hitSlop={6}
+              onPress={() => openContactUrl(`tel:${phoneDigits}`, 'Open the Phone app and try again.')}
+              style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
+            >
+              <HugeiconsIcon icon={Call02Icon} size={19} color="#1687E8" strokeWidth={2} />
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Message ${lead.fullName}`}
+              hitSlop={6}
+              onPress={() => openContactUrl(`sms:${phoneDigits}`, 'Open Messages and try again.')}
+              style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
+            >
+              <HugeiconsIcon icon={Message01Icon} size={19} color="#1687E8" strokeWidth={2} />
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    </View>
   );
 }
+
+export default function MyLeadsScreen() {
+  const { session } = useSession();
+  const isFocused = useIsFocused();
+  const salesRepId = Number(session?.user?.id ?? 0);
+  const authenticatedScopeKey = session?.token ? getUserScopeKey(session.user) : null;
+  const [leads, setLeads] = useState<MyLead[]>([]);
+  const [loadedQueryKey, setLoadedQueryKey] = useState<string | null>(null);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [activeFilter, setActiveFilter] = useState<MyLeadFilter>('all');
+  const [controlsScopeKey, setControlsScopeKey] = useState(authenticatedScopeKey);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [scheduledReminderKeys, setScheduledReminderKeys] = useState<Set<string>>(new Set());
+  const [pendingReminderLeadId, setPendingReminderLeadId] = useState<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const generationRef = useRef(0);
+  const loadMoreControllerRef = useRef<AbortController | null>(null);
+  const pendingReminderLeadIdRef = useRef<number | null>(null);
+  const reminderRequestIdRef = useRef(0);
+  const isMountedRef = useRef(true);
+  const currentScopeKeyRef = useRef(authenticatedScopeKey);
+  currentScopeKeyRef.current = authenticatedScopeKey;
+  const loadedQueryKeyRef = useRef<string | null>(null);
+  const effectiveSearch = controlsScopeKey === authenticatedScopeKey ? debouncedSearch : '';
+  const effectiveFilter = controlsScopeKey === authenticatedScopeKey ? activeFilter : 'all';
+  const renderedSearch = controlsScopeKey === authenticatedScopeKey ? search : '';
+  const currentQueryKey = authenticatedScopeKey
+    ? JSON.stringify([authenticatedScopeKey, effectiveSearch, effectiveFilter])
+    : null;
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      reminderRequestIdRef.current += 1;
+      pendingReminderLeadIdRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  useEffect(() => {
+    generationRef.current += 1;
+    loadMoreControllerRef.current?.abort();
+    setLeads([]);
+    setLoadedQueryKey(null);
+    loadedQueryKeyRef.current = null;
+    setTotalCount(0);
+    setPage(1);
+    setHasMore(false);
+    setSearch('');
+    setDebouncedSearch('');
+    setActiveFilter('all');
+    setControlsScopeKey(authenticatedScopeKey);
+    setIsLoading(Boolean(authenticatedScopeKey && isFocused));
+    setIsLoadingMore(false);
+    setErrorMessage(null);
+    setScheduledReminderKeys(new Set());
+    setPendingReminderLeadId(null);
+    pendingReminderLeadIdRef.current = null;
+    reminderRequestIdRef.current += 1;
+  }, [authenticatedScopeKey]);
+
+  useEffect(() => {
+    if (!authenticatedScopeKey || !isFocused) {
+      return;
+    }
+    let cancelled = false;
+    listLeadAppointmentReminderKeys(authenticatedScopeKey).then((keys) => {
+      if (!cancelled) {
+        setScheduledReminderKeys(keys);
+      }
+    }).catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [authenticatedScopeKey, isFocused]);
+
+  useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+    if (!authenticatedScopeKey) {
+      loadMoreControllerRef.current?.abort();
+      setLeads([]);
+      setLoadedQueryKey(null);
+      loadedQueryKeyRef.current = null;
+      setTotalCount(0);
+      setPage(1);
+      setHasMore(false);
+      setIsLoading(false);
+      setIsLoadingMore(false);
+      setErrorMessage(null);
+      return;
+    }
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
+    loadMoreControllerRef.current?.abort();
+    const controller = new AbortController();
+    const queryChanged = loadedQueryKeyRef.current !== currentQueryKey;
+    if (queryChanged) {
+      setLeads([]);
+      setLoadedQueryKey(null);
+      setTotalCount(0);
+    }
+    setIsLoading(true);
+    setIsLoadingMore(false);
+    setErrorMessage(null);
+    fetchMyLeads({
+      salesRepId,
+      page: 1,
+      search: effectiveSearch,
+      filter: effectiveFilter,
+      signal: controller.signal,
+    }).then((result) => {
+      if (generationRef.current !== generation) {
+        return;
+      }
+      loadedQueryKeyRef.current = currentQueryKey;
+      setLeads(result.leads);
+      setLoadedQueryKey(currentQueryKey);
+      setTotalCount(result.totalCount);
+      setPage(1);
+      setHasMore(result.hasMore);
+    }).catch((error) => {
+      if (generationRef.current === generation && !controller.signal.aborted) {
+        setErrorMessage(getApiErrorMessage(
+          error,
+          'Your leads could not be loaded. Check your connection and try again.',
+        ));
+      }
+    }).finally(() => {
+      if (generationRef.current === generation) {
+        setIsLoading(false);
+      }
+    });
+    return () => {
+      generationRef.current += 1;
+      controller.abort();
+    };
+  }, [authenticatedScopeKey, currentQueryKey, effectiveFilter, effectiveSearch, isFocused, reloadKey, salesRepId]);
+
+  useEffect(() => {
+    return () => loadMoreControllerRef.current?.abort();
+  }, []);
+
+  const loadMore = useCallback(() => {
+    if (!hasMore || isLoading || isLoadingMore || errorMessage) {
+      return;
+    }
+    const nextPage = page + 1;
+    const generation = generationRef.current;
+    const controller = new AbortController();
+    loadMoreControllerRef.current?.abort();
+    loadMoreControllerRef.current = controller;
+    setIsLoadingMore(true);
+    fetchMyLeads({
+      salesRepId,
+      page: nextPage,
+      search: effectiveSearch,
+      filter: effectiveFilter,
+      signal: controller.signal,
+    }).then((result) => {
+      if (generationRef.current !== generation || controller.signal.aborted) {
+        return;
+      }
+      const merged = mergeLeadPages(leads, result.leads);
+      setLeads(merged);
+      setTotalCount((currentTotal) => Math.max(currentTotal, result.totalCount, merged.length));
+      setPage(nextPage);
+      setHasMore(result.hasMore);
+    }).catch((error) => {
+      if (generationRef.current === generation && !controller.signal.aborted) {
+        setErrorMessage(getApiErrorMessage(error, 'More leads could not be loaded. Pull to retry.'));
+      }
+    }).finally(() => {
+      if (generationRef.current === generation) {
+        setIsLoadingMore(false);
+      }
+    });
+  }, [effectiveFilter, effectiveSearch, errorMessage, hasMore, isLoading, isLoadingMore, leads, page, salesRepId]);
+
+  const scopedLeads = currentQueryKey && loadedQueryKey === currentQueryKey
+    ? leads
+    : [];
+  const scopedTotalCount = currentQueryKey && loadedQueryKey === currentQueryKey
+    ? totalCount
+    : 0;
+  const scheduledCount = useMemo(
+    () => scopedLeads.filter((lead) => lead.appointmentAt !== null).length,
+    [scopedLeads],
+  );
+  const activeFilterLabel = FILTERS.find((filter) => filter.value === effectiveFilter)?.label ?? 'Leads';
+  const summaryText = effectiveFilter === 'all'
+    ? `${scopedTotalCount} total · ${scheduledCount} scheduled loaded`
+    : `${scopedTotalCount} ${activeFilterLabel.toLowerCase()}`;
+
+  const emptyMessage = effectiveSearch
+    ? `No leads match “${effectiveSearch}”.`
+    : effectiveFilter === 'all'
+      ? 'Leads submitted from the field map will appear here.'
+      : `No ${activeFilterLabel.toLowerCase()} leads are loaded.`;
+
+  const handleScheduleReminder = useCallback(async (lead: MyLead) => {
+    if (!authenticatedScopeKey || !lead.appointmentAt || pendingReminderLeadIdRef.current !== null) {
+      return;
+    }
+    pendingReminderLeadIdRef.current = lead.id;
+    setPendingReminderLeadId(lead.id);
+    const requestId = reminderRequestIdRef.current + 1;
+    reminderRequestIdRef.current = requestId;
+    const requestScopeKey = authenticatedScopeKey;
+    try {
+      const result = await scheduleLeadAppointmentReminder({
+        scopeKey: requestScopeKey,
+        leadId: lead.id,
+        appointmentAt: lead.appointmentAt,
+      });
+      if (currentScopeKeyRef.current !== requestScopeKey) {
+        await cancelLeadAppointmentRemindersForScope(requestScopeKey).catch(() => undefined);
+        return;
+      }
+      if (!isMountedRef.current) {
+        return;
+      }
+      if (result.status === 'permission_denied') {
+        Alert.alert(
+          'Notifications are off',
+          'Allow notifications for Radiabase in iPhone Settings to set appointment reminders.',
+        );
+        return;
+      }
+      if (result.status === 'appointment_unavailable') {
+        Alert.alert('Reminder unavailable', 'This appointment has already started or passed.');
+        return;
+      }
+      if (result.status === 'scheduled' || result.status === 'already_scheduled') {
+        setScheduledReminderKeys((current) => new Set(current).add(result.reminderKey));
+        Alert.alert(
+          result.status === 'already_scheduled' ? 'Reminder already set' : 'Reminder set',
+          'Radiabase will remind you 30 minutes before the appointment, or at the appointment time if it is sooner.',
+        );
+      }
+    } catch {
+      if (isMountedRef.current && currentScopeKeyRef.current === requestScopeKey) {
+        Alert.alert('Could not set reminder', 'Please try again from My Leads.');
+      }
+    } finally {
+      if (isMountedRef.current && reminderRequestIdRef.current === requestId) {
+        pendingReminderLeadIdRef.current = null;
+        setPendingReminderLeadId(null);
+      }
+    }
+  }, [authenticatedScopeKey]);
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>My Leads</Text>
+          <Text style={styles.headerSubtitle}>{summaryText}</Text>
+        </View>
+        <View style={styles.headerIcon}>
+          <HugeiconsIcon icon={UserGroupIcon} size={24} color="#1687E8" strokeWidth={1.8} />
+        </View>
+      </View>
+
+      <View style={styles.searchContainer}>
+        <HugeiconsIcon icon={Search01Icon} size={19} color="#71717A" strokeWidth={1.8} />
+        <TextInput
+          accessibilityLabel="Search my leads"
+          autoCapitalize="none"
+          autoCorrect={false}
+          clearButtonMode="while-editing"
+          onChangeText={setSearch}
+          placeholder="Search name, phone, email, or address"
+          placeholderTextColor="#A1A1AA"
+          returnKeyType="search"
+          style={styles.searchInput}
+          value={renderedSearch}
+        />
+        {isLoading ? <ActivityIndicator size="small" color="#1687E8" /> : null}
+      </View>
+
+      <View style={styles.filters} accessibilityRole="tablist">
+        {FILTERS.map((filter) => {
+          const selected = effectiveFilter === filter.value;
+          return (
+            <Pressable
+              key={filter.value}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              onPress={() => setActiveFilter(filter.value)}
+              style={({ pressed }) => [
+                styles.filterChip,
+                selected && styles.filterChipSelected,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
+                {filter.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      {errorMessage ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading my leads"
+          onPress={() => setReloadKey((current) => current + 1)}
+          style={({ pressed }) => [styles.errorBanner, pressed && styles.pressed]}
+        >
+          <Text style={styles.errorTitle}>Could not load leads</Text>
+          <Text style={styles.errorText}>{errorMessage} Tap to retry.</Text>
+        </Pressable>
+      ) : null}
+
+      <FlatList
+        contentContainerStyle={[
+          styles.listContent,
+          scopedLeads.length === 0 && styles.emptyListContent,
+        ]}
+        data={scopedLeads}
+        keyExtractor={(lead) => String(lead.id)}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+        onEndReached={loadMore}
+        onEndReachedThreshold={0.35}
+        refreshControl={(
+          <RefreshControl
+            refreshing={isLoading && scopedLeads.length > 0}
+            onRefresh={() => setReloadKey((current) => current + 1)}
+            tintColor="#1687E8"
+          />
+        )}
+        renderItem={({ item }) => {
+          const reminderKey = authenticatedScopeKey && item.appointmentAt
+            ? buildLeadAppointmentReminderKey({
+              scopeKey: authenticatedScopeKey,
+              leadId: item.id,
+              appointmentAt: item.appointmentAt,
+            })
+            : null;
+          return (
+            <LeadCard
+              lead={item}
+              isReminderPending={pendingReminderLeadId === item.id}
+              isReminderScheduled={Boolean(reminderKey && scheduledReminderKeys.has(reminderKey))}
+              onScheduleReminder={handleScheduleReminder}
+            />
+          );
+        }}
+        ListEmptyComponent={isLoading ? (
+          <View style={styles.centerState}>
+            <ActivityIndicator size="large" color="#1687E8" />
+            <Text style={styles.stateMessage}>Loading your leads…</Text>
+          </View>
+        ) : (
+          <View style={styles.centerState}>
+            <View style={styles.emptyIcon}>
+              <HugeiconsIcon icon={UserGroupIcon} size={30} color="#1687E8" strokeWidth={1.8} />
+            </View>
+            <Text style={styles.emptyTitle}>No leads here</Text>
+            <Text style={styles.stateMessage}>{emptyMessage}</Text>
+          </View>
+        )}
+        ListFooterComponent={isLoadingMore ? (
+          <ActivityIndicator style={styles.footerLoader} color="#1687E8" />
+        ) : null}
+      />
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F5F7FA',
+  },
+  header: {
+    minHeight: 68,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E4E4E7',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  headerTitle: {
+    color: '#18181B',
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  headerSubtitle: {
+    marginTop: 2,
+    color: '#71717A',
+    fontSize: 12,
+  },
+  headerIcon: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 21,
+    backgroundColor: '#E8F4FE',
+  },
+  searchContainer: {
+    minHeight: 46,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9,
+    marginHorizontal: 14,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+  },
+  searchInput: {
+    minHeight: 44,
+    flex: 1,
+    color: '#18181B',
+    fontSize: 14,
+  },
+  filters: {
+    flexDirection: 'row',
+    gap: 7,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  filterChip: {
+    minHeight: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#D4D4D8',
+    borderRadius: 17,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+  },
+  filterChipSelected: {
+    borderColor: '#18181B',
+    backgroundColor: '#18181B',
+  },
+  filterText: {
+    color: '#52525B',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  filterTextSelected: {
+    color: '#FFFFFF',
+  },
+  errorBanner: {
+    marginHorizontal: 14,
+    marginBottom: 8,
+    borderRadius: 12,
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  errorTitle: {
+    color: '#991B1B',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  errorText: {
+    marginTop: 2,
+    color: '#B91C1C',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  listContent: {
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingBottom: 24,
+  },
+  emptyListContent: {
+    flexGrow: 1,
+  },
+  card: {
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    borderRadius: 16,
+    backgroundColor: '#FFFFFF',
+    padding: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  nameBlock: {
+    flex: 1,
+  },
+  name: {
+    color: '#18181B',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  leadNumber: {
+    marginTop: 2,
+    color: '#A1A1AA',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  statusPill: {
+    minHeight: 27,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    borderRadius: 14,
+    paddingHorizontal: 9,
+  },
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: '800',
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginTop: 12,
+  },
+  detailCopy: {
+    flex: 1,
+  },
+  detailText: {
+    flex: 1,
+    color: '#52525B',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  appointmentRow: {
+    borderRadius: 11,
+    backgroundColor: '#F5F3FF',
+    padding: 9,
+  },
+  appointmentLabel: {
+    color: '#7C3AED',
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  appointmentText: {
+    marginTop: 2,
+    color: '#4C1D95',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  reminderButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 19,
+    backgroundColor: '#EDE9FE',
+  },
+  reminderButtonScheduled: {
+    backgroundColor: '#DCFCE7',
+  },
+  cardFooter: {
+    minHeight: 40,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  metaBlock: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+  },
+  metaText: {
+    color: '#71717A',
+    fontSize: 11,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  contactButton: {
+    width: 38,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 19,
+    backgroundColor: '#E8F4FE',
+  },
+  centerState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    paddingBottom: 60,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 32,
+    backgroundColor: '#E8F4FE',
+  },
+  emptyTitle: {
+    marginTop: 14,
+    color: '#18181B',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  stateMessage: {
+    marginTop: 7,
+    color: '#71717A',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  footerLoader: {
+    paddingVertical: 18,
+  },
+  pressed: {
+    opacity: 0.62,
+  },
+});

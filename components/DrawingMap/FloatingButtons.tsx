@@ -1,13 +1,14 @@
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Button } from 'components/Button/Button';
 import { FloatingButton } from 'components/Button/FloatingButton';
 import { Ionicons } from '@expo/vector-icons';
-import { DrawSvg, UndoSvg } from 'components/svg';
+import { DrawSvg } from 'components/svg';
 interface ButtonConfig {
-    icon: JSX.Element;
+    icon: React.ReactElement;
     onPress: () => void;
     style?: object;
+    accessibilityLabel: string;
 }
 
 interface FloatingButtonsProps {
@@ -15,41 +16,9 @@ interface FloatingButtonsProps {
     canFinishArea?: boolean;
     onFinish?: () => void;
     activeDrawing?: boolean;
-    setMapType: (type: 'standard' | 'satellite') => void;
     onToggleDrawing?: () => void;
-    showUndoButton?: boolean;
-    onUndo?: () => void;
     isManager: boolean;
-    mapType: 'satellite' | 'standard'
 }
-
-interface MapTypeSelectorProps {
-    mapType: 'standard' | 'satellite';
-    onMapTypeChange: (type: 'standard' | 'satellite') => void;
-}
-
-const MapTypeSelector: React.FC<MapTypeSelectorProps> = ({ mapType, onMapTypeChange }) => {
-    return (
-        <View style={styles.container}>
-            <TouchableOpacity
-                style={[styles.typeButton, mapType === 'standard' && styles.activeButton]}
-                onPress={() => onMapTypeChange('standard')}
-            >
-                <Text style={[styles.typeButtonText, mapType === 'standard' && styles.activeButtonText]}>
-                    Hybrid
-                </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-                style={[styles.typeButton, mapType === 'satellite' && styles.activeButton]}
-                onPress={() => onMapTypeChange('satellite')}
-            >
-                <Text style={[styles.typeButtonText, mapType === 'satellite' && styles.activeButtonText]}>
-                    Satellite
-                </Text>
-            </TouchableOpacity>
-        </View>
-    );
-};
 
 const FloatingButtons: React.FC<FloatingButtonsProps> = ({
     buttons,
@@ -57,11 +26,7 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
     onFinish,
     activeDrawing = false,
     onToggleDrawing,
-    showUndoButton = false,
-    onUndo,
     isManager,
-    mapType,
-    setMapType,
 }) => {
     return (
         <>
@@ -80,6 +45,7 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                         buttonStyle={{ backgroundColor: activeDrawing ? "#32A0FF" : 'white' }}
                         onPress={onToggleDrawing}
                         buttonIcon={<DrawSvg color={activeDrawing ? 'white' : '#1F1F1F'} />}
+                        accessibilityLabel={activeDrawing ? 'Cancel circle drawing' : 'Draw a circular area'}
                     />
                 </View>}
                 {buttons?.map((btn, index) => (
@@ -88,26 +54,11 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                             onPress={btn.onPress}
                             buttonIcon={btn.icon}
                             buttonStyle={btn.style}
+                            accessibilityLabel={btn.accessibilityLabel}
                         />
                     </View>
                 ))}
-                <MapTypeSelector
-                    mapType={mapType}
-                    onMapTypeChange={setMapType}
-                />
             </View>
-            {showUndoButton && isManager && onUndo && (
-                <View style={styles.undoButtonContainer}>
-                    <Button
-                        text='Undo'
-                        onPress={onUndo}
-                        buttonStyle={styles.completeButtonStyle}
-                        textStyle={styles.buttonTextStyle}
-                        startIcon={<UndoSvg />}
-                    />
-                </View>
-            )}
-
         </>
     );
 };
@@ -142,41 +93,9 @@ const styles = StyleSheet.create({
         zIndex: 10,
         alignItems: 'flex-end',
     },
-    undoButtonContainer: {
-        position: 'absolute',
-        bottom: 70,
-        left: 25,
-        zIndex: 10,
-        alignItems: 'flex-end',
-    },
     buttonContainer: {
         marginBottom: 24,
         alignItems: 'flex-end',
-    },
-    container: {
-        flexDirection: 'row',
-        backgroundColor: '#E9E9E9',
-        borderRadius: 4,
-        padding: 4,
-        height: 31,
-        overflow: 'hidden',
-    },
-    typeButton: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 12,
-    },
-    activeButton: {
-        backgroundColor: 'white',
-        borderRadius: 4
-    },
-    typeButtonText: {
-        color: 'black',
-        fontSize: 12,
-    },
-    activeButtonText: {
-        fontWeight: 'bold'
     },
 });
 

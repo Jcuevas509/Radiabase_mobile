@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { PlainModal } from 'components/Modal/Modal';
 import { Button } from '../Button/Button';
 import { leadStatuses } from 'constants/leadStatuses';
@@ -11,15 +11,19 @@ interface QuickHouseOverviewModalProps {
     visible: boolean;
     onClose: () => void;
     selectedHouse: BuildingProps;
+    isStatusSaving: boolean;
+    savingStatusId: number | null;
     onDeletePin: () => void;
     onOpenHouseInfo: () => void;
-    onChangeHouseStatus: (status: LeadStatus) => void;
+    onChangeHouseStatus: (status: LeadStatus) => Promise<void> | void;
 }
 
 export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = ({
     visible,
     onClose,
     selectedHouse,
+    isStatusSaving,
+    savingStatusId,
     onDeletePin,
     onOpenHouseInfo,
     onChangeHouseStatus
@@ -55,6 +59,7 @@ export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = (
                         buttonStyle={{ backgroundColor: 'black', maxWidth: 247, width: '60%' }}
                         textStyle={{ color: 'white' }}
                         onPress={onOpenHouseInfo}
+                        isDisabled={isStatusSaving}
                     />
                 </>
             }
@@ -68,11 +73,26 @@ export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = (
                                 <Text style={styles.buttonText}>{status.shortName}</Text>
                                 <TouchableOpacity
                                     key={status.shortName}
-                                    style={[styles.button, { backgroundColor: status.color, opacity: currentStatus?.statusId === status.statusId ? 0.2 : 1 }]}
-                                    onPress={() => onChangeHouseStatus(status)}
-                                    disabled={currentStatus?.statusId === status.statusId}
+                                    accessibilityRole="button"
+                                    accessibilityLabel={`Set house status to ${status.fullName}`}
+                                    accessibilityState={{
+                                        busy: savingStatusId === status.statusId,
+                                        disabled: currentStatus?.statusId === status.statusId || isStatusSaving,
+                                    }}
+                                    style={[
+                                        styles.button,
+                                        {
+                                            backgroundColor: status.color,
+                                            opacity: currentStatus?.statusId === status.statusId ||
+                                                (isStatusSaving && savingStatusId !== status.statusId) ? 0.2 : 1,
+                                        },
+                                    ]}
+                                    onPress={() => void onChangeHouseStatus(status)}
+                                    disabled={currentStatus?.statusId === status.statusId || isStatusSaving}
                                 >
-                                    <status.icon color="white" />
+                                    {savingStatusId === status.statusId
+                                        ? <ActivityIndicator color="white" size="small" />
+                                        : <status.icon color="white" />}
                                 </TouchableOpacity>
                             </View>
                         ))

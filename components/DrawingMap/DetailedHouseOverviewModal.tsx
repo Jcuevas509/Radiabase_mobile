@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, Switch, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, Switch, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { PlainModal } from 'components/Modal/Modal';
 import { Button } from '../Button/Button';
 import { customerStatuses, leadStatuses } from 'constants/leadStatuses';
@@ -16,9 +16,11 @@ interface DetailedHouseOverviewModalProps {
     visible: boolean;
     onClose: () => void;
     selectedHouse: BuildingProps;
+    isStatusSaving: boolean;
+    savingStatusId: number | null;
     onOpenSubmitLead: (value: BuildingProps) => void;
     onUpdateLead: (value: BuildingProps) => Promise<void> | void;
-    onChangeHouseStatus: (status: LeadStatus) => void;
+    onChangeHouseStatus: (status: LeadStatus) => Promise<void> | void;
     onSaveNotes: (note: string) => void;
     onSaveHomeowner: (value: BuildingProps) => void;
 }
@@ -27,6 +29,8 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
     visible,
     onClose,
     selectedHouse,
+    isStatusSaving,
+    savingStatusId,
     onOpenSubmitLead,
     onUpdateLead,
     onChangeHouseStatus,
@@ -77,6 +81,9 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
 
 
     useEffect(() => {
+        if (!visible) {
+            return;
+        }
         setFirstName(selectedHouse?.assignee?.name || '');
         setLastName(selectedHouse?.assignee?.lastname || '');
         setPhoneNumber(selectedHouse?.assignee?.phone || '');
@@ -86,7 +93,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
         setIsOwner(selectedHouse?.additionalDetails?.isOwner || false);
         setCreditScore(selectedHouse?.additionalDetails?.creditScore || 500);
         setNote(selectedHouse?.additionalDetails?.note || '')
-    }, [selectedHouse])
+    }, [visible, selectedHouse?.id])
 
     // useEffect(() => {
     //     if (keyboardShown) {
@@ -135,11 +142,11 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
         onClose();
     };
 
-    const handleLeadStatusPress = (status: LeadStatus) => {
-        if (currentStatus?.statusId === status.statusId) {
+    const handleLeadStatusPress = async (status: LeadStatus) => {
+        if (currentStatus?.statusId === status.statusId || isStatusSaving) {
             return;
         }
-        onChangeHouseStatus(status);
+        await onChangeHouseStatus(status);
     };
 
     const handleContentSizeChange = () => {
@@ -155,11 +162,26 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                     <View style={styles.singleStatus} key={status.shortName}>
                         <Text style={styles.buttonText}>{status.shortName}</Text>
                         <TouchableOpacity
-                            style={[styles.button, { backgroundColor: status.color, opacity: currentStatus?.statusId === status.statusId ? 0.2 : 1 }]}
-                            onPress={() => handleLeadStatusPress(status)}
-                            disabled={currentStatus?.statusId === status.statusId}
+                            accessibilityRole="button"
+                            accessibilityLabel={`Set house status to ${status.fullName}`}
+                            accessibilityState={{
+                                busy: savingStatusId === status.statusId,
+                                disabled: currentStatus?.statusId === status.statusId || isStatusSaving,
+                            }}
+                            style={[
+                                styles.button,
+                                {
+                                    backgroundColor: status.color,
+                                    opacity: currentStatus?.statusId === status.statusId ||
+                                        (isStatusSaving && savingStatusId !== status.statusId) ? 0.2 : 1,
+                                },
+                            ]}
+                            onPress={() => void handleLeadStatusPress(status)}
+                            disabled={currentStatus?.statusId === status.statusId || isStatusSaving}
                         >
-                            <status.icon color="white" />
+                            {savingStatusId === status.statusId
+                                ? <ActivityIndicator color="white" size="small" />
+                                : <status.icon color="white" />}
                         </TouchableOpacity>
                     </View>
                 ))}
@@ -309,7 +331,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                                 placeholder="Email"
                                 onChange={(text, isValid) => {
                                     setEmail(text);
-                                    setIsValidEmail(isValid || true)
+                                    setIsValidEmail(isValid ?? true)
                                 }}
                                 keyboardType="email-address"
                                 isEmail={true}

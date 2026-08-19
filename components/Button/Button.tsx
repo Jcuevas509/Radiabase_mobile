@@ -1,14 +1,15 @@
 import { TouchableOpacity, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import type { ReactElement } from 'react';
 
 interface ButtonProps {
     onPress: () => Promise<void> | void;
     text?: string;
     buttonStyle?: object;
     textStyle?: object;
-    endIcon?: JSX.Element;
-    startIcon?: JSX.Element;
-    buttonIcon?: JSX.Element;
+    endIcon?: ReactElement;
+    startIcon?: ReactElement;
+    buttonIcon?: ReactElement;
     isDisabled?: boolean;
     loadingColor?: string;
     isLoading?: boolean;

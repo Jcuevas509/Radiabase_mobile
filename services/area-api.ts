@@ -103,10 +103,11 @@ export async function fetchMapBuildings(bbox: {
   readonly south: number;
   readonly east: number;
   readonly north: number;
-}): Promise<MapBuildingResponse[]> {
+}, signal?: AbortSignal): Promise<MapBuildingResponse[]> {
   const response = await apiClient.get<MapBuildingResponse[]>('/area-management/map-buildings', {
     params: bbox,
     timeout: 20000,
+    signal,
   });
   return response.data;
 }
@@ -117,12 +118,14 @@ export async function fetchMapBuildings(bbox: {
 export async function fetchMapHouses(
   areaIds: number[] = [],
   bbox?: MapBbox,
+  signal?: AbortSignal,
 ): Promise<MapHouseResponse[]> {
   const response = await apiClient.get<MapHouseResponse[]>('/area-management/map-houses', {
     params: {
       ...(areaIds.length > 0 ? { areaIds: areaIds.join(',') } : {}),
       ...(bbox ?? {}),
     },
+    signal,
   });
   return response.data;
 }

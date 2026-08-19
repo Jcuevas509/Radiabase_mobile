@@ -24,11 +24,20 @@ apiClient.interceptors.request.use(async (config) => {
   const deviceId = await getOrCreateDeviceId();
   config.headers['x-device-id'] = deviceId;
   config.headers['x-platform'] = Platform.OS;
-  if (accessToken) {
+  const hasExplicitAuthorization = typeof config.headers.has === 'function'
+    ? config.headers.has('Authorization')
+    : Object.keys(config.headers).some((name) => name.toLowerCase() === 'authorization');
+  if (accessToken && !hasExplicitAuthorization) {
     config.headers.Authorization = `Bearer ${accessToken}`;
   }
   if (__DEV__) {
-    const params = config.params ? ` ${JSON.stringify(config.params)}` : '';
+    const paramNames = config.params && typeof config.params === 'object'
+      ? Object.entries(config.params)
+        .filter(([, value]) => value !== undefined)
+        .map(([name]) => name)
+        .join(',')
+      : '';
+    const params = paramNames ? ` params=[${paramNames}]` : '';
     console.log(`[API] ${config.method?.toUpperCase()} ${config.baseURL ?? ''}${config.url ?? ''}${params}`);
   }
   return config;

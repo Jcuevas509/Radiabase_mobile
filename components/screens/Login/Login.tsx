@@ -38,7 +38,7 @@ const COLORS = {
 } as const;
 
 interface LoginProps {
-    signIn: (session: Session) => void;
+    signIn: (session: Session) => Promise<void>;
 }
 
 /**
@@ -57,7 +57,7 @@ export function Login({ signIn }: LoginProps) {
         setErrorMessage('');
         try {
             const session = await loginWithPassword({ email, password });
-            signIn(session);
+            await signIn(session);
         } catch (error) {
             if (isUnauthorizedError(error)) {
                 setErrorMessage('Invalid email or password.');

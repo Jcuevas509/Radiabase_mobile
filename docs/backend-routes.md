@@ -113,8 +113,14 @@ Rules that matter in the field:
 | Field map | `map-areas`, `map-buildings`, `map-houses`, `from-building`, house detail / status / notes, `create-area`, `assign-area-rep`, `DELETE /areas/:id`, `GET /users` or `/users/all` |
 | Convert to Lead | `GET /offices/user-offices`, `POST /leads` |
 | Update Lead on the house sheet | `PATCH /leads/:id/info` |
+| My Leads | `GET /leads` with `sales_rep_id`, paginated search, and newest-first sorting |
+| My Deals | `GET /deals` with `sales_rep_id`, paginated search, stage filters, and newest-sale sorting |
 
 `My location` does not call this API.
+
+Security invariant for both rep inboxes: `sales_rep_id` is only a requested view. The API must bind ordinary reps to the user ID and tenant scope in their verified access token, rejecting or ignoring a substituted rep ID. Managers may only use broader views inside their server-authorized organization / office scope.
+
+Appointment reminders are local device notifications, scheduled only after the rep taps the reminder control and grants notification permission. They do not create a backend row, contain no customer PII in lock-screen text, are deduplicated by rep scope + lead + appointment time, and are removed for that scope on logout.
 
 ---
 
@@ -394,9 +400,9 @@ House sheet “Update Lead”. Contact fields only. JSON.
 
 Also accepts address fields (`address_line1`, `city`, `state`, `zip_code`). The app currently sends name / phone / email. At least one field is required. Phone must be 10 digits.
 
-### Nearby lead routes the app does not use
+### Lead inbox routes
 
-`GET /leads`, `GET /leads/:id`, `GET /leads/:id/extras`, notes, files, `PATCH /leads/:id/status`, `PATCH /leads/:id/closer`, `PATCH /leads/:id/office`. Those are the web lead inbox.
+The My Leads screen uses `GET /leads` scoped with the signed-in user's `sales_rep_id`, server-side search, status filters, and pagination. The app does not yet use `GET /leads/:id`, `GET /leads/:id/extras`, lead notes, files, `PATCH /leads/:id/status`, `PATCH /leads/:id/closer`, or `PATCH /leads/:id/office`; those remain web inbox routes.
 
 ---
 

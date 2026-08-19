@@ -1,13 +1,15 @@
 import { TouchableOpacity, Text, StyleSheet } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import type { ReactElement } from 'react';
 
 interface MyButtonProps {
     onPress: () => void;
     text?: string;
     buttonStyle?: object;
     textStyle?: object;
-    buttonIcon?: JSX.Element;
+    buttonIcon?: ReactElement;
     isDisabled?: boolean;
+    accessibilityLabel?: string;
 }
 
 /**
@@ -21,6 +23,7 @@ export function FloatingButton({
     buttonIcon,
     textStyle,
     isDisabled = false,
+    accessibilityLabel,
 }: MyButtonProps) {
     function handlePress() {
         Haptics.selectionAsync().catch(() => null);
@@ -28,6 +31,9 @@ export function FloatingButton({
     }
     return (
         <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel={accessibilityLabel}
+            accessibilityState={{ disabled: isDisabled }}
             disabled={isDisabled}
             style={[styles.container, buttonStyle]}
             onPress={handlePress}

@@ -78,6 +78,8 @@ export function convertMapAreasToPolygons(
           zip: house.zip,
           note: house.notes,
           leadId: house.leadId,
+          externalId: house.externalId,
+          source: house.source,
         },
       })),
     };

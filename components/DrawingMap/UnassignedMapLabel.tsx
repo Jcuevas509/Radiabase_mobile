@@ -1,10 +1,7 @@
-import { StyleSheet, Text, View } from 'react-native';
-import { Marker } from 'react-native-maps';
+import { Pressable, StyleSheet, Text } from 'react-native';
 
 type UnassignedMapLabelProps = {
   readonly areaId: number;
-  readonly latitude: number;
-  readonly longitude: number;
   readonly onPress?: () => void;
 };
 
@@ -13,24 +10,18 @@ type UnassignedMapLabelProps = {
  */
 export function UnassignedMapLabel({
   areaId,
-  latitude,
-  longitude,
   onPress,
 }: UnassignedMapLabelProps) {
   return (
-    <Marker
-      identifier={`area-${areaId}-unassigned`}
-      coordinate={{ latitude, longitude }}
-      tracksViewChanges={false}
-      anchor={{ x: 0.5, y: 0.5 }}
-      tappable={Boolean(onPress)}
-      zIndex={4}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open unassigned area ${areaId}`}
+      disabled={!onPress}
       onPress={onPress}
+      style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
     >
-      <View style={styles.chip} pointerEvents="none">
-        <Text style={styles.label}>Unassigned</Text>
-      </View>
-    </Marker>
+      <Text style={styles.label}>Unassigned</Text>
+    </Pressable>
   );
 }
 
@@ -47,5 +38,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: '#71717A',
+  },
+  pressed: {
+    opacity: 0.75,
   },
 });

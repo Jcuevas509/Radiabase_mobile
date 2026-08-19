@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { Session } from 'types/storageTypes';
-import { apiClient, setAccessToken } from 'services/api-client';
+import { apiClient } from 'services/api-client';
 import { ApiMeResponse, LoginResponse } from 'types/auth-api.types';
 import { mapApiUserToSessionUser } from 'utils/map-api-user';
 
@@ -20,8 +20,9 @@ export async function loginWithPassword(
     password: input.password,
   });
   const token = loginResponse.data.access_token;
-  setAccessToken(token);
-  const meResponse = await apiClient.get<ApiMeResponse>('/auth/me');
+  const meResponse = await apiClient.get<ApiMeResponse>('/auth/me', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
   return {
     token,
     user: mapApiUserToSessionUser(meResponse.data),

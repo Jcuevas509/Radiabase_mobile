@@ -6,60 +6,48 @@ import {
     Text,
     Dimensions,
     Alert,
-    LogBox,
     ActivityIndicator,
 } from 'react-native';
-import { debounce, throttle } from 'lodash';
+import { debounce } from 'lodash';
 
 import MapView, { Marker, Region } from 'react-native-maps';
 import { MyLocationSvg } from 'components/svg';
 import { getAcronym } from 'utils/helperFunctions';
-import { CustomMarker } from 'components/Marker/Marker';
 import { BuildingProps, CoordinateProps } from 'types/componentsTypes';
 import { useSession } from 'context/AuthenticationContext';
 import FloatingButtons from 'components/DrawingMap/FloatingButtons';
 import { fetchOverpassData } from 'services/overpassApi';
 import { MapCompass } from 'components/DrawingMap/MapCompass';
 import { isStreetZoomRegion } from 'utils/is-street-zoom-region';
+import { MapDynamicOverlay } from 'components/DrawingMap/MapDynamicOverlay';
+import { useMapCameraHeading } from 'hooks/useMapCameraHeading';
 
 const { width, height } = Dimensions.get('window');
 const ASPECT_RATIO = width / height;
 const LATITUDE_DELTA = 0.03;
 const LONGITUDE_DELTA = LATITUDE_DELTA * ASPECT_RATIO;
-LogBox.ignoreAllLogs(true);
+const NOOP_AREA_PRESS = () => undefined;
 
 const MapComponent = () => {
     const { session } = useSession();
     const isManager = session?.user?.role === 'manager';
     const displayName = `${session?.user?.firstName ?? ''} ${session?.user?.lastName ?? ''}`.trim() || 'You';
     const [region, setRegion] = useState<Region | null>(null);
+    const [viewportRegion, setViewportRegion] = useState<Region | null>(null);
     const [buildingMarkers, setBuildingMarkers] = useState<Array<BuildingProps>>([]);
     const [myLocation, setMyLocation] = useState<CoordinateProps>({} as CoordinateProps);
     const [isAtCurrentLocation, setIsAtCurrentLocation] = useState(true);
-    const [mapType, setMapType] = useState<'satellite' | 'standard'>('satellite');
     const [loading, setLoading] = useState(false);
-    const [mapHeading, setMapHeading] = useState(0);
+    const [isMapMoving, setIsMapMoving] = useState(false);
     const mapRef = useRef<MapView>(null);
+    const isMapMovingRef = useRef(false);
     const [lastFetchedRegion, setLastFetchedRegion] = useState<Region | null>(null);
     const requestIdRef = useRef(0);
-
-    const updateCompassHeading = useMemo(
-        () => throttle(async () => {
-            try {
-                const camera = await mapRef.current?.getCamera();
-                if (!camera || !Number.isFinite(camera.heading)) {
-                    return;
-                }
-                const normalizedHeading = ((camera.heading % 360) + 360) % 360;
-                setMapHeading((current) =>
-                    Math.abs(current - normalizedHeading) >= 0.5 ? normalizedHeading : current,
-                );
-            } catch {
-                // The native map can disappear while a throttled camera read is in flight.
-            }
-        }, 100, { leading: true, trailing: true }),
-        [],
-    );
+    const {
+        heading: mapHeading,
+        requestHeadingUpdate: updateCompassHeading,
+        resetMapToNorth,
+    } = useMapCameraHeading(mapRef);
 
     useEffect(() => {
         (async () => {
@@ -77,6 +65,7 @@ const MapComponent = () => {
                     longitudeDelta: LONGITUDE_DELTA,
                 };
                 setRegion(initialRegion);
+                setViewportRegion(initialRegion);
                 setMyLocation({
                     latitude: location.coords.latitude,
                     longitude: location.coords.longitude,
@@ -136,12 +125,14 @@ const MapComponent = () => {
         return () => {
             requestIdRef.current += 1;
             debouncedFetchBuildingData.cancel();
-            updateCompassHeading.cancel();
         };
-    }, [debouncedFetchBuildingData, updateCompassHeading]);
+    }, [debouncedFetchBuildingData]);
 
     const handleRegionChangeComplete = useCallback((newRegion: Region) => {
+        isMapMovingRef.current = false;
+        setIsMapMoving(false);
         if (!newRegion || !region) return;
+        setViewportRegion(newRegion);
 
         // Check if the region change is significant enough to warrant a new fetch
         const isSignificantChange = !lastFetchedRegion ||
@@ -176,10 +167,13 @@ const MapComponent = () => {
         updateCompassHeading();
     }, [region, isAtCurrentLocation, debouncedFetchBuildingData, lastFetchedRegion, updateCompassHeading]);
 
-    const resetMapToNorth = useCallback(() => {
-        mapRef.current?.animateCamera({ heading: 0 }, { duration: 250 });
-        setMapHeading(0);
-    }, []);
+    const handleRegionChange = useCallback(() => {
+        if (!isMapMovingRef.current) {
+            isMapMovingRef.current = true;
+            setIsMapMoving(true);
+        }
+        updateCompassHeading();
+    }, [updateCompassHeading]);
 
     const handleMyLocation = useCallback(async () => {
         try {
@@ -199,6 +193,7 @@ const MapComponent = () => {
                 longitude: location.coords.longitude,
             });
             setRegion(newRegion);
+            setViewportRegion(newRegion);
             setIsAtCurrentLocation(true);
         } catch (error) {
             console.error('Error getting current location:', error);
@@ -221,49 +216,53 @@ const MapComponent = () => {
                     {
                         icon: <MyLocationSvg color={isAtCurrentLocation ? "white" : "#1F1F1F"} />,
                         onPress: handleMyLocation,
+                        accessibilityLabel: 'Center map on my location',
                         style: { backgroundColor: isAtCurrentLocation ? "#32A0FF" : "white" }
                     },
                 ]}
-                setMapType={setMapType}
-                mapType={mapType}
                 isManager={isManager}
             />
             {region && (
                 <MapView
                     style={styles.map}
                     ref={mapRef}
-                    mapType={mapType}
+                    mapType="satellite"
                     initialRegion={region}
                     rotateEnabled
                     pitchEnabled={false}
                     showsCompass={false}
-                    onRegionChange={updateCompassHeading}
+                    onRegionChange={handleRegionChange}
                     onRegionChangeComplete={handleRegionChangeComplete}
                 >
-                    {myLocation?.latitude && myLocation?.longitude && (
-                        <Marker
-                            key="my-location-marker"
-                            coordinate={{ latitude: myLocation.latitude, longitude: myLocation.longitude }}
-                            title={displayName}
-                        >
-                            <View style={styles.myLocationMarker}>
-                                <Text style={styles.myLocationText}>
-                                    {getAcronym(displayName)}
-                                </Text>
-                            </View>
-                        </Marker>
-                    )}
-                    {buildingMarkers.map((marker) => (
-                        <CustomMarker
-                            type='building'
-                            id={marker.id}
-                            key={marker.id}
-                            marker={marker}
-                            onClick={() => handleBuildingPress(marker)}
-                        />
-                    ))}
+                    <Marker
+                        key="my-location-marker"
+                        coordinate={Number.isFinite(myLocation.latitude) && Number.isFinite(myLocation.longitude)
+                            ? { latitude: myLocation.latitude, longitude: myLocation.longitude }
+                            : { latitude: region.latitude, longitude: region.longitude }}
+                        title={displayName}
+                        opacity={Number.isFinite(myLocation.latitude) && Number.isFinite(myLocation.longitude) ? 1 : 0}
+                        tappable={false}
+                        tracksViewChanges={false}
+                    >
+                        <View style={styles.myLocationMarker} pointerEvents="none">
+                            <Text style={styles.myLocationText}>
+                                {getAcronym(displayName)}
+                            </Text>
+                        </View>
+                    </Marker>
                 </MapView>
             )}
+            {region ? (
+                <MapDynamicOverlay
+                    mapRef={mapRef}
+                    region={viewportRegion ?? region}
+                    hidden={isMapMoving}
+                    houses={buildingMarkers}
+                    areas={[]}
+                    onHousePress={handleBuildingPress}
+                    onAreaPress={NOOP_AREA_PRESS}
+                />
+            ) : null}
             {region ? <MapCompass heading={mapHeading} onResetNorth={resetMapToNorth} /> : null}
             {loading && (
                 <View style={styles.loaderContainer}>
