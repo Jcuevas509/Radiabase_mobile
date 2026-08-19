@@ -137,6 +137,7 @@ export function FieldMapScreen() {
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
   const [isMapMoving, setIsMapMoving] = useState(false);
   const isMapMovingRef = useRef(false);
+  const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<MapView>(null);
   const pendingKnockHouseIdRef = useRef<number | null>(null);
   const houseSelectionRequestIdRef = useRef(0);
@@ -188,6 +189,12 @@ export function FieldMapScreen() {
       clearInterval(lagProbe);
       clearInterval(renderProbe);
     };
+  }, []);
+
+  useEffect(() => () => {
+    if (settleTimerRef.current !== null) {
+      clearTimeout(settleTimerRef.current);
+    }
   }, []);
   const {
     buildings: mapBuildings,
@@ -300,6 +307,10 @@ export function FieldMapScreen() {
   };
 
   const handleRegionChange = () => {
+    if (settleTimerRef.current !== null) {
+      clearTimeout(settleTimerRef.current);
+      settleTimerRef.current = null;
+    }
     if (!isMapMovingRef.current) {
       isMapMovingRef.current = true;
       setIsMapMoving(true);
@@ -307,9 +318,12 @@ export function FieldMapScreen() {
     compassControllerRef.current?.requestHeadingUpdate();
   };
 
+  // iOS fires onRegionChangeComplete repeatedly DURING a slow continuous
+  // gesture, and updating the viewport per event re-rendered the whole
+  // screen dozens of times per second. The map counts as settled only after
+  // a quiet gap, so a gesture costs one render at its start and one at its
+  // real end.
   const handleRegionChangeComplete = (newRegion: Region) => {
-    isMapMovingRef.current = false;
-    setIsMapMoving(false);
     if (
       !Number.isFinite(newRegion.latitude) ||
       !Number.isFinite(newRegion.longitude) ||
@@ -320,17 +334,25 @@ export function FieldMapScreen() {
     ) {
       return;
     }
-    setViewportRegion(newRegion);
-    compassControllerRef.current?.requestHeadingUpdate();
-    if (isAtCurrentLocation && region) {
-      const locationThreshold = 0.0001;
-      if (
-        Math.abs(newRegion.latitude - region.latitude) > locationThreshold ||
-        Math.abs(newRegion.longitude - region.longitude) > locationThreshold
-      ) {
-        setIsAtCurrentLocation(false);
-      }
+    if (settleTimerRef.current !== null) {
+      clearTimeout(settleTimerRef.current);
     }
+    settleTimerRef.current = setTimeout(() => {
+      settleTimerRef.current = null;
+      isMapMovingRef.current = false;
+      setIsMapMoving(false);
+      setViewportRegion(newRegion);
+      compassControllerRef.current?.requestHeadingUpdate();
+      if (isAtCurrentLocation && region) {
+        const locationThreshold = 0.0001;
+        if (
+          Math.abs(newRegion.latitude - region.latitude) > locationThreshold ||
+          Math.abs(newRegion.longitude - region.longitude) > locationThreshold
+        ) {
+          setIsAtCurrentLocation(false);
+        }
+      }
+    }, 250);
   };
 
   const openManageArea = (polygon: MapPolygon) => {
