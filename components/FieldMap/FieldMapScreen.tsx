@@ -26,6 +26,7 @@ import { SubmitLeadFromHouseModal } from 'components/DrawingMap/SubmitLeadFromHo
 import { AreaLayer, type AreaDisplay } from 'components/FieldMap/AreaLayer';
 import { DraftAreaPolygon, DraftVertexHandles } from 'components/FieldMap/DraftAreaEditor';
 import { DrawingCanvas, type CanvasSize } from 'components/FieldMap/DrawingCanvas';
+import { FootprintCanvas } from 'components/FieldMap/FootprintCanvas';
 import { HouseLayer } from 'components/FieldMap/HouseLayer';
 import { TrueNorthCompass } from 'components/FieldMap/TrueNorthCompass';
 import { MyLocationSvg } from 'components/svg';
@@ -634,6 +635,24 @@ export function FieldMapScreen() {
     [visibleBuildingMarkers, visibleRegion],
   );
 
+  const savedExternalIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const house of viewportHouses) {
+      if (typeof house.externalId === 'string' && house.externalId.length > 0) {
+        ids.add(house.externalId);
+      }
+    }
+    return ids;
+  }, [viewportHouses]);
+  const savedFootprints = useMemo(
+    () => mapBuildings.filter((building) => savedExternalIds.has(building.id)),
+    [mapBuildings, savedExternalIds],
+  );
+  const unsavedFootprints = useMemo(
+    () => mapBuildings.filter((building) => !savedExternalIds.has(building.id)),
+    [mapBuildings, savedExternalIds],
+  );
+
   const isRouteReady = isMapRouteReady({
     housesReady: isHouseViewportReady,
     buildingsReady: isBuildingViewportReady,
@@ -947,7 +966,7 @@ export function FieldMapScreen() {
           />
           {isStreetZoom && isIdle ? (
             <HouseLayer
-              footprints={mapBuildings}
+              footprints={savedFootprints}
               houses={nearbyBuildingMarkers}
               onHousePress={handleHousePinPress}
             />
@@ -957,6 +976,14 @@ export function FieldMapScreen() {
           ) : null}
         </MapView>
       )}
+      {isStreetZoom && isIdle ? (
+        <FootprintCanvas
+          footprints={unsavedFootprints}
+          mapRef={mapRef}
+          region={viewportRegion ?? region}
+          hidden={isMapMoving}
+        />
+      ) : null}
       {mode === 'reviewingDraft' && draftCoordinates ? (
         <DraftVertexHandles
           coordinates={draftCoordinates}

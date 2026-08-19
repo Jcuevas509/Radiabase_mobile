@@ -7,7 +7,7 @@ import type { MapBuildingResponse } from 'services/area-api';
 import type { BuildingProps, SvgProps } from 'types/componentsTypes';
 import { pickFootprintColors } from 'utils/pick-footprint-colors';
 
-const MAX_RENDERED_FOOTPRINTS = 450;
+const MAX_RENDERED_FOOTPRINTS = 120;
 
 /**
  * Decal glyph per knock outcome, drawn flat in the middle of the roof box.
@@ -32,9 +32,11 @@ type HouseLayerProps = {
  * solid in the outcome color (Not Interested = all red) with the outcome
  * glyph laid flat over the fill — no chip or circle, so the mark blends
  * into the box shading. The glyph doubles as the touch target; roof-box
- * taps are also resolved by the map-level hit test. Untouched roofs keep a
- * faint outline, and a saved door with no footprint gets a minimal dot so
- * it stays findable.
+ * taps are also resolved by the map-level hit test. Only SAVED houses render
+ * native boxes here (they must track the camera exactly); the many untouched
+ * roof outlines live in FootprintCanvas, because churning hundreds of native
+ * polygon children through the map crashes iOS Fabric. A saved door with no
+ * footprint gets a minimal dot so it stays findable.
  */
 export const HouseLayer = memo(function HouseLayer({
   footprints,
