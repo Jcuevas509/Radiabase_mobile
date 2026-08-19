@@ -28,14 +28,15 @@ import { DraftAreaPolygon, DraftVertexHandles } from 'components/FieldMap/DraftA
 import { DrawingCanvas, type CanvasSize } from 'components/FieldMap/DrawingCanvas';
 import { FootprintCanvas } from 'components/FieldMap/FootprintCanvas';
 import { HouseLayer } from 'components/FieldMap/HouseLayer';
-import { TrueNorthCompass } from 'components/FieldMap/TrueNorthCompass';
+import {
+  MapCompassController,
+  type CompassControllerHandle,
+} from 'components/FieldMap/MapCompassController';
 import { MyLocationSvg } from 'components/svg';
 import { useSession } from 'context/AuthenticationContext';
 import { useAppIsActive } from 'hooks/useAppIsActive';
-import { useDeviceTrueHeading } from 'hooks/useDeviceTrueHeading';
 import { useLiveForegroundLocation } from 'hooks/useLiveForegroundLocation';
 import { useMapBuildings } from 'hooks/useMapBuildings';
-import { useMapCameraHeading } from 'hooks/useMapCameraHeading';
 import { useMapHousesViewport } from 'hooks/useMapHousesViewport';
 import {
   assignMapAreaRep,
@@ -139,13 +140,7 @@ export function FieldMapScreen() {
   const isSavingRoofRef = useRef(false);
 
   const isIdle = mode === 'idle';
-  const deviceHeading = useDeviceTrueHeading(isScreenFocused && isAppActive);
-  const {
-    heading: mapHeading,
-    requestHeadingUpdate,
-    resetMapToNorth,
-    alignMapToHeading,
-  } = useMapCameraHeading(mapRef);
+  const compassControllerRef = useRef<CompassControllerHandle | null>(null);
   const {
     buildings: mapBuildings,
     hasError: hasBuildingDataError,
@@ -261,7 +256,7 @@ export function FieldMapScreen() {
       isMapMovingRef.current = true;
       setIsMapMoving(true);
     }
-    requestHeadingUpdate();
+    compassControllerRef.current?.requestHeadingUpdate();
   };
 
   const handleRegionChangeComplete = (newRegion: Region) => {
@@ -278,7 +273,7 @@ export function FieldMapScreen() {
       return;
     }
     setViewportRegion(newRegion);
-    requestHeadingUpdate();
+    compassControllerRef.current?.requestHeadingUpdate();
     if (isAtCurrentLocation && region) {
       const locationThreshold = 0.0001;
       if (
@@ -1015,11 +1010,10 @@ export function FieldMapScreen() {
       {mode === 'drawing' ? (
         <DrawingCanvas onStrokeComplete={handleStrokeComplete} />
       ) : null}
-      <TrueNorthCompass
-        mapHeading={mapHeading}
-        deviceHeading={deviceHeading}
-        onResetNorth={resetMapToNorth}
-        onAlignToDevice={deviceHeading !== null ? () => alignMapToHeading(deviceHeading) : undefined}
+      <MapCompassController
+        mapRef={mapRef}
+        isEnabled={isScreenFocused && isAppActive}
+        controllerRef={compassControllerRef}
       />
       {mode === 'reviewingDraft' ? (
         <View style={styles.draftActions}>

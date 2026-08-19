@@ -4,12 +4,13 @@ import { Alert, Dimensions, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 
 import FloatingButtons from 'components/DrawingMap/FloatingButtons';
-import { TrueNorthCompass } from 'components/FieldMap/TrueNorthCompass';
+import {
+    MapCompassController,
+    type CompassControllerHandle,
+} from 'components/FieldMap/MapCompassController';
 import { MyLocationSvg } from 'components/svg';
 import { useSession } from 'context/AuthenticationContext';
 import { useAppIsActive } from 'hooks/useAppIsActive';
-import { useDeviceTrueHeading } from 'hooks/useDeviceTrueHeading';
-import { useMapCameraHeading } from 'hooks/useMapCameraHeading';
 import { CoordinateProps } from 'types/componentsTypes';
 import { getAcronym } from 'utils/helperFunctions';
 
@@ -31,13 +32,7 @@ const MapComponent = () => {
     const [isAtCurrentLocation, setIsAtCurrentLocation] = useState(true);
     const mapRef = useRef<MapView>(null);
     const isAppActive = useAppIsActive();
-    const deviceHeading = useDeviceTrueHeading(isAppActive);
-    const {
-        heading: mapHeading,
-        requestHeadingUpdate,
-        resetMapToNorth,
-        alignMapToHeading,
-    } = useMapCameraHeading(mapRef);
+    const compassControllerRef = useRef<CompassControllerHandle | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -99,7 +94,7 @@ const MapComponent = () => {
     };
 
     const handleRegionChangeComplete = (newRegion: Region) => {
-        requestHeadingUpdate();
+        compassControllerRef.current?.requestHeadingUpdate();
         if (!region || !isAtCurrentLocation) {
             return;
         }
@@ -134,7 +129,7 @@ const MapComponent = () => {
                     rotateEnabled
                     pitchEnabled={false}
                     showsCompass={false}
-                    onRegionChange={() => requestHeadingUpdate()}
+                    onRegionChange={() => compassControllerRef.current?.requestHeadingUpdate()}
                     onRegionChangeComplete={handleRegionChangeComplete}
                 >
                     {myLocation ? (
@@ -154,11 +149,10 @@ const MapComponent = () => {
                     ) : null}
                 </MapView>
             )}
-            <TrueNorthCompass
-                mapHeading={mapHeading}
-                deviceHeading={deviceHeading}
-                onResetNorth={resetMapToNorth}
-                onAlignToDevice={deviceHeading !== null ? () => alignMapToHeading(deviceHeading) : undefined}
+            <MapCompassController
+                mapRef={mapRef}
+                isEnabled={isAppActive}
+                controllerRef={compassControllerRef}
             />
         </View>
     );
