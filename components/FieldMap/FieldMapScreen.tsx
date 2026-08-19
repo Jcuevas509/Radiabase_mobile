@@ -1029,6 +1029,7 @@ export function FieldMapScreen() {
             <HouseLayer
               footprints={isCloseZoom ? savedFootprints : []}
               houses={nearbyBuildingMarkers}
+              unworkedDotsEnabled={isCloseZoom}
               onHousePress={handleHousePinPress}
             />
           ) : null}

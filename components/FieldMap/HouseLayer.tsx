@@ -24,6 +24,8 @@ const DECAL_ICON_BY_STATUS_ID: Record<number, ComponentType<SvgProps>> = {
 type HouseLayerProps = {
   readonly footprints: MapBuildingResponse[];
   readonly houses: BuildingProps[];
+  /** Show fallback dots for unworked saved doors with no footprint box. */
+  readonly unworkedDotsEnabled: boolean;
   readonly onHousePress: (house: BuildingProps) => void;
 };
 
@@ -41,6 +43,7 @@ type HouseLayerProps = {
 export const HouseLayer = memo(function HouseLayer({
   footprints,
   houses,
+  unworkedDotsEnabled,
   onHousePress,
 }: HouseLayerProps) {
   const housesByExternalId = useMemo(() => {
@@ -87,7 +90,7 @@ export const HouseLayer = memo(function HouseLayer({
         const DecalIcon = status ? DECAL_ICON_BY_STATUS_ID[status.statusId] : undefined;
         const externalId = house.additionalDetails?.externalId;
         const hasFootprintBox = typeof externalId === 'string' && footprintIds.has(externalId);
-        if (!DecalIcon && hasFootprintBox) {
+        if (!DecalIcon && (hasFootprintBox || !unworkedDotsEnabled)) {
           return null;
         }
         return (
