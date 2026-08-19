@@ -24,7 +24,7 @@ import { ManageAreaModal } from 'components/DrawingMap/ManageAreaModal';
 import { QuickHouseOverviewModal } from 'components/DrawingMap/QuickHouseOverviewModal';
 import { SubmitLeadFromHouseModal } from 'components/DrawingMap/SubmitLeadFromHouseModal';
 import { AreaLayer, type AreaDisplay } from 'components/FieldMap/AreaLayer';
-import { DraftAreaEditor } from 'components/FieldMap/DraftAreaEditor';
+import { DraftAreaPolygon, DraftVertexHandles } from 'components/FieldMap/DraftAreaEditor';
 import { DrawingCanvas, type CanvasSize } from 'components/FieldMap/DrawingCanvas';
 import { HouseLayer } from 'components/FieldMap/HouseLayer';
 import { TrueNorthCompass } from 'components/FieldMap/TrueNorthCompass';
@@ -127,6 +127,8 @@ export function FieldMapScreen() {
   const [pendingKnock, setPendingKnock] = useState<{ houseId: number; statusId: number } | null>(null);
   const [loadingHouseDetail, setLoadingHouseDetail] = useState(false);
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
+  const [isMapMoving, setIsMapMoving] = useState(false);
+  const isMapMovingRef = useRef(false);
   const mapRef = useRef<MapView>(null);
   const pendingKnockHouseIdRef = useRef<number | null>(null);
   const houseSelectionRequestIdRef = useRef(0);
@@ -250,7 +252,17 @@ export function FieldMapScreen() {
     setIsAtCurrentLocation(true);
   };
 
+  const handleRegionChange = () => {
+    if (!isMapMovingRef.current) {
+      isMapMovingRef.current = true;
+      setIsMapMoving(true);
+    }
+    requestHeadingUpdate();
+  };
+
   const handleRegionChangeComplete = (newRegion: Region) => {
+    isMapMovingRef.current = false;
+    setIsMapMoving(false);
     if (
       !Number.isFinite(newRegion.latitude) ||
       !Number.isFinite(newRegion.longitude) ||
@@ -885,7 +897,7 @@ export function FieldMapScreen() {
           showsCompass={false}
           moveOnMarkerPress={false}
           onPress={handleMapPress}
-          onRegionChange={() => requestHeadingUpdate()}
+          onRegionChange={handleRegionChange}
           onRegionChangeComplete={handleRegionChangeComplete}
         >
           <Marker
@@ -922,13 +934,18 @@ export function FieldMapScreen() {
             />
           ) : null}
           {mode === 'reviewingDraft' && draftCoordinates ? (
-            <DraftAreaEditor
-              coordinates={draftCoordinates}
-              onMoveVertex={handleMoveDraftVertex}
-            />
+            <DraftAreaPolygon coordinates={draftCoordinates} />
           ) : null}
         </MapView>
       )}
+      {mode === 'reviewingDraft' && draftCoordinates ? (
+        <DraftVertexHandles
+          coordinates={draftCoordinates}
+          region={viewportRegion ?? region}
+          hidden={isMapMoving}
+          onMoveVertex={handleMoveDraftVertex}
+        />
+      ) : null}
       {mode === 'drawing' ? (
         <DrawingCanvas onStrokeComplete={handleStrokeComplete} />
       ) : null}

@@ -41,6 +41,38 @@ export function projectScreenPointToCoordinate(
 }
 
 /**
+ * Inverse of projectScreenPointToCoordinate: where a map coordinate lands on
+ * screen for the current viewport. Lets vertex handles render as ordinary
+ * views without any async native projection calls.
+ */
+export function projectCoordinateToScreenPoint(
+  coordinate: CoordinateProps,
+  viewport: MapViewport,
+): StrokePoint | null {
+  if (
+    !isUsableViewport(viewport) ||
+    !Number.isFinite(coordinate.latitude) ||
+    !Number.isFinite(coordinate.longitude)
+  ) {
+    return null;
+  }
+  const { region, width, height } = viewport;
+  const west = region.longitude - region.longitudeDelta / 2;
+  const mercatorTop = toMercatorY(clampLatitude(region.latitude + region.latitudeDelta / 2));
+  const mercatorBottom = toMercatorY(clampLatitude(region.latitude - region.latitudeDelta / 2));
+  if (mercatorBottom === mercatorTop) {
+    return null;
+  }
+  const x = ((coordinate.longitude - west) / region.longitudeDelta) * width;
+  const mercatorY = toMercatorY(clampLatitude(coordinate.latitude));
+  const y = ((mercatorY - mercatorTop) / (mercatorBottom - mercatorTop)) * height;
+  if (!Number.isFinite(x) || !Number.isFinite(y)) {
+    return null;
+  }
+  return { x, y };
+}
+
+/**
  * Projects a whole stroke, dropping any point that cannot be converted.
  */
 export function projectScreenPointsToCoordinates(

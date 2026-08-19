@@ -10,7 +10,7 @@ import { pickFootprintColors } from 'utils/pick-footprint-colors';
 const MAX_RENDERED_FOOTPRINTS = 450;
 
 /**
- * Decal glyph per knock outcome, drawn in the middle of the roof box.
+ * Decal glyph per knock outcome, drawn flat in the middle of the roof box.
  * Not Interested deliberately uses the X mark rather than its list icon.
  */
 const DECAL_ICON_BY_STATUS_ID: Record<number, ComponentType<SvgProps>> = {
@@ -28,10 +28,13 @@ type HouseLayerProps = {
 };
 
 /**
- * Street-zoom layer with no pins: each worked house is its roof box filled
+ * Street-zoom layer with no pins: a worked house is its roof box filled
  * solid in the outcome color (Not Interested = all red) with the outcome
- * glyph as a decal centered on the roof. The decal doubles as the touch
- * target; untouched roofs keep a faint outline.
+ * glyph laid flat over the fill — no chip or circle, so the mark blends
+ * into the box shading. The glyph doubles as the touch target; roof-box
+ * taps are also resolved by the map-level hit test. Untouched roofs keep a
+ * faint outline, and a saved door with no footprint gets a minimal dot so
+ * it stays findable.
  */
 export const HouseLayer = memo(function HouseLayer({
   footprints,
@@ -48,6 +51,10 @@ export const HouseLayer = memo(function HouseLayer({
     }
     return index;
   }, [houses]);
+  const footprintIds = useMemo(
+    () => new Set(footprints.map((footprint) => footprint.id)),
+    [footprints],
+  );
 
   const renderedFootprints = footprints.length > MAX_RENDERED_FOOTPRINTS
     ? footprints.slice(0, MAX_RENDERED_FOOTPRINTS)
@@ -76,6 +83,11 @@ export const HouseLayer = memo(function HouseLayer({
           ? leadStatuses.find((item) => item.statusId === house.statusId)
           : undefined;
         const DecalIcon = status ? DECAL_ICON_BY_STATUS_ID[status.statusId] : undefined;
+        const externalId = house.additionalDetails?.externalId;
+        const hasFootprintBox = typeof externalId === 'string' && footprintIds.has(externalId);
+        if (!DecalIcon && hasFootprintBox) {
+          return null;
+        }
         return (
           <Marker
             key={`house-${house.id}`}
@@ -87,14 +99,12 @@ export const HouseLayer = memo(function HouseLayer({
               onHousePress(house);
             }}
           >
-            {status && DecalIcon ? (
-              <View style={[styles.decal, { backgroundColor: status.color }]}>
+            {DecalIcon ? (
+              <View style={styles.decal}>
                 <DecalIcon color="white" />
               </View>
             ) : (
-              <View style={styles.unworkedDecal}>
-                <View style={styles.unworkedDot} />
-              </View>
+              <View style={styles.unworkedDot} />
             )}
           </Marker>
         );
@@ -105,33 +115,22 @@ export const HouseLayer = memo(function HouseLayer({
 
 const styles = StyleSheet.create({
   decal: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: 'white',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.35,
+    shadowOpacity: 0.55,
     shadowRadius: 2,
     elevation: 3,
   },
-  unworkedDecal: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(24, 24, 27, 0.4)',
-  },
   unworkedDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#18181B',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderWidth: 1,
+    borderColor: 'rgba(24, 24, 27, 0.45)',
   },
 });

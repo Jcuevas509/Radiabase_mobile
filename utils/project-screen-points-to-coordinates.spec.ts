@@ -1,4 +1,5 @@
 import {
+  projectCoordinateToScreenPoint,
   projectScreenPointToCoordinate,
   projectScreenPointsToCoordinates,
 } from './project-screen-points-to-coordinates';
@@ -38,6 +39,27 @@ describe('projectScreenPointToCoordinate', () => {
       ...viewport,
       width: 0,
     })).toBeNull();
+  });
+});
+
+describe('projectCoordinateToScreenPoint', () => {
+  it('round-trips a screen point through geography and back', () => {
+    const screenPoint = { x: 123, y: 456 };
+    const coordinate = projectScreenPointToCoordinate(screenPoint, viewport);
+    const actual = projectCoordinateToScreenPoint(coordinate!, viewport);
+
+    expect(actual?.x).toBeCloseTo(screenPoint.x, 4);
+    expect(actual?.y).toBeCloseTo(screenPoint.y, 4);
+  });
+
+  it('places the region center at the screen center', () => {
+    const actual = projectCoordinateToScreenPoint({
+      latitude: viewport.region.latitude,
+      longitude: viewport.region.longitude,
+    }, viewport);
+
+    expect(actual?.x).toBeCloseTo(195, 4);
+    expect(actual?.y).toBeCloseTo(422, 0);
   });
 });
 
