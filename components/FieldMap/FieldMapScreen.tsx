@@ -151,11 +151,16 @@ export function FieldMapScreen() {
     isEnabled: isScreenFocused && Boolean(region),
   });
 
-  // Dev-only freeze probes: a stalled JS thread logs its stall length, a
-  // render storm logs its rate. Silence during a visible freeze means the
-  // stall is on the native side (map / markers), not in JS.
+  // Dev-only freeze probes: a stalled JS thread logs its stall length plus
+  // breadcrumbs of the most recent map operations, a render storm logs its
+  // rate. Silence during a visible freeze means the stall is on the native
+  // side (map / markers), not in JS.
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
+  const perfBreadcrumbsRef = useRef<Record<string, number>>({});
+  const markPerfBreadcrumb = (name: string) => {
+    perfBreadcrumbsRef.current[name] = Date.now();
+  };
   useEffect(() => {
     if (!__DEV__) {
       return;
@@ -174,8 +179,11 @@ export function FieldMapScreen() {
       lastTick = now;
       // Lags beyond 30s are app suspensions the AppState listener missed
       // (iOS can suspend before the event reaches JS), not real stalls.
-      if (lag > 300 && lag < 30_000 && !wasBackgrounded) {
-        console.warn(`[Perf] JS thread stalled ~${lag}ms`);
+      if (lag > 300 && lag < 30_000 && !wasBackgrounded && AppState.currentState === 'active') {
+        const breadcrumbs = Object.entries(perfBreadcrumbsRef.current)
+          .map(([name, at]) => `${name} ${((now - at) / 1000).toFixed(1)}s ago`)
+          .join(', ');
+        console.warn(`[Perf] JS thread stalled ~${lag}ms | recent: ${breadcrumbs || 'none'}`);
       }
     }, 1000);
     const renderProbe = setInterval(() => {
@@ -275,6 +283,7 @@ export function FieldMapScreen() {
     const areas = await fetchMapAreas();
     const houses = await fetchMapHouses(areas.map((area) => area.id));
     const converted = convertMapAreasToPolygons(areas, houses);
+    markPerfBreadcrumb('areasLoaded');
     setPolygons(converted);
     return converted;
   };
@@ -339,6 +348,7 @@ export function FieldMapScreen() {
     }
     settleTimerRef.current = setTimeout(() => {
       settleTimerRef.current = null;
+      markPerfBreadcrumb('settle');
       isMapMovingRef.current = false;
       setIsMapMoving(false);
       setViewportRegion(newRegion);
@@ -418,6 +428,7 @@ export function FieldMapScreen() {
       return;
     }
     pendingKnockHouseIdRef.current = houseId;
+    markPerfBreadcrumb('knock');
     setPendingKnock({ houseId, statusId: status.statusId });
     try {
       const detail = await createMapHouseStatus({
@@ -457,6 +468,7 @@ export function FieldMapScreen() {
     const selectionRequestId = houseSelectionRequestIdRef.current + 1;
     houseSelectionRequestIdRef.current = selectionRequestId;
     isSavingRoofRef.current = true;
+    markPerfBreadcrumb('roofTap');
     setLoadingHouseDetail(true);
     try {
       const detail = await createMapHouseFromBuilding({
@@ -515,6 +527,7 @@ export function FieldMapScreen() {
     if (!map) {
       return;
     }
+    markPerfBreadcrumb('stroke');
     const vertices = prepareDrawnStrokeVertices(points);
     if (vertices.length < 3) {
       Alert.alert('Keep painting', 'Paint a loop around at least a few homes, then lift your finger.');
