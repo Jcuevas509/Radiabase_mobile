@@ -30,5 +30,5 @@ function hexToFill(hex: string): string {
   const red = parseInt(normalized.slice(0, 2), 16);
   const green = parseInt(normalized.slice(2, 4), 16);
   const blue = parseInt(normalized.slice(4, 6), 16);
-  return `rgba(${red}, ${green}, ${blue}, 0.45)`;
+  return `rgba(${red}, ${green}, ${blue}, 0.6)`;
 }

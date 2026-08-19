@@ -8,9 +8,10 @@ type DraftAreaEditorProps = {
 };
 
 /**
- * The painted-but-unsaved turf polygon with draggable vertex handles, rendered
- * as real MapView children so the draft stays glued to the map while the
- * manager fine-tunes the boundary.
+ * The painted-but-unsaved turf polygon with draggable vertex handles rendered
+ * as real MapView children. Each handle is a 44pt touch target (the visible
+ * dot is smaller) and reports every drag movement, so the boundary reshapes
+ * live under the finger instead of jumping on release.
  */
 export function DraftAreaEditor({ coordinates, onMoveVertex }: DraftAreaEditorProps) {
   if (coordinates.length < 3) {
@@ -32,9 +33,12 @@ export function DraftAreaEditor({ coordinates, onMoveVertex }: DraftAreaEditorPr
           anchor={{ x: 0.5, y: 0.5 }}
           draggable
           tracksViewChanges={false}
+          onDrag={(event) => onMoveVertex(index, event.nativeEvent.coordinate)}
           onDragEnd={(event) => onMoveVertex(index, event.nativeEvent.coordinate)}
         >
-          <View style={styles.vertexHandle} />
+          <View style={styles.touchTarget}>
+            <View style={styles.vertexHandle} />
+          </View>
         </Marker>
       ))}
     </>
@@ -42,12 +46,23 @@ export function DraftAreaEditor({ coordinates, onMoveVertex }: DraftAreaEditorPr
 }
 
 const styles = StyleSheet.create({
+  touchTarget: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   vertexHandle: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: 'white',
     borderWidth: 3,
     borderColor: '#32A0FF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 3,
   },
 });

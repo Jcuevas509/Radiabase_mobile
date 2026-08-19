@@ -218,7 +218,9 @@ export function FieldMapScreen() {
   const loadFieldData = async () => {
     const areas = await fetchMapAreas();
     const houses = await fetchMapHouses(areas.map((area) => area.id));
-    setPolygons(convertMapAreasToPolygons(areas, houses));
+    const converted = convertMapAreasToPolygons(areas, houses);
+    setPolygons(converted);
+    return converted;
   };
 
   useEffect(() => {
@@ -368,7 +370,7 @@ export function FieldMapScreen() {
     }
     const existing = viewportHouses.find((house) => house.externalId === building.id);
     if (existing) {
-      handleBuildingPress(convertMapHousesToBuildings([existing])[0]);
+      handleHousePinPress(convertMapHousesToBuildings([existing])[0]);
       return;
     }
     const selectionRequestId = houseSelectionRequestIdRef.current + 1;
@@ -474,6 +476,7 @@ export function FieldMapScreen() {
       Alert.alert('Missing office', 'Set a current office on this user in Radiabase, then try again.');
       return;
     }
+    const previousAreaIds = new Set(polygons.map((polygon) => polygon.id));
     try {
       setLoading(true);
       await createMapArea({
@@ -483,9 +486,19 @@ export function FieldMapScreen() {
       });
       setDraftCoordinates(null);
       setMode('idle');
-      await loadFieldData();
-      setMessage('Area is Created Successfully!');
-      setAlertVisible(true);
+      const refreshedPolygons = await loadFieldData();
+      const createdArea = refreshedPolygons
+        .filter((polygon) => !previousAreaIds.has(polygon.id))
+        .sort((first, second) => second.id - first.id)[0] ?? null;
+      if (createdArea && isManager) {
+        setSelectedArea(createdArea);
+        setSelectedAgent(null);
+        setIsReassignment(false);
+        setOpenAssignModal(true);
+      } else {
+        setMessage('Area is Created Successfully!');
+        setAlertVisible(true);
+      }
     } catch (error) {
       setMessage(getApiErrorMessage(error, 'Failed to create area. Please try again.'));
       setAlertVisible(true);
