@@ -541,6 +541,7 @@ export function FieldMapScreen() {
           const [geocoded] = await Location.reverseGeocodeAsync(centroid);
           areaName = buildAreaName({
             city: geocoded?.city ?? geocoded?.district ?? geocoded?.subregion,
+            state: geocoded?.region,
           });
         } catch {
           areaName = undefined;

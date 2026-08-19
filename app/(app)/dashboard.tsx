@@ -20,10 +20,16 @@ import { getMapRegionFromCoordinates } from 'utils/get-map-region-from-coordinat
 import { pickAssigneeColor } from 'utils/pick-assignee-color';
 import { hexToRgba } from 'utils/helperFunctions';
 import { isHumanAreaName } from 'utils/is-human-area-name';
+import { buildAreaName } from 'utils/build-area-name';
+import { getPolygonCentroid } from 'utils/get-polygon-centroid';
+import * as Location from 'expo-location';
 
 const PERIODS = ['Today', 'This Week', 'This Month'] as const;
 
-function getAreaTileLabel(area: MapAreaResponse): string {
+function getAreaTileLabel(area: MapAreaResponse, geocodedCity?: string): string {
+    if (geocodedCity) {
+        return geocodedCity;
+    }
     if (isHumanAreaName(area.name)) {
         return area.name as string;
     }
@@ -46,6 +52,40 @@ const DashboardScreen = () => {
     const [previewAreas, setPreviewAreas] = useState<MapAreaResponse[]>([]);
     const [isLoadingAreas, setIsLoadingAreas] = useState<boolean>(true);
     const [hasAreaError, setHasAreaError] = useState<boolean>(false);
+    const [areaCities, setAreaCities] = useState<Record<number, string>>({});
+
+    // Label every tile with the city its turf sits in, resolved on-device
+    // from the area centroid. Failures just leave the fallback label.
+    useEffect(() => {
+        let isCancelled = false;
+        (async () => {
+            for (const area of previewAreas) {
+                const centroid = getPolygonCentroid(area.coordinates);
+                if (!centroid) {
+                    continue;
+                }
+                try {
+                    const [geocoded] = await Location.reverseGeocodeAsync(centroid);
+                    const city = buildAreaName({
+                        city: geocoded?.city ?? geocoded?.district ?? geocoded?.subregion,
+                        state: geocoded?.region,
+                    });
+                    if (isCancelled) {
+                        return;
+                    }
+                    if (city) {
+                        setAreaCities((current) =>
+                            current[area.id] === city ? current : { ...current, [area.id]: city });
+                    }
+                } catch {
+                    // Keep the fallback label for this tile.
+                }
+            }
+        })();
+        return () => {
+            isCancelled = true;
+        };
+    }, [previewAreas]);
 
     const openMap = () => {
         navigation.navigate('index' as never);
@@ -192,7 +232,7 @@ const DashboardScreen = () => {
                                             <View style={[styles.map, styles.mapFallback]} />
                                         )}
                                         <Text style={styles.areaName} numberOfLines={1}>
-                                            {getAreaTileLabel(area)}
+                                            {getAreaTileLabel(area, areaCities[area.id])}
                                         </Text>
                                     </TouchableOpacity>
                                 );

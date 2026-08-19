@@ -1,6 +1,6 @@
 import type { RefObject } from 'react';
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, useWindowDimensions } from 'react-native';
+import { StyleSheet, useWindowDimensions, View } from 'react-native';
 import type MapView from 'react-native-maps';
 import type { Region } from 'react-native-maps';
 import Svg, { Path } from 'react-native-svg';
@@ -115,19 +115,34 @@ export const FootprintCanvas = memo(function FootprintCanvas({
     return segments.join('');
   }, [fit, footprints, height, width]);
 
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[Touch] FootprintCanvas mounted');
+      return () => {
+        console.log('[Touch] FootprintCanvas unmounted');
+      };
+    }
+    return undefined;
+  }, []);
+
   if (hidden || !pathData) {
     return null;
   }
 
   return (
-    <Svg pointerEvents="none" style={styles.layer}>
-      <Path
-        d={pathData}
-        stroke="#F5F0E6"
-        fill="rgba(255, 255, 255, 0.14)"
-        strokeWidth={1}
-      />
-    </Svg>
+    // The wrapping View enforces pointerEvents="none" at the RN level —
+    // relying on the Svg component alone has let touches be swallowed on
+    // Fabric, which killed all map gestures whenever this layer was visible.
+    <View pointerEvents="none" style={styles.layer}>
+      <Svg pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <Path
+          d={pathData}
+          stroke="#F5F0E6"
+          fill="rgba(255, 255, 255, 0.14)"
+          strokeWidth={1}
+        />
+      </Svg>
+    </View>
   );
 });
 
