@@ -124,7 +124,7 @@ const MapComponent = () => {
                 <MapView
                     style={styles.map}
                     ref={mapRef}
-                    mapType="satellite"
+                    mapType="hybrid"
                     initialRegion={region}
                     rotateEnabled
                     pitchEnabled={false}
