@@ -13,7 +13,7 @@ interface QuickHouseOverviewModalProps {
     selectedHouse: BuildingProps;
     isStatusSaving: boolean;
     savingStatusId: number | null;
-    onDeletePin: () => void;
+    onDeletePin?: () => void;
     onOpenHouseInfo: () => void;
     onChangeHouseStatus: (status: LeadStatus) => Promise<void> | void;
 }
@@ -49,11 +49,13 @@ export const QuickHouseOverviewModal: React.FC<QuickHouseOverviewModalProps> = (
             }
             buttons={
                 <>
-                    <Button
-                        text='Delete Pin'
-                        textStyle={{ color: '#CA0105' }}
-                        onPress={onDeletePin}
-                    />
+                    {onDeletePin ? (
+                        <Button
+                            text='Delete Pin'
+                            textStyle={{ color: '#CA0105' }}
+                            onPress={onDeletePin}
+                        />
+                    ) : null}
                     <Button
                         text='Open House Info'
                         buttonStyle={{ backgroundColor: 'black', maxWidth: 247, width: '60%' }}

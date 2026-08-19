@@ -45,7 +45,7 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                         buttonStyle={{ backgroundColor: activeDrawing ? "#32A0FF" : 'white' }}
                         onPress={onToggleDrawing}
                         buttonIcon={<DrawSvg color={activeDrawing ? 'white' : '#1F1F1F'} />}
-                        accessibilityLabel={activeDrawing ? 'Cancel circle drawing' : 'Draw a circular area'}
+                        accessibilityLabel={activeDrawing ? 'Cancel area painting' : 'Paint a new area'}
                     />
                 </View>}
                 {buttons?.map((btn, index) => (

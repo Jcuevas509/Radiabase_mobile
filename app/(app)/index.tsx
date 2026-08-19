@@ -1,18 +1,17 @@
-import React from 'react'
-import { View } from 'react-native'
-import { StyleSheet } from 'react-native';
-import PolygonCreator from 'components/DrawingMap/PolygonCreator';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { FieldMapScreen } from 'components/FieldMap/FieldMapScreen';
 
 export default function Map() {
     return (
         <View style={styles.container}>
-            <PolygonCreator />
+            <FieldMapScreen />
         </View>
-    )
+    );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-    }
+    },
 });
