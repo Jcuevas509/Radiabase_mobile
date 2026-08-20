@@ -1,12 +1,9 @@
 import Agreement01Icon from '@hugeicons/core-free-icons/Agreement01Icon';
-import Calendar03Icon from '@hugeicons/core-free-icons/Calendar03Icon';
-import Call02Icon from '@hugeicons/core-free-icons/Call02Icon';
-import CheckmarkBadge01Icon from '@hugeicons/core-free-icons/CheckmarkBadge01Icon';
-import Location01Icon from '@hugeicons/core-free-icons/Location01Icon';
-import Message01Icon from '@hugeicons/core-free-icons/Message01Icon';
 import Search01Icon from '@hugeicons/core-free-icons/Search01Icon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { DrawerActions, useIsFocused, useNavigation } from '@react-navigation/native';
+import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { useSession } from 'context/AuthenticationContext';
 import { useMyDeals } from 'hooks/useMyDeals';
 import { useEffect, useState } from 'react';
@@ -23,9 +20,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { fetchSampleMyDeals } from 'services/sample-deals';
 import type { MyDeal, MyDealFilter } from 'types/my-deals.types';
 import { formatCalendarDate } from 'utils/format-calendar-date';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
+
+// Demo data while the UI is being designed. Off in tests; flip to `false`
+// to go back to live deals.
+const USE_SAMPLE_DEALS = !process.env.JEST_WORKER_ID;
 
 const FILTERS: ReadonlyArray<{ value: MyDealFilter; label: string }> = [
   { value: 'all', label: 'All' },
@@ -46,6 +48,18 @@ const STATUS_COLORS: Record<string, string> = {
   hold: '#D97706',
 };
 
+const STATUS_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  new: 'add',
+  scheduled: 'calendar-outline',
+  installed: 'construct-outline',
+  funding: 'hourglass-outline',
+  funded: 'cash-outline',
+  paid: 'cash-outline',
+  'net funded': 'cash-outline',
+  canceled: 'close',
+  hold: 'pause-outline',
+};
+
 function sanitizePhone(value: string | null): string {
   if (!value) {
     return '';
@@ -60,59 +74,86 @@ function openContactUrl(url: string, failureMessage: string): void {
   });
 }
 
+function SpecChip({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <View style={styles.specChip}>
+      <Text style={styles.specLabel}>{label}</Text>
+      <Text style={styles.specValue}>{value}</Text>
+    </View>
+  );
+}
+
 function DealCard({ deal }: { readonly deal: MyDeal }) {
   const phone = sanitizePhone(deal.phone);
   const normalizedStatus = deal.status.toLowerCase();
   const statusColor = STATUS_COLORS[normalizedStatus] ?? '#52525B';
+  const statusIcon = STATUS_ICONS[normalizedStatus] ?? 'ellipse-outline';
+  const [firstName = '', ...lastNameParts] = deal.customerName.split(' ');
+  const meta = [
+    deal.officeName,
+    deal.providerName,
+  ].filter(Boolean).join(' · ');
+  const people = [
+    deal.setterName ? `Setter ${deal.setterName}` : null,
+    deal.closerName ? `Closer ${deal.closerName}` : null,
+  ].filter(Boolean).join(' · ');
 
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
+        <UserAvatar
+          firstName={firstName}
+          lastName={lastNameParts.join(' ')}
+          size={44}
+          color="#18181B"
+          ringWidth={1.5}
+        />
         <View style={styles.nameBlock}>
           <Text style={styles.name} numberOfLines={1}>{deal.customerName}</Text>
           <Text style={styles.dealNumber}>Deal #{deal.id}</Text>
         </View>
-        <View style={[styles.statusPill, { backgroundColor: `${statusColor}18` }]}>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusText, { color: statusColor }]} numberOfLines={1}>
-            {deal.status}
-          </Text>
+        <View style={[styles.statusPill, { backgroundColor: statusColor }]}>
+          <Ionicons name={statusIcon} size={12} color="white" />
+          <Text style={styles.statusText} numberOfLines={1}>{deal.status}</Text>
         </View>
       </View>
 
       {deal.address ? (
-        <View style={styles.detailRow}>
-          <HugeiconsIcon icon={Location01Icon} size={17} color="#71717A" strokeWidth={1.8} />
-          <Text style={styles.detailText} numberOfLines={2}>{deal.address}</Text>
+        <View style={styles.addressRow}>
+          <Ionicons name="location-outline" size={15} color="#71717A" />
+          <Text style={styles.addressText} numberOfLines={1}>{deal.address}</Text>
         </View>
       ) : null}
 
-      <View style={styles.timelineRow}>
+      <View style={styles.specRow}>
+        {typeof deal.systemSizeKw === 'number' ? (
+          <SpecChip label="Size" value={`${deal.systemSizeKw} kW`} />
+        ) : null}
+        {typeof deal.pricePerWatt === 'number' ? (
+          <SpecChip label="PPW" value={`$${deal.pricePerWatt.toFixed(2)}`} />
+        ) : null}
         {deal.dateSold ? (
-          <View style={styles.timelineItem}>
-            <Text style={styles.timelineLabel}>Sold</Text>
-            <Text style={styles.timelineValue}>{formatCalendarDate(deal.dateSold)}</Text>
-          </View>
+          <SpecChip label="Sold" value={formatCalendarDate(deal.dateSold)} />
         ) : null}
         {deal.installDate ? (
-          <View style={styles.timelineItem}>
-            <Text style={styles.timelineLabel}>Install</Text>
-            <Text style={styles.timelineValue}>{formatCalendarDate(deal.installDate)}</Text>
-          </View>
+          <SpecChip label="Install" value={formatCalendarDate(deal.installDate)} />
         ) : null}
-        {deal.isAccountPaid ? (
-          <View style={styles.paidBadge}>
-            <HugeiconsIcon icon={CheckmarkBadge01Icon} size={16} color="#15803D" strokeWidth={2} />
-            <Text style={styles.paidText}>Paid</Text>
+        {deal.campaignName ? (
+          <View style={styles.campaignChip}>
+            <Ionicons name="megaphone-outline" size={11} color="#1687E8" />
+            <Text style={styles.campaignText} numberOfLines={1}>{deal.campaignName}</Text>
           </View>
         ) : null}
       </View>
 
+      {deal.notes ? (
+        <Text style={styles.notesText} numberOfLines={1}>{deal.notes}</Text>
+      ) : null}
+
       <View style={styles.cardFooter}>
         <View style={styles.metaBlock}>
-          {deal.officeName ? <Text style={styles.metaText}>{deal.officeName}</Text> : null}
-          {deal.providerName ? <Text style={styles.metaText}>{deal.providerName}</Text> : null}
-          {deal.closerName ? <Text style={styles.metaText}>Closer: {deal.closerName}</Text> : null}
+          {meta ? <Text style={styles.metaText} numberOfLines={1}>{meta}</Text> : null}
+          {people ? <Text style={styles.metaText} numberOfLines={1}>{people}</Text> : null}
         </View>
         {phone ? (
           <View style={styles.contactActions}>
@@ -123,16 +164,16 @@ function DealCard({ deal }: { readonly deal: MyDeal }) {
               onPress={() => openContactUrl(`tel:${phone}`, 'Open the Phone app and try again.')}
               style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
             >
-              <HugeiconsIcon icon={Call02Icon} size={19} color="#1687E8" strokeWidth={2} />
+              <Ionicons name="call" size={16} color="#1687E8" />
             </Pressable>
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Message ${deal.customerName}`}
               hitSlop={6}
               onPress={() => openContactUrl(`sms:${phone}`, 'Open Messages and try again.')}
-              style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
+              style={({ pressed }) => [styles.contactButton, styles.contactButtonMessage, pressed && styles.pressed]}
             >
-              <HugeiconsIcon icon={Message01Icon} size={19} color="#1687E8" strokeWidth={2} />
+              <Ionicons name="chatbubble-ellipses" size={16} color="#34C759" />
             </Pressable>
           </View>
         ) : null}
@@ -142,6 +183,7 @@ function DealCard({ deal }: { readonly deal: MyDeal }) {
 }
 
 export default function MyDealsScreen() {
+  const navigation = useNavigation();
   const { session } = useSession();
   const isFocused = useIsFocused();
   const salesRepId = Number(session?.user?.id ?? 0);
@@ -182,6 +224,7 @@ export default function MyDealsScreen() {
     search: effectiveSearch,
     filter: effectiveFilter,
     isEnabled: isFocused && Boolean(authenticatedScopeKey),
+    loadPage: USE_SAMPLE_DEALS ? fetchSampleMyDeals : undefined,
   });
 
   useEffect(() => {
@@ -189,7 +232,6 @@ export default function MyDealsScreen() {
       setIsPullRefreshing(false);
     }
   }, [isLoading]);
-
 
   const filterLabel = FILTERS.find((filter) => filter.value === effectiveFilter)?.label ?? 'Deals';
   const summary = effectiveFilter === 'all'
@@ -204,12 +246,18 @@ export default function MyDealsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>My Deals</Text>
-          <Text style={styles.headerSubtitle}>{summary}</Text>
-        </View>
-        <View style={styles.headerIcon}>
-          <HugeiconsIcon icon={Agreement01Icon} size={25} color="#1687E8" strokeWidth={1.8} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          hitSlop={12}
+          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+          style={styles.headerSide}
+        >
+          <MaterialIcons name="menu" size={28} color="#18181B" />
+        </Pressable>
+        <Text style={styles.headerTitle}>My Deals</Text>
+        <View style={[styles.headerSide, styles.headerRight]}>
+          <Ionicons name="notifications-outline" size={24} color="#18181B" />
         </View>
       </View>
 
@@ -239,11 +287,7 @@ export default function MyDealsScreen() {
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               onPress={() => setActiveFilter(filter.value)}
-              style={({ pressed }) => [
-                styles.filterChip,
-                selected && styles.filterChipSelected,
-                pressed && styles.pressed,
-              ]}
+              style={[styles.filterChip, selected && styles.filterChipSelected]}
             >
               <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
                 {filter.label}
@@ -252,6 +296,7 @@ export default function MyDealsScreen() {
           );
         })}
       </View>
+      <Text style={styles.summaryText}>{summary}</Text>
 
       {errorMessage ? (
         <Pressable
@@ -309,113 +354,267 @@ export default function MyDealsScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F5F7FA' },
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F4F4F5',
+  },
   header: {
-    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E4E4E7',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  headerTitle: { color: '#18181B', fontSize: 22, fontWeight: '800' },
-  headerSubtitle: { marginTop: 2, color: '#71717A', fontSize: 12 },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
+  headerTitle: {
+    color: '#18181B',
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  headerSide: {
+    width: 44,
+    height: 44,
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    borderRadius: 21,
-    backgroundColor: '#E8F4FE',
+  },
+  headerRight: {
+    alignItems: 'flex-end',
   },
   searchContainer: {
     minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    marginHorizontal: 14,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-    borderRadius: 13,
+    marginHorizontal: 20,
+    marginTop: 4,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
   },
-  searchInput: { minHeight: 44, flex: 1, color: '#18181B', fontSize: 14 },
-  filters: { flexDirection: 'row', gap: 6, paddingHorizontal: 14, paddingVertical: 10 },
-  filterChip: {
-    minHeight: 34,
+  searchInput: {
+    minHeight: 44,
     flex: 1,
+    color: '#18181B',
+    fontSize: 14,
+  },
+  filters: {
+    flexDirection: 'row',
+    backgroundColor: '#E4E4E7',
+    borderRadius: 10,
+    padding: 3,
+    marginHorizontal: 20,
+    marginTop: 10,
+  },
+  filterChip: {
+    flex: 1,
+    minHeight: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D4D4D8',
-    borderRadius: 17,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 6,
   },
-  filterChipSelected: { borderColor: '#18181B', backgroundColor: '#18181B' },
-  filterText: { color: '#52525B', fontSize: 10, fontWeight: '700', textAlign: 'center' },
-  filterTextSelected: { color: '#FFFFFF' },
+  filterChipSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  filterText: {
+    color: '#71717A',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterTextSelected: {
+    color: '#18181B',
+  },
+  summaryText: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 2,
+    color: '#A1A1AA',
+    fontSize: 11,
+    fontWeight: '600',
+  },
   errorBanner: {
-    marginHorizontal: 14,
-    marginBottom: 8,
+    marginHorizontal: 20,
+    marginTop: 8,
     borderRadius: 12,
     backgroundColor: '#FEF2F2',
     paddingHorizontal: 13,
     paddingVertical: 10,
   },
-  errorTitle: { color: '#991B1B', fontSize: 13, fontWeight: '800' },
-  errorText: { marginTop: 2, color: '#B91C1C', fontSize: 12, lineHeight: 17 },
-  listContent: { gap: 10, paddingHorizontal: 14, paddingBottom: 24 },
-  emptyListContent: { flexGrow: 1 },
+  errorTitle: {
+    color: '#991B1B',
+    fontSize: 13,
+    fontWeight: '800',
+  },
+  errorText: {
+    marginTop: 2,
+    color: '#B91C1C',
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  listContent: {
+    gap: 10,
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 24,
+  },
+  emptyListContent: {
+    flexGrow: 1,
+  },
   card: {
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     padding: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
   },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  nameBlock: { flex: 1 },
-  name: { color: '#18181B', fontSize: 16, fontWeight: '800' },
-  dealNumber: { marginTop: 2, color: '#A1A1AA', fontSize: 11, fontWeight: '600' },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  nameBlock: {
+    flex: 1,
+  },
+  name: {
+    color: '#18181B',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  dealNumber: {
+    marginTop: 1,
+    color: '#A1A1AA',
+    fontSize: 11,
+    fontWeight: '600',
+  },
   statusPill: {
-    minHeight: 27,
-    maxWidth: '48%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 26,
+    maxWidth: '40%',
+    borderRadius: 7,
+    paddingHorizontal: 9,
+  },
+  statusText: {
+    flexShrink: 1,
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  addressRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderRadius: 14,
-    paddingHorizontal: 9,
+    marginTop: 10,
   },
-  statusDot: { width: 7, height: 7, borderRadius: 4 },
-  statusText: { flexShrink: 1, fontSize: 10, fontWeight: '800' },
-  detailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginTop: 12 },
-  detailText: { flex: 1, color: '#52525B', fontSize: 13, lineHeight: 18 },
-  timelineRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 12 },
-  timelineItem: { borderRadius: 9, backgroundColor: '#F4F4F5', paddingHorizontal: 9, paddingVertical: 6 },
-  timelineLabel: { color: '#71717A', fontSize: 9, fontWeight: '800', textTransform: 'uppercase' },
-  timelineValue: { marginTop: 2, color: '#3F3F46', fontSize: 11, fontWeight: '700' },
-  paidBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, borderRadius: 9, backgroundColor: '#F0FDF4', padding: 7 },
-  paidText: { color: '#15803D', fontSize: 11, fontWeight: '800' },
-  cardFooter: { minHeight: 40, flexDirection: 'row', alignItems: 'flex-end', gap: 8, marginTop: 10 },
-  metaBlock: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
-  metaText: { color: '#71717A', fontSize: 11 },
-  contactActions: { flexDirection: 'row', gap: 8 },
-  contactButton: { width: 38, height: 38, alignItems: 'center', justifyContent: 'center', borderRadius: 19, backgroundColor: '#E8F4FE' },
-  centerState: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 30, paddingBottom: 60 },
-  emptyIcon: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center', borderRadius: 32, backgroundColor: '#E8F4FE' },
-  emptyTitle: { marginTop: 14, color: '#18181B', fontSize: 18, fontWeight: '800' },
-  stateMessage: { marginTop: 7, color: '#71717A', fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  footerLoader: { paddingVertical: 18 },
-  pressed: { opacity: 0.62 },
+  addressText: {
+    flex: 1,
+    color: '#71717A',
+    fontSize: 13,
+  },
+  specRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 10,
+  },
+  specChip: {
+    borderRadius: 9,
+    backgroundColor: '#F4F4F5',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  specLabel: {
+    color: '#71717A',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  specValue: {
+    marginTop: 1,
+    color: '#3F3F46',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  campaignChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: 9,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    maxWidth: 180,
+  },
+  campaignText: {
+    color: '#1687E8',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  notesText: {
+    marginTop: 8,
+    color: '#52525B',
+    fontSize: 12,
+    fontStyle: 'italic',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    gap: 8,
+    marginTop: 10,
+  },
+  metaBlock: {
+    flex: 1,
+    gap: 2,
+  },
+  metaText: {
+    color: '#71717A',
+    fontSize: 11,
+  },
+  contactActions: {
+    flexDirection: 'row',
+    gap: 7,
+  },
+  contactButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
+    backgroundColor: '#E8F4FE',
+  },
+  contactButtonMessage: {
+    backgroundColor: '#E9F9EE',
+  },
+  centerState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 30,
+    paddingBottom: 60,
+  },
+  emptyIcon: {
+    width: 64,
+    height: 64,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 32,
+    backgroundColor: '#E8F4FE',
+  },
+  emptyTitle: {
+    marginTop: 14,
+    color: '#18181B',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  stateMessage: {
+    marginTop: 7,
+    color: '#71717A',
+    fontSize: 13,
+    lineHeight: 19,
+    textAlign: 'center',
+  },
+  footerLoader: {
+    paddingVertical: 18,
+  },
+  pressed: {
+    opacity: 0.62,
+  },
 });

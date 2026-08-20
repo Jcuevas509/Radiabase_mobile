@@ -17,6 +17,8 @@ export function useMyDeals(input: {
   readonly search: string;
   readonly filter: MyDealFilter;
   readonly isEnabled: boolean;
+  /** Page loader override (demo data); defaults to the deals API. */
+  readonly loadPage?: typeof fetchMyDeals;
 }) {
   const queryKey = useMemo(() => input.scopeKey
     ? JSON.stringify([input.scopeKey, input.search, input.filter])
@@ -74,7 +76,7 @@ export function useMyDeals(input: {
     setErrorMessage(null);
     setErrorQueryKey(null);
 
-    fetchMyDeals({
+    (input.loadPage ?? fetchMyDeals)({
       salesRepId: input.salesRepId,
       page: 1,
       search: input.search,
@@ -138,7 +140,7 @@ export function useMyDeals(input: {
     isLoadingMoreRef.current = true;
     setIsLoadingMore(true);
 
-    fetchMyDeals({
+    (input.loadPage ?? fetchMyDeals)({
       salesRepId: input.salesRepId,
       page: nextPage,
       search: input.search,

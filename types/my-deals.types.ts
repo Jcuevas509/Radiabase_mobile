@@ -16,6 +16,9 @@ export type MyDeal = {
   readonly closerName: string | null;
   readonly officeName: string | null;
   readonly providerName: string | null;
+  readonly systemSizeKw?: number | null;
+  readonly pricePerWatt?: number | null;
+  readonly notes?: string | null;
 };
 
 export type MyDealsPage = {
