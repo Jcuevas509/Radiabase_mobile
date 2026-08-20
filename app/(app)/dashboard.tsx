@@ -154,6 +154,17 @@ const DashboardScreen = () => {
 
     const firstName = session?.user?.firstName?.trim() || 'there';
     const notificationCount = 0;
+    // Knocks and Deals come from the live field-stats API; the other four
+    // are zero until the stats endpoint reports them - swap each value for
+    // its API field here and the grid needs no other change.
+    const performanceMetrics = [
+        { label: 'Knocks', value: contactData.knocks },
+        { label: 'Answers', value: 0 },
+        { label: 'Sits', value: 0 },
+        { label: 'Deals', value: contactData.customers },
+        { label: 'Cancels', value: 0 },
+        { label: 'Installs', value: 0 },
+    ];
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -327,19 +338,13 @@ const DashboardScreen = () => {
                             );
                         })}
                     </View>
-                    <View style={styles.statsRow}>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statLabel}>Leads</Text>
-                            <Text style={styles.statNumber}>{contactData.leads}</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statLabel}>Knocks</Text>
-                            <Text style={styles.statNumber}>{contactData.knocks}</Text>
-                        </View>
-                        <View style={styles.statCard}>
-                            <Text style={styles.statLabel}>Customers</Text>
-                            <Text style={styles.statNumber}>{contactData.customers}</Text>
-                        </View>
+                    <View style={styles.statsGrid}>
+                        {performanceMetrics.map((metric) => (
+                            <View key={metric.label} style={styles.statCard}>
+                                <Text style={styles.statLabel}>{metric.label}</Text>
+                                <Text style={styles.statNumber}>{metric.value}</Text>
+                            </View>
+                        ))}
                     </View>
                 </View>
             </ScrollView>
@@ -569,12 +574,14 @@ const styles = StyleSheet.create({
     periodTextActive: {
         color: '#18181B',
     },
-    statsRow: {
+    statsGrid: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 10,
     },
     statCard: {
-        flex: 1,
+        width: '31%',
+        flexGrow: 1,
         minHeight: 92,
         borderRadius: 12,
         backgroundColor: '#FFFFFF',
