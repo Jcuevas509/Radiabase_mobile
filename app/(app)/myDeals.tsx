@@ -157,12 +157,6 @@ export default function MyDealsScreen() {
   const renderedSearch = controlsAreCurrent ? search : '';
 
   useEffect(() => {
-    if (!isLoading) {
-      setIsPullRefreshing(false);
-    }
-  }, [isLoading]);
-
-  useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 350);
     return () => clearTimeout(timeout);
   }, [search]);
@@ -189,6 +183,13 @@ export default function MyDealsScreen() {
     filter: effectiveFilter,
     isEnabled: isFocused && Boolean(authenticatedScopeKey),
   });
+
+  useEffect(() => {
+    if (!isLoading) {
+      setIsPullRefreshing(false);
+    }
+  }, [isLoading]);
+
 
   const filterLabel = FILTERS.find((filter) => filter.value === effectiveFilter)?.label ?? 'Deals';
   const summary = effectiveFilter === 'all'
