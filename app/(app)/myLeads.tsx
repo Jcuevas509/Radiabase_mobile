@@ -64,20 +64,6 @@ function formatStatus(status: string): string {
     .join(' ') || 'New';
 }
 
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) {
-    return 'Date unavailable';
-  }
-  return date.toLocaleString(undefined, {
-    weekday: 'short',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
 function formatActivityTime(value: string): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) {
@@ -138,29 +124,7 @@ function LeadCard({
   const phoneDigits = lead.phone?.replace(/[^\d+]/g, '') ?? '';
   const appointmentMs = lead.appointmentAt ? Date.parse(lead.appointmentAt) : Number.NaN;
   const canScheduleReminder = Number.isFinite(appointmentMs) && appointmentMs > Date.now() + 5_000;
-  // Demo heat count until the API reports knock activity per lead.
-  const heatCount = lead.id % 5;
   const [firstName = '', ...lastNameParts] = lead.fullName.split(' ');
-
-  const openRowMenu = () => {
-    Alert.alert(lead.fullName, undefined, [
-      ...(phoneDigits ? [
-        {
-          text: 'Call',
-          onPress: () => openContactUrl(`tel:${phoneDigits}`, 'Open the Phone app and try again.'),
-        },
-        {
-          text: 'Message',
-          onPress: () => openContactUrl(`sms:${phoneDigits}`, 'Open Messages and try again.'),
-        },
-      ] : []),
-      ...(lead.appointmentAt ? [{
-        text: `Appointment: ${formatDateTime(lead.appointmentAt)}`,
-        onPress: () => undefined,
-      }] : []),
-      { text: 'Cancel', style: 'cancel' as const },
-    ]);
-  };
 
   return (
     <View style={styles.row}>
@@ -183,18 +147,7 @@ function LeadCard({
         </View>
       </View>
       <View style={styles.rowRight}>
-        <View style={styles.rowRightTop}>
-          <Text style={styles.rowTime}>{formatActivityTime(lead.createdAt ?? '')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={`More actions for ${lead.fullName}`}
-            hitSlop={8}
-            onPress={openRowMenu}
-            style={({ pressed }) => [styles.moreButton, pressed && styles.pressed]}
-          >
-            <Ionicons name="ellipsis-vertical" size={17} color="#18181B" />
-          </Pressable>
-        </View>
+        <Text style={styles.rowTime}>{formatActivityTime(lead.createdAt ?? '')}</Text>
         <View style={styles.rowRightBottom}>
           {canScheduleReminder ? (
             <Pressable
@@ -227,10 +180,28 @@ function LeadCard({
               )}
             </Pressable>
           ) : null}
-          <View style={styles.heatChip}>
-            <Text style={styles.heatCount}>{heatCount}</Text>
-            <Text style={styles.heatFlame}>🔥</Text>
-          </View>
+          {phoneDigits ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Call ${lead.fullName}`}
+                hitSlop={6}
+                onPress={() => openContactUrl(`tel:${phoneDigits}`, 'Open the Phone app and try again.')}
+                style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
+              >
+                <Ionicons name="call" size={16} color="#1687E8" />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Message ${lead.fullName}`}
+                hitSlop={6}
+                onPress={() => openContactUrl(`sms:${phoneDigits}`, 'Open Messages and try again.')}
+                style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
+              >
+                <Ionicons name="chatbubble-ellipses" size={16} color="#1687E8" />
+              </Pressable>
+            </>
+          ) : null}
         </View>
       </View>
     </View>
@@ -779,43 +750,23 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
     minHeight: 74,
   },
-  rowRightTop: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
   rowTime: {
     color: '#3F3F46',
     fontSize: 13,
     fontWeight: '600',
   },
-  moreButton: {
-    width: 26,
-    height: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   rowRightBottom: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 7,
   },
-  heatChip: {
-    flexDirection: 'row',
+  contactButton: {
+    width: 30,
+    height: 30,
     alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 7,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-  },
-  heatCount: {
-    color: '#D97706',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  heatFlame: {
-    fontSize: 12,
+    justifyContent: 'center',
+    borderRadius: 15,
+    backgroundColor: '#E8F4FE',
   },
   reminderButton: {
     width: 30,
