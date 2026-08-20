@@ -65,6 +65,8 @@ export function LeaderboardCard({
               lastName={entry.lastName}
               imageUrl={entry.avatarUrl}
               size={34}
+              color="#18181B"
+              ringWidth={1}
             />
             <Text style={styles.name} numberOfLines={1}>
               {`${entry.firstName} ${entry.lastName}`.trim()}

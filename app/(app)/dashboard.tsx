@@ -180,16 +180,35 @@ const DashboardScreen = () => {
             ? contactData.customers
             : 0;
     const leaderboardEntries: LeaderboardEntry[] = [
-        { id: -1, firstName: 'Marcus', lastName: 'Rivera', value: 96 },
-        { id: -2, firstName: 'Dana', lastName: 'Whitfield', value: 71 },
+        {
+            id: -1,
+            firstName: 'Marcus',
+            lastName: 'Rivera',
+            avatarUrl: 'https://randomuser.me/api/portraits/men/45.jpg',
+            value: 96,
+        },
+        {
+            id: -2,
+            firstName: 'Dana',
+            lastName: 'Whitfield',
+            avatarUrl: 'https://randomuser.me/api/portraits/women/68.jpg',
+            value: 71,
+        },
         {
             id: Number(session?.user?.id ?? 0),
             firstName: session?.user?.firstName ?? 'You',
             lastName: session?.user?.lastName ?? '',
+            avatarUrl: AVATAR_URL_PLACEHOLDER,
             value: currentUserMetricValue,
             isCurrentUser: true,
         },
-        { id: -3, firstName: 'Priya', lastName: 'Shah', value: 12 },
+        {
+            id: -3,
+            firstName: 'Priya',
+            lastName: 'Shah',
+            avatarUrl: 'https://randomuser.me/api/portraits/women/44.jpg',
+            value: 12,
+        },
     ];
 
     const openLeaderboardFilter = () => {
