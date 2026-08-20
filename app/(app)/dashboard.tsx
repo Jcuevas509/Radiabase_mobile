@@ -37,7 +37,7 @@ const REVIEWS_COUNT_PLACEHOLDER = 72;
 // Temp portrait until the profile API serves a real avatar URL.
 const AVATAR_URL_PLACEHOLDER = 'https://randomuser.me/api/portraits/men/32.jpg';
 
-const LEADERBOARD_PAGE_SIZE = 15;
+const LEADERBOARD_PAGE_SIZE = 10;
 
 // Seam for the leaderboard backend: replace this sample roster with the
 // fetched standings. Portraits are randomuser placeholders.
