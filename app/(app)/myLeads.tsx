@@ -32,7 +32,13 @@ import {
   scheduleLeadAppointmentReminder,
 } from 'services/lead-appointment-reminders';
 import { fetchMyLeads } from 'services/leads-api';
+import { fetchSampleMyLeads } from 'services/sample-leads';
 import type { MyLead, MyLeadFilter } from 'types/my-leads.types';
+
+// Demo data while the UI is being designed. Off in tests (they exercise the
+// real fetch path); flip to `false` to go back to live leads.
+const USE_SAMPLE_LEADS = __DEV__ && !process.env.JEST_WORKER_ID;
+const loadMyLeadsPage = USE_SAMPLE_LEADS ? fetchSampleMyLeads : fetchMyLeads;
 import { getApiErrorMessage } from 'utils/get-api-error-message';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
 
@@ -323,7 +329,7 @@ export default function MyLeadsScreen() {
     setIsLoading(true);
     setIsLoadingMore(false);
     setErrorMessage(null);
-    fetchMyLeads({
+    loadMyLeadsPage({
       salesRepId,
       page: 1,
       search: effectiveSearch,
@@ -371,7 +377,7 @@ export default function MyLeadsScreen() {
     loadMoreControllerRef.current?.abort();
     loadMoreControllerRef.current = controller;
     setIsLoadingMore(true);
-    fetchMyLeads({
+    loadMyLeadsPage({
       salesRepId,
       page: nextPage,
       search: effectiveSearch,
