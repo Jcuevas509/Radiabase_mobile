@@ -245,7 +245,10 @@ const DashboardScreen = () => {
                         <Text style={styles.greeting}>Hi, {firstName} 👋</Text>
                         <View style={styles.reviewsRow}>
                             {[0, 1, 2, 3, 4].map((starIndex) => (
-                                <Ionicons key={starIndex} name="star" size={16} color="#FBBF24" />
+                                <View key={starIndex} style={styles.starWrap}>
+                                    <Ionicons name="star" size={19} color="#18181B" style={styles.starStroke} />
+                                    <Ionicons name="star" size={13} color="#FBBF24" />
+                                </View>
                             ))}
                             <Text style={styles.reviewsCount}>
                                 {REVIEWS_COUNT_PLACEHOLDER.toLocaleString()} reviews
@@ -500,6 +503,15 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 3,
+    },
+    starWrap: {
+        width: 19,
+        height: 19,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    starStroke: {
+        position: 'absolute',
     },
     reviewsCount: {
         marginLeft: 5,

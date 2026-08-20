@@ -124,4 +124,7 @@ const styles = StyleSheet.create({
     borderRadius: 3.5,
     backgroundColor: '#18181B',
   },
+  pressed: {
+    opacity: 0.6,
+  },
 });
