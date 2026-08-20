@@ -53,6 +53,12 @@ function buildSampleDeal(index: number, nowMs: number): MyDeal {
     notes: outcome.status === 'Scheduled'
       ? `Scheduled ${new Date(installMs).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })}`
       : null,
+    transactionId: outcome.paid
+      ? `TXN-${String(781200 + index * 137).slice(-6)}`
+      : null,
+    depositDate: outcome.paid
+      ? new Date(installMs + 9 * DAY_MS).toISOString().slice(0, 10)
+      : null,
   };
 }
 

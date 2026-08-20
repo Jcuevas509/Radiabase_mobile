@@ -215,6 +215,12 @@ function DealDetailModal({
   const phone = sanitizePhone(deal.phone);
   const detailRows: Array<{ label: string; value: string }> = [
     { label: 'Status', value: deal.status },
+    ...(deal.isAccountPaid
+      ? [
+        { label: 'Transaction ID', value: deal.transactionId ?? '—' },
+        { label: 'Deposit date', value: deal.depositDate ? formatCalendarDate(deal.depositDate) : '—' },
+      ]
+      : [{ label: 'Transaction', value: 'Pending' }]),
     { label: 'System size', value: typeof deal.systemSizeKw === 'number' ? `${deal.systemSizeKw} kW` : '—' },
     { label: 'PPW', value: typeof deal.pricePerWatt === 'number' ? `$${deal.pricePerWatt.toFixed(2)}` : '—' },
     { label: 'Sold', value: deal.dateSold ? formatCalendarDate(deal.dateSold) : '—' },
@@ -252,6 +258,10 @@ function DealDetailModal({
             {row.label === 'Status' ? (
               <View style={[styles.modalStatusPill, { backgroundColor: statusColor }]}>
                 <Text style={styles.modalStatusText}>{deal.status}</Text>
+              </View>
+            ) : row.label === 'Transaction' && row.value === 'Pending' ? (
+              <View style={styles.pendingPill}>
+                <Text style={styles.pendingPillText}>Pending</Text>
               </View>
             ) : (
               <Text style={styles.modalRowValue} numberOfLines={1}>{row.value}</Text>
@@ -847,5 +857,18 @@ const styles = StyleSheet.create({
   },
   modalDoneText: {
     color: 'white',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  pendingPill: {
+    borderRadius: 7,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  pendingPillText: {
+    color: '#B45309',
+    fontSize: 11,
+    fontWeight: '800',
   },
 });
