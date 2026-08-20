@@ -223,7 +223,9 @@ export default function MyDealsScreen() {
     salesRepId,
     search: effectiveSearch,
     filter: effectiveFilter,
-    isEnabled: isFocused && Boolean(authenticatedScopeKey),
+    // Focus is intentionally not part of isEnabled: disabling on blur wipes
+    // the loaded deals, so every tab visit restarted from the spinner.
+    isEnabled: Boolean(authenticatedScopeKey),
     loadPage: USE_SAMPLE_DEALS ? fetchSampleMyDeals : undefined,
   });
 
