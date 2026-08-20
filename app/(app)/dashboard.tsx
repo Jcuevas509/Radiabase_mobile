@@ -236,7 +236,7 @@ const DashboardScreen = () => {
                                 lastName={session?.user?.lastName ?? ''}
                                 imageUrl={AVATAR_URL_PLACEHOLDER}
                                 size={60}
-                                color="transparent"
+                                color="#18181B"
                             />
                         </View>
                         <View style={styles.presenceDot} />

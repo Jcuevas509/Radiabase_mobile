@@ -28,7 +28,6 @@ import { AreaLabelOverlay } from 'components/FieldMap/AreaLabelOverlay';
 import { AreaLayer, type AreaDisplay } from 'components/FieldMap/AreaLayer';
 import { DraftAreaPolygon, DraftVertexHandles } from 'components/FieldMap/DraftAreaEditor';
 import { DrawingCanvas, type CanvasSize } from 'components/FieldMap/DrawingCanvas';
-import { FootprintCanvas } from 'components/FieldMap/FootprintCanvas';
 import { HouseDecalOverlay } from 'components/FieldMap/HouseDecalOverlay';
 import {
   MapCompassController,
@@ -72,7 +71,6 @@ import { getApiErrorMessage } from 'utils/get-api-error-message';
 import { getPolygonCentroid } from 'utils/get-polygon-centroid';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
-import { isCloseZoomRegion } from 'utils/is-close-zoom-region';
 import { isMapRouteReady } from 'utils/is-map-route-ready';
 import { isStreetZoomRegion } from 'utils/is-street-zoom-region';
 import { mapLeadStatusIdToHouseStatus } from 'utils/map-house-status';
@@ -691,7 +689,6 @@ export function FieldMapScreen() {
 
   const visibleRegion = viewportRegion ?? region;
   const isStreetZoom = Boolean(visibleRegion && isStreetZoomRegion(visibleRegion));
-  const isCloseZoom = Boolean(visibleRegion && isCloseZoomRegion(visibleRegion));
   // Full-size labels near street zoom, shrinking as the camera pulls out so
   // the chip scales with its turf instead of dominating the screen.
   const areaLabelScale = useMemo(() => {
@@ -1054,14 +1051,6 @@ export function FieldMapScreen() {
           ) : null}
         </MapView>
       )}
-      {isCloseZoom && isIdle ? (
-        <FootprintCanvas
-          footprints={mapBuildings}
-          houses={nearbyBuildingMarkers}
-          fit={projectionFit}
-          hidden={isMapMoving}
-        />
-      ) : null}
       {isStreetZoom && isIdle ? (
         <HouseDecalOverlay
           houses={nearbyBuildingMarkers}

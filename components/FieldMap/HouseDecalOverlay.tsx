@@ -9,12 +9,13 @@ import {
 } from 'utils/fit-screen-projection';
 
 const OFFSCREEN_MARGIN_PX = 40;
+const BADGE_SIZE = 30;
 
 /**
- * Decal glyph per knock outcome, drawn flat in the middle of the roof box.
- * Not Interested deliberately uses the X mark rather than its list icon.
+ * Badge glyph per knock outcome. Not Interested deliberately uses the X mark
+ * rather than its list icon.
  */
-const DECAL_ICON_BY_STATUS_ID: Record<number, ComponentType<SvgProps>> = {
+const BADGE_ICON_BY_STATUS_ID: Record<number, ComponentType<SvgProps>> = {
   0: NewSvg,
   1: CancelSvg,
   2: NotHomeSvg,
@@ -30,11 +31,11 @@ type HouseDecalOverlayProps = {
 };
 
 /**
- * Worked-house outcome glyphs as tappable screen-space views placed with the
- * shared projection fit — the last native markers besides the location dot
- * are gone, so no zoom threshold can batch-churn map annotations anymore.
- * Unworked saved doors show nothing here; their roof boxes and the map-level
- * hit test cover them.
+ * Every saved door is one circular badge centered on its roof: outcome color
+ * with the outcome glyph once worked, neutral white while unworked. No roof
+ * outlines are drawn at all — untouched roofs stay clean satellite and remain
+ * tappable through the map-level hit test. Badges are screen-space views on
+ * the shared projection fit, so the native map keeps zero per-house children.
  */
 export const HouseDecalOverlay = memo(function HouseDecalOverlay({
   houses,
@@ -52,10 +53,7 @@ export const HouseDecalOverlay = memo(function HouseDecalOverlay({
         const status = typeof house.statusId === 'number'
           ? leadStatuses.find((item) => item.statusId === house.statusId)
           : undefined;
-        const DecalIcon = status ? DECAL_ICON_BY_STATUS_ID[status.statusId] : undefined;
-        if (!status || !DecalIcon) {
-          return null;
-        }
+        const BadgeIcon = status ? BADGE_ICON_BY_STATUS_ID[status.statusId] : undefined;
         const point = projectCoordinateWithFit(fit, {
           latitude: house.latitude,
           longitude: house.longitude,
@@ -68,18 +66,27 @@ export const HouseDecalOverlay = memo(function HouseDecalOverlay({
         }
         return (
           <Pressable
-            key={`house-decal-${house.id}`}
+            key={`house-badge-${house.id}`}
             accessibilityRole="button"
-            accessibilityLabel={`Open house, status ${status.fullName}`}
-            hitSlop={6}
+            accessibilityLabel={status
+              ? `Open house, status ${status.fullName}`
+              : 'Open saved house'}
+            hitSlop={8}
             onPress={() => onHousePress(house)}
             style={({ pressed }) => [
-              styles.decal,
-              { left: point.x - 18, top: point.y - 18 },
+              styles.badge,
+              { left: point.x - BADGE_SIZE / 2, top: point.y - BADGE_SIZE / 2 },
+              status && BadgeIcon
+                ? { backgroundColor: status.color }
+                : styles.badgeUnworked,
               pressed && styles.pressed,
             ]}
           >
-            <DecalIcon color="white" />
+            {status && BadgeIcon ? (
+              <BadgeIcon color="white" />
+            ) : (
+              <View style={styles.unworkedDot} />
+            )}
           </Pressable>
         );
       })}
@@ -92,19 +99,29 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     zIndex: 9,
   },
-  decal: {
+  badge: {
     position: 'absolute',
-    width: 36,
-    height: 36,
+    width: BADGE_SIZE,
+    height: BADGE_SIZE,
+    borderRadius: BADGE_SIZE / 2,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.55,
+    shadowOpacity: 0.4,
     shadowRadius: 2,
     elevation: 3,
   },
-  pressed: {
-    opacity: 0.6,
+  badgeUnworked: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: 'rgba(24, 24, 27, 0.35)',
+  },
+  unworkedDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#18181B',
   },
 });
