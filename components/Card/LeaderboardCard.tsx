@@ -1,4 +1,5 @@
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 
 export type LeaderboardEntry = {
@@ -13,6 +14,11 @@ export type LeaderboardEntry = {
 type LeaderboardCardProps = {
   readonly entries: LeaderboardEntry[];
   readonly metricLabel: string;
+  /** Overall rank of the first entry minus one (paging offset). */
+  readonly rankOffset?: number;
+  readonly page?: number;
+  readonly pageCount?: number;
+  readonly onPageChange?: (page: number) => void;
   /** Shows a small tag marking the data as sample until the API exists. */
   readonly isSampleData?: boolean;
 };
@@ -43,11 +49,16 @@ function Medal({ rank }: { readonly rank: number }) {
 export function LeaderboardCard({
   entries,
   metricLabel,
+  rankOffset = 0,
+  page = 1,
+  pageCount = 1,
+  onPageChange,
   isSampleData = false,
 }: LeaderboardCardProps) {
   if (entries.length === 0) {
     return null;
   }
+  const showPager = pageCount > 1 && onPageChange;
   return (
     <View style={styles.card}>
       {isSampleData ? (
@@ -56,7 +67,7 @@ export function LeaderboardCard({
         </View>
       ) : null}
       {entries.map((entry, index) => {
-        const rank = index + 1;
+        const rank = rankOffset + index + 1;
         return (
           <View key={entry.id} style={[styles.row, index > 0 && styles.rowDivider]}>
             <Medal rank={rank} />
@@ -79,6 +90,41 @@ export function LeaderboardCard({
           </View>
         );
       })}
+      {showPager ? (
+        <View style={styles.pager}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Previous leaderboard page"
+            accessibilityState={{ disabled: page <= 1 }}
+            disabled={page <= 1}
+            hitSlop={8}
+            onPress={() => onPageChange(page - 1)}
+            style={({ pressed }) => [
+              styles.pagerButton,
+              page <= 1 && styles.pagerButtonDisabled,
+              pressed && styles.pagerPressed,
+            ]}
+          >
+            <Ionicons name="chevron-back" size={17} color={page <= 1 ? '#C4C4CC' : '#18181B'} />
+          </Pressable>
+          <Text style={styles.pagerText}>{page} / {pageCount}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Next leaderboard page"
+            accessibilityState={{ disabled: page >= pageCount }}
+            disabled={page >= pageCount}
+            hitSlop={8}
+            onPress={() => onPageChange(page + 1)}
+            style={({ pressed }) => [
+              styles.pagerButton,
+              page >= pageCount && styles.pagerButtonDisabled,
+              pressed && styles.pagerPressed,
+            ]}
+          >
+            <Ionicons name="chevron-forward" size={17} color={page >= pageCount ? '#C4C4CC' : '#18181B'} />
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -153,5 +199,34 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '600',
     color: '#A1A1AA',
+  },
+  pager: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E4E7',
+    paddingVertical: 8,
+    marginTop: 2,
+  },
+  pagerButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#F4F4F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pagerButtonDisabled: {
+    opacity: 0.5,
+  },
+  pagerPressed: {
+    opacity: 0.7,
+  },
+  pagerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#71717A',
   },
 });
