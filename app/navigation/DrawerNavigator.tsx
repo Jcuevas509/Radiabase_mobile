@@ -111,7 +111,6 @@ const DrawerNavigator = ({ menuItems }: DrawerNavigatorProps) => {
             <Drawer.Screen name="myDeals" options={{ drawerLabel: 'My Deals' }} />
             <Drawer.Screen name="myLocation" options={{ drawerLabel: 'My location' }} />
             <Drawer.Screen name="profile" options={{ drawerLabel: 'Profile' }} />
-            <Drawer.Screen name="settings" options={{ drawerLabel: 'Settings' }} />
         </Drawer>
     );
 };

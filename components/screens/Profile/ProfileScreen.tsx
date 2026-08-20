@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import type { ProfileViewModel } from 'utils/build-profile-view-model';
@@ -10,18 +11,19 @@ const AVATAR_URL_PLACEHOLDER = 'https://randomuser.me/api/portraits/men/32.jpg';
 type SettingsRow = {
   readonly icon: keyof typeof Ionicons.glyphMap;
   readonly label: string;
+  readonly route: string;
 };
 
 const PERSONAL_DETAIL_ROWS: readonly SettingsRow[] = [
-  { icon: 'person-outline', label: 'Personal information' },
-  { icon: 'notifications-outline', label: 'Notification preferences' },
-  { icon: 'map-outline', label: 'Map settings' },
+  { icon: 'person-outline', label: 'Personal information', route: '/settings/personal-information' },
+  { icon: 'notifications-outline', label: 'Notification preferences', route: '/settings/notifications' },
+  { icon: 'map-outline', label: 'Map settings', route: '/settings/map' },
 ];
 
 const GENERAL_ROWS: readonly SettingsRow[] = [
-  { icon: 'settings-outline', label: 'Account settings' },
-  { icon: 'help-buoy-outline', label: 'Contact support' },
-  { icon: 'document-text-outline', label: 'Legal' },
+  { icon: 'settings-outline', label: 'Account settings', route: '/settings/account' },
+  { icon: 'help-buoy-outline', label: 'Contact support', route: '/settings/support' },
+  { icon: 'document-text-outline', label: 'Legal', route: '/settings/legal' },
 ];
 
 type ProfileScreenProps = {
@@ -112,10 +114,12 @@ function SettingsLinkRow({
   readonly row: SettingsRow;
   readonly showDivider: boolean;
 }) {
+  const router = useRouter();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={row.label}
+      onPress={() => router.push(row.route as never)}
       style={({ pressed }) => [styles.linkRow, showDivider && styles.rowDivider, pressed && styles.pressed]}
     >
       <View style={styles.linkIcon}>
