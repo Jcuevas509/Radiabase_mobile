@@ -157,6 +157,8 @@ export function FieldMapScreen() {
   // side (map / markers), not in JS.
   const renderCountRef = useRef(0);
   renderCountRef.current += 1;
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
   const perfBreadcrumbsRef = useRef<Record<string, number>>({});
   const markPerfBreadcrumb = (name: string) => {
     perfBreadcrumbsRef.current[name] = Date.now();
@@ -188,7 +190,10 @@ export function FieldMapScreen() {
     }, 1000);
     const renderProbe = setInterval(() => {
       if (renderCountRef.current > 30) {
-        console.warn(`[Perf] FieldMapScreen rendered ${renderCountRef.current}x in 2s`);
+        console.warn(
+          `[Perf] FieldMapScreen rendered ${renderCountRef.current}x in 2s | ` +
+          `mode=${modeRef.current} mapMoving=${isMapMovingRef.current}`,
+        );
       }
       renderCountRef.current = 0;
     }, 2000);
