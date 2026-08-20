@@ -224,14 +224,6 @@ const DashboardScreen = () => {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Your turf</Text>
-                        <TouchableOpacity
-                            accessibilityRole="button"
-                            style={styles.sectionAction}
-                            onPress={openMap}
-                        >
-                            <Ionicons name="map-outline" size={16} color="#18181B" />
-                            <Text style={styles.sectionActionText}>View on map</Text>
-                        </TouchableOpacity>
                     </View>
                     {isLoadingAreas ? (
                         <ActivityIndicator style={styles.loader} color="#32A0FF" />
@@ -245,7 +237,7 @@ const DashboardScreen = () => {
                             </Text>
                         </View>
                     ) : (
-                        <>
+                        <View>
                             <FlatList
                                 data={previewAreas}
                                 horizontal
@@ -295,9 +287,12 @@ const DashboardScreen = () => {
                                                 <View style={[styles.turfMap, styles.mapFallback]} />
                                             )}
                                             <View style={styles.turfOverlay} pointerEvents="none">
-                                                <View style={styles.turfPin}>
-                                                    <Ionicons name="location-outline" size={20} color="#18181B" />
-                                                </View>
+                                                <Ionicons
+                                                    name="location-outline"
+                                                    size={26}
+                                                    color="white"
+                                                    style={styles.turfPinIcon}
+                                                />
                                                 <View style={styles.turfOverlayText}>
                                                     <Text style={styles.turfCity} numberOfLines={1}>
                                                         {getAreaTileLabel(area, areaCities[area.id])}
@@ -313,7 +308,7 @@ const DashboardScreen = () => {
                                 ItemSeparatorComponent={() => <View style={styles.turfSeparator} />}
                             />
                             {previewAreas.length > 1 ? (
-                                <View style={styles.pageDots}>
+                                <View style={styles.pageDots} pointerEvents="none">
                                     {previewAreas.map((area, index) => (
                                         <View
                                             key={area.id}
@@ -325,7 +320,7 @@ const DashboardScreen = () => {
                                     ))}
                                 </View>
                             ) : null}
-                        </>
+                        </View>
                     )}
                 </View>
 
@@ -499,22 +494,6 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: '#18181B',
     },
-    sectionAction: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        backgroundColor: '#FFFFFF',
-        borderRadius: 18,
-        paddingHorizontal: 14,
-        paddingVertical: 8,
-        borderWidth: 1,
-        borderColor: '#E4E4E7',
-    },
-    sectionActionText: {
-        fontSize: 13,
-        fontWeight: '700',
-        color: '#18181B',
-    },
     loader: {
         marginVertical: 24,
     },
@@ -559,13 +538,10 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 10,
     },
-    turfPin: {
-        width: 44,
-        height: 44,
-        borderRadius: 12,
-        backgroundColor: 'white',
-        alignItems: 'center',
-        justifyContent: 'center',
+    turfPinIcon: {
+        textShadowColor: 'rgba(0, 0, 0, 0.6)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
     },
     turfOverlayText: {
         gap: 1,
@@ -587,20 +563,21 @@ const styles = StyleSheet.create({
         textShadowRadius: 3,
     },
     pageDots: {
+        position: 'absolute',
+        right: 12,
+        bottom: 12,
         flexDirection: 'row',
-        justifyContent: 'center',
         gap: 6,
-        marginTop: 10,
     },
     pageDot: {
         width: 6,
         height: 6,
         borderRadius: 3,
-        backgroundColor: '#D4D4D8',
+        backgroundColor: 'rgba(255, 255, 255, 0.55)',
     },
     pageDotActive: {
         width: 16,
-        backgroundColor: '#18181B',
+        backgroundColor: '#FFFFFF',
     },
     periodRow: {
         flexDirection: 'row',
