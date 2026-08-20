@@ -29,8 +29,8 @@ import * as Location from 'expo-location';
 const PERIODS = ['Today', 'This Week', 'This Month'] as const;
 
 // Seam for the reviews backend: replace with the fetched count when the API
-// exists. The badge renders whatever number it is given.
-const REVIEWS_COUNT_PLACEHOLDER = 0;
+// exists. The row renders whatever number it is given.
+const REVIEWS_COUNT_PLACEHOLDER = 72;
 
 function getAreaTileLabel(area: MapAreaResponse, geocodedCity?: string): string {
     if (geocodedCity) {
@@ -153,8 +153,6 @@ const DashboardScreen = () => {
     }, [session?.token]);
 
     const firstName = session?.user?.firstName?.trim() || 'there';
-    const fullName = `${session?.user?.firstName ?? ''} ${session?.user?.lastName ?? ''}`.trim();
-    const roleLabel = session?.user?.roleLabel?.trim() || 'Setter';
     const notificationCount = 0;
 
     return (
@@ -198,15 +196,14 @@ const DashboardScreen = () => {
                     </View>
                     <View style={styles.heroTextBlock}>
                         <Text style={styles.greeting}>Hi, {firstName} 👋</Text>
-                        <Text style={styles.heroMeta} numberOfLines={1}>
-                            {[fullName, roleLabel].filter(Boolean).join(' · ')}
-                        </Text>
-                    </View>
-                    <View style={styles.reviewsBadge}>
-                        <Ionicons name="star-outline" size={20} color="#18181B" />
-                        <Text style={styles.reviewsCount}>
-                            {REVIEWS_COUNT_PLACEHOLDER.toLocaleString()}
-                        </Text>
+                        <View style={styles.reviewsRow}>
+                            {[0, 1, 2, 3, 4].map((starIndex) => (
+                                <Ionicons key={starIndex} name="star" size={16} color="#FBBF24" />
+                            ))}
+                            <Text style={styles.reviewsCount}>
+                                {REVIEWS_COUNT_PLACEHOLDER.toLocaleString()} reviews
+                            </Text>
+                        </View>
                     </View>
                 </View>
 
@@ -444,26 +441,16 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: '#18181B',
     },
-    heroMeta: {
-        fontSize: 14,
-        color: '#71717A',
-        fontWeight: '500',
-    },
-    reviewsBadge: {
-        minWidth: 62,
-        borderRadius: 26,
-        backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E4E4E7',
+    reviewsRow: {
+        flexDirection: 'row',
         alignItems: 'center',
-        paddingVertical: 10,
-        paddingHorizontal: 10,
-        gap: 2,
+        gap: 3,
     },
     reviewsCount: {
-        fontSize: 14,
-        fontWeight: '800',
-        color: '#18181B',
+        marginLeft: 5,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#71717A',
     },
     section: {
         paddingHorizontal: 20,
@@ -519,10 +506,10 @@ const styles = StyleSheet.create({
     turfOverlay: {
         position: 'absolute',
         left: 12,
-        bottom: 12,
+        top: 12,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 10,
+        gap: 8,
     },
     turfPinIcon: {
         textShadowColor: 'rgba(0, 0, 0, 0.6)',
