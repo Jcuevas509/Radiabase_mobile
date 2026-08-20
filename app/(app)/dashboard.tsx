@@ -199,7 +199,7 @@ const DashboardScreen = () => {
                             <UserAvatar
                                 firstName={session?.user?.firstName ?? ''}
                                 lastName={session?.user?.lastName ?? ''}
-                                size={64}
+                                size={56}
                                 color="#1687E8"
                             />
                         </View>
@@ -408,19 +408,19 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderRadius: 18,
         marginHorizontal: 20,
-        marginTop: 6,
+        marginTop: 2,
         paddingHorizontal: 16,
-        paddingVertical: 18,
+        paddingVertical: 12,
         gap: 14,
     },
     avatarWrap: {
-        width: 72,
-        height: 72,
+        width: 64,
+        height: 64,
     },
     avatarRing: {
-        width: 72,
-        height: 72,
-        borderRadius: 36,
+        width: 64,
+        height: 64,
+        borderRadius: 32,
         borderWidth: 2,
         borderColor: '#1687E8',
         alignItems: 'center',
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
         gap: 3,
     },
     greeting: {
-        fontSize: 26,
+        fontSize: 24,
         fontWeight: '800',
         color: '#18181B',
     },
@@ -459,13 +459,13 @@ const styles = StyleSheet.create({
     },
     section: {
         paddingHorizontal: 20,
-        paddingTop: 24,
+        paddingTop: 14,
     },
     sectionHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 12,
+        marginBottom: 8,
     },
     sectionTitle: {
         fontSize: 18,
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     },
     turfMap: {
         width: '100%',
-        height: 190,
+        height: 150,
     },
     mapFallback: {
         backgroundColor: '#E4E4E7',
@@ -554,11 +554,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#E4E4E7',
         borderRadius: 10,
         padding: 3,
-        marginBottom: 12,
+        marginBottom: 8,
     },
     periodChip: {
         flex: 1,
-        minHeight: 36,
+        minHeight: 32,
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
@@ -582,10 +582,10 @@ const styles = StyleSheet.create({
     statCard: {
         width: '31%',
         flexGrow: 1,
-        minHeight: 92,
+        minHeight: 72,
         borderRadius: 12,
         backgroundColor: '#FFFFFF',
-        paddingVertical: 14,
+        paddingVertical: 10,
         paddingHorizontal: 10,
         justifyContent: 'center',
     },
@@ -593,10 +593,10 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '500',
         color: '#71717A',
-        marginBottom: 8,
+        marginBottom: 4,
     },
     statNumber: {
-        fontSize: 26,
+        fontSize: 22,
         fontWeight: '700',
         color: '#18181B',
     },
