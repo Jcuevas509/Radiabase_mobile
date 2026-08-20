@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+    Alert,
     View,
     StyleSheet,
     Text,
@@ -65,6 +66,7 @@ const DashboardScreen = () => {
     const [hasAreaError, setHasAreaError] = useState<boolean>(false);
     const [areaCities, setAreaCities] = useState<Record<number, string>>({});
     const [activeTurfIndex, setActiveTurfIndex] = useState(0);
+    const [leaderboardMetric, setLeaderboardMetric] = useState<'Knocks' | 'Deals' | 'Installs'>('Knocks');
     const turfCardWidth = windowWidth - 40;
 
     // Label every turf card with the city its turf sits in, resolved
@@ -169,9 +171,14 @@ const DashboardScreen = () => {
         { label: 'Cancels', value: 0 },
         { label: 'Installs', value: 0 },
     ];
-    // Seam for the leaderboard backend: replace these sample rows (and drop
-    // isSampleData) with the fetched, sorted standings. The current user's
-    // knocks are live so their row moves with the period toggle.
+    // Seam for the leaderboard backend: replace these rows with the fetched
+    // standings for the selected metric. The current user's Knocks/Deals are
+    // live so their row moves with the period toggle.
+    const currentUserMetricValue = leaderboardMetric === 'Knocks'
+        ? contactData.knocks
+        : leaderboardMetric === 'Deals'
+            ? contactData.customers
+            : 0;
     const leaderboardEntries: LeaderboardEntry[] = [
         { id: -1, firstName: 'Marcus', lastName: 'Rivera', value: 96 },
         { id: -2, firstName: 'Dana', lastName: 'Whitfield', value: 71 },
@@ -179,11 +186,20 @@ const DashboardScreen = () => {
             id: Number(session?.user?.id ?? 0),
             firstName: session?.user?.firstName ?? 'You',
             lastName: session?.user?.lastName ?? '',
-            value: contactData.knocks,
+            value: currentUserMetricValue,
             isCurrentUser: true,
         },
         { id: -3, firstName: 'Priya', lastName: 'Shah', value: 12 },
     ];
+
+    const openLeaderboardFilter = () => {
+        Alert.alert('Leaderboard metric', undefined, [
+            { text: 'Knocks', onPress: () => setLeaderboardMetric('Knocks') },
+            { text: 'Deals', onPress: () => setLeaderboardMetric('Deals') },
+            { text: 'Installs', onPress: () => setLeaderboardMetric('Installs') },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    };
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -371,11 +387,19 @@ const DashboardScreen = () => {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Leaderboard</Text>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel="Filter leaderboard metric"
+                            style={styles.filterButton}
+                            onPress={openLeaderboardFilter}
+                        >
+                            <Ionicons name="filter-outline" size={15} color="#18181B" />
+                            <Text style={styles.filterButtonText}>{leaderboardMetric}</Text>
+                        </TouchableOpacity>
                     </View>
                     <LeaderboardCard
                         entries={leaderboardEntries}
-                        metricLabel="knocks"
-                        isSampleData
+                        metricLabel={leaderboardMetric.toLowerCase()}
                     />
                 </View>
             </ScrollView>
@@ -498,6 +522,22 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontWeight: '800',
+        color: '#18181B',
+    },
+    filterButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 5,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 7,
+        borderWidth: 1,
+        borderColor: '#E4E4E7',
+    },
+    filterButtonText: {
+        fontSize: 12,
+        fontWeight: '700',
         color: '#18181B',
     },
     loader: {
