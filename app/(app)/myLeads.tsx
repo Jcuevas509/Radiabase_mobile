@@ -210,6 +210,7 @@ export default function MyLeadsScreen() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const generationRef = useRef(0);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
   const loadedQueryKeyRef = useRef<string | null>(null);
@@ -300,6 +301,7 @@ export default function MyLeadsScreen() {
       if (generationRef.current === generation) {
         setIsLoading(false);
       }
+      setIsPullRefreshing(false);
     });
     return () => {
       generationRef.current += 1;
@@ -474,8 +476,11 @@ export default function MyLeadsScreen() {
         onEndReachedThreshold={0.35}
         refreshControl={(
           <RefreshControl
-            refreshing={isLoading && scopedLeads.length > 0}
-            onRefresh={() => setReloadKey((current) => current + 1)}
+            refreshing={isPullRefreshing}
+            onRefresh={() => {
+              setIsPullRefreshing(true);
+              setReloadKey((current) => current + 1);
+            }}
             tintColor="#1687E8"
           />
         )}

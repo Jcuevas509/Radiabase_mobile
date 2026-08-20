@@ -150,10 +150,17 @@ export default function MyDealsScreen() {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [activeFilter, setActiveFilter] = useState<MyDealFilter>('all');
   const [controlsScopeKey, setControlsScopeKey] = useState(authenticatedScopeKey);
+  const [isPullRefreshing, setIsPullRefreshing] = useState(false);
   const controlsAreCurrent = controlsScopeKey === authenticatedScopeKey;
   const effectiveSearch = controlsAreCurrent ? debouncedSearch : '';
   const effectiveFilter = controlsAreCurrent ? activeFilter : 'all';
   const renderedSearch = controlsAreCurrent ? search : '';
+
+  useEffect(() => {
+    if (!isLoading) {
+      setIsPullRefreshing(false);
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -269,8 +276,11 @@ export default function MyDealsScreen() {
         onEndReachedThreshold={0.35}
         refreshControl={(
           <RefreshControl
-            refreshing={isLoading && deals.length > 0}
-            onRefresh={reload}
+            refreshing={isPullRefreshing}
+            onRefresh={() => {
+              setIsPullRefreshing(true);
+              reload();
+            }}
             tintColor="#1687E8"
           />
         )}
