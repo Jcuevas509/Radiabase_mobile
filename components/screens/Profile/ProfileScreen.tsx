@@ -1,105 +1,92 @@
-import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
-import type { FieldStatsResponse } from 'services/area-api';
 import type { ProfileViewModel } from 'utils/build-profile-view-model';
-import { pickFieldStatsBucket } from 'utils/pick-field-stats-bucket';
 
-const PERIODS = ['Today', 'This Week', 'This Month'] as const;
+// Temp portrait until the profile API serves a real avatar URL.
+const AVATAR_URL_PLACEHOLDER = 'https://randomuser.me/api/portraits/men/32.jpg';
+
+type SettingsRow = {
+  readonly icon: keyof typeof Ionicons.glyphMap;
+  readonly label: string;
+};
+
+const PERSONAL_DETAIL_ROWS: readonly SettingsRow[] = [
+  { icon: 'person-outline', label: 'Personal information' },
+  { icon: 'notifications-outline', label: 'Notification preferences' },
+  { icon: 'map-outline', label: 'Map settings' },
+];
+
+const GENERAL_ROWS: readonly SettingsRow[] = [
+  { icon: 'settings-outline', label: 'Account settings' },
+  { icon: 'help-buoy-outline', label: 'Contact support' },
+  { icon: 'document-text-outline', label: 'Legal' },
+];
 
 type ProfileScreenProps = {
   readonly profile: ProfileViewModel;
-  readonly stats: FieldStatsResponse | null;
-  readonly isLoadingStats: boolean;
   readonly appVersion: string;
   readonly onSignOut: () => void;
 };
 
 /**
- * Purely presentational profile. Everything shown arrives through props —
- * the route wrapper owns data (session today, a profile API later), so
- * connecting a real backend never touches this file.
+ * Settings-style grouped profile: centered identity, an Account card of
+ * label/value rows, chevron rows for details, and a red log out. Purely
+ * presentational — data arrives through props, so wiring a real profile API
+ * never touches this file. The chevron rows are design placeholders until
+ * their screens exist.
  */
-export function ProfileScreen({
-  profile,
-  stats,
-  isLoadingStats,
-  appVersion,
-  onSignOut,
-}: ProfileScreenProps) {
-  const [activePeriod, setActivePeriod] = useState<string>('Today');
-  const bucket = stats ? pickFieldStatsBucket(stats, activePeriod) : null;
-
+export function ProfileScreen({ profile, appVersion, onSignOut }: ProfileScreenProps) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.identityCard}>
+      <View style={styles.identity}>
         <UserAvatar
           firstName={profile.firstName}
           lastName={profile.lastName}
-          size={72}
+          imageUrl={AVATAR_URL_PLACEHOLDER}
+          size={84}
+          color="#18181B"
+          ringWidth={1}
         />
         <Text style={styles.name}>{profile.fullName}</Text>
-        <View style={styles.roleChip}>
-          <Text style={styles.roleChipText}>{profile.roleLabel}</Text>
-        </View>
-        {profile.email ? <Text style={styles.email}>{profile.email}</Text> : null}
+        <Text style={styles.role}>{profile.roleLabel}</Text>
       </View>
 
-      {profile.detailRows.length > 0 ? (
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Organization</Text>
-          {profile.detailRows.map((row) => (
-            <View key={row.label} style={styles.detailRow}>
-              <Text style={styles.detailLabel}>{row.label}</Text>
-              <Text style={styles.detailValue} numberOfLines={1}>{row.value}</Text>
-            </View>
-          ))}
-        </View>
-      ) : null}
-
+      <Text style={styles.sectionHeader}>Account</Text>
       <View style={styles.card}>
-        <Text style={styles.cardTitle}>My activity</Text>
-        <View style={styles.periodRow}>
-          {PERIODS.map((period) => {
-            const isSelected = activePeriod === period;
-            return (
-              <Pressable
-                key={period}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: isSelected }}
-                onPress={() => setActivePeriod(period)}
-                style={[styles.periodChip, isSelected && styles.periodChipSelected]}
-              >
-                <Text style={[styles.periodText, isSelected && styles.periodTextSelected]}>
-                  {period}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-        {isLoadingStats ? (
-          <ActivityIndicator color="#1687E8" style={styles.statsLoader} />
-        ) : (
-          <View style={styles.statRow}>
-            <StatTile label="Leads" value={bucket?.leads ?? 0} />
-            <StatTile label="Knocks" value={bucket?.knocks ?? 0} />
-            <StatTile label="Customers" value={bucket?.customers ?? 0} />
+        {profile.detailRows.map((row, index) => (
+          <View key={row.label} style={[styles.valueRow, index > 0 && styles.rowDivider]}>
+            <Text style={styles.valueRowLabel}>{row.label}</Text>
+            <Text style={styles.valueRowValue} numberOfLines={1}>{row.value}</Text>
           </View>
-        )}
+        ))}
+        {profile.email ? (
+          <View style={[styles.valueRow, profile.detailRows.length > 0 && styles.rowDivider]}>
+            <Text style={styles.valueRowLabel}>Email</Text>
+            <Text style={styles.valueRowValue} numberOfLines={1}>{profile.email}</Text>
+          </View>
+        ) : null}
+      </View>
+
+      <Text style={styles.sectionHeader}>Personal details</Text>
+      <View style={styles.card}>
+        {PERSONAL_DETAIL_ROWS.map((row, index) => (
+          <SettingsLinkRow key={row.label} row={row} showDivider={index > 0} />
+        ))}
+      </View>
+
+      <Text style={styles.sectionHeader}>General</Text>
+      <View style={styles.card}>
+        {GENERAL_ROWS.map((row, index) => (
+          <SettingsLinkRow key={row.label} row={row} showDivider={index > 0} />
+        ))}
       </View>
 
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Log out of Radiabase"
         onPress={onSignOut}
-        style={({ pressed }) => [styles.signOutButton, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.card, styles.signOutButton, pressed && styles.pressed]}
       >
         <Text style={styles.signOutText}>Log out</Text>
       </Pressable>
@@ -109,12 +96,25 @@ export function ProfileScreen({
   );
 }
 
-function StatTile({ label, value }: { readonly label: string; readonly value: number }) {
+function SettingsLinkRow({
+  row,
+  showDivider,
+}: {
+  readonly row: SettingsRow;
+  readonly showDivider: boolean;
+}) {
   return (
-    <View style={styles.statTile}>
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={row.label}
+      style={({ pressed }) => [styles.linkRow, showDivider && styles.rowDivider, pressed && styles.pressed]}
+    >
+      <View style={styles.linkIcon}>
+        <Ionicons name={row.icon} size={18} color="#18181B" />
+      </View>
+      <Text style={styles.linkLabel}>{row.label}</Text>
+      <Ionicons name="chevron-forward" size={16} color="#A1A1AA" />
+    </Pressable>
   );
 }
 
@@ -126,130 +126,91 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 32,
-    gap: 14,
   },
-  identityCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    paddingVertical: 22,
+  identity: {
     alignItems: 'center',
-    gap: 8,
+    paddingVertical: 14,
+    gap: 3,
   },
   name: {
-    fontSize: 20,
+    marginTop: 8,
+    fontSize: 22,
     fontWeight: '800',
     color: '#18181B',
-    marginTop: 4,
   },
-  roleChip: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  roleChipText: {
+  role: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#1687E8',
-    fontSize: 12,
-    fontWeight: '700',
   },
-  email: {
+  sectionHeader: {
+    marginTop: 18,
+    marginBottom: 6,
+    marginLeft: 14,
+    fontSize: 12,
+    fontWeight: '600',
     color: '#71717A',
-    fontSize: 13,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    paddingHorizontal: 14,
   },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#18181B',
-    marginBottom: 2,
-  },
-  detailRow: {
+  valueRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    minHeight: 28,
+    justifyContent: 'space-between',
+    minHeight: 46,
+    gap: 14,
+  },
+  valueRowLabel: {
+    fontSize: 15,
+    color: '#18181B',
+  },
+  valueRowValue: {
+    flexShrink: 1,
+    fontSize: 15,
+    color: '#71717A',
+  },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 48,
     gap: 12,
   },
-  detailLabel: {
-    color: '#71717A',
-    fontSize: 13,
+  linkIcon: {
+    width: 24,
+    alignItems: 'center',
   },
-  detailValue: {
-    color: '#18181B',
-    fontSize: 13,
-    fontWeight: '600',
-    flexShrink: 1,
-  },
-  periodRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  periodChip: {
-    borderRadius: 14,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#F4F4F5',
-  },
-  periodChipSelected: {
-    backgroundColor: '#18181B',
-  },
-  periodText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#3F3F46',
-  },
-  periodTextSelected: {
-    color: 'white',
-  },
-  statsLoader: {
-    marginVertical: 14,
-  },
-  statRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 4,
-  },
-  statTile: {
+  linkLabel: {
     flex: 1,
-    backgroundColor: '#F4F4F5',
-    borderRadius: 12,
-    padding: 12,
-  },
-  statValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 15,
     color: '#18181B',
   },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#71717A',
-    marginTop: 2,
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E4E7',
   },
   signOutButton: {
-    backgroundColor: 'white',
-    borderRadius: 16,
+    marginTop: 24,
     minHeight: 50,
     alignItems: 'center',
     justifyContent: 'center',
   },
   signOutText: {
     color: '#CA0105',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 16,
+    fontWeight: '600',
   },
   pressed: {
-    opacity: 0.7,
+    opacity: 0.65,
   },
   version: {
     textAlign: 'center',
     color: '#A1A1AA',
     fontSize: 11,
-    marginTop: 4,
+    marginTop: 16,
   },
 });

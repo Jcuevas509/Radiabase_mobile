@@ -1,12 +1,11 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { DrawerActions, useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ProfileScreen } from 'components/screens/Profile/ProfileScreen';
 import { useSession } from 'context/AuthenticationContext';
-import { fetchFieldStats, FieldStatsResponse } from 'services/area-api';
 import { buildProfileViewModel } from 'utils/build-profile-view-model';
 
 /**
@@ -18,36 +17,6 @@ export default function Profile() {
     const navigation = useNavigation();
     const { session, signOut } = useSession();
     const profile = buildProfileViewModel(session?.user);
-    const [stats, setStats] = useState<FieldStatsResponse | null>(null);
-    const [isLoadingStats, setIsLoadingStats] = useState(true);
-
-    useEffect(() => {
-        if (!session?.token) {
-            return;
-        }
-        let isCancelled = false;
-        setIsLoadingStats(true);
-        fetchFieldStats()
-            .then((response) => {
-                if (!isCancelled) {
-                    setStats(response);
-                }
-            })
-            .catch(() => {
-                if (!isCancelled) {
-                    setStats(null);
-                }
-            })
-            .finally(() => {
-                if (!isCancelled) {
-                    setIsLoadingStats(false);
-                }
-            });
-        return () => {
-            isCancelled = true;
-        };
-    }, [session?.token]);
-
     const handleSignOut = () => {
         Alert.alert('Log out', 'Log out of Radiabase on this phone?', [
             { text: 'Cancel', style: 'cancel' },
@@ -71,8 +40,6 @@ export default function Profile() {
             {profile ? (
                 <ProfileScreen
                     profile={profile}
-                    stats={stats}
-                    isLoadingStats={isLoadingStats}
                     appVersion={Constants.expoConfig?.version ?? '1.0.0'}
                     onSignOut={handleSignOut}
                 />
