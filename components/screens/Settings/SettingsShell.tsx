@@ -2,11 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState, type ReactNode } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -134,6 +136,92 @@ export function ToggleRow({
   );
 }
 
+export function SettingsInput({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  secureTextEntry = false,
+  multiline = false,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly onChangeText: (value: string) => void;
+  readonly placeholder?: string;
+  readonly secureTextEntry?: boolean;
+  readonly multiline?: boolean;
+}) {
+  return (
+    <View style={styles.inputBlock}>
+      <Text style={styles.inputLabel}>{label}</Text>
+      <TextInput
+        accessibilityLabel={label}
+        autoCapitalize="none"
+        autoCorrect={false}
+        multiline={multiline}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor="#A1A1AA"
+        secureTextEntry={secureTextEntry}
+        style={[styles.input, multiline && styles.inputMultiline]}
+        value={value}
+      />
+    </View>
+  );
+}
+
+export function SettingsPrimaryButton({
+  label,
+  onPress,
+  isDisabled = false,
+  isLoading = false,
+}: {
+  readonly label: string;
+  readonly onPress: () => void;
+  readonly isDisabled?: boolean;
+  readonly isLoading?: boolean;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled, busy: isLoading }}
+      disabled={isDisabled || isLoading}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.primaryButton,
+        (isDisabled || isLoading) && styles.primaryButtonDisabled,
+        pressed && styles.pressed,
+      ]}
+    >
+      {isLoading ? (
+        <ActivityIndicator color="white" size="small" />
+      ) : (
+        <Text style={styles.primaryButtonText}>{label}</Text>
+      )}
+    </Pressable>
+  );
+}
+
+export function SettingsParagraphs({
+  paragraphs,
+}: {
+  readonly paragraphs: readonly { readonly heading?: string; readonly body: string }[];
+}) {
+  return (
+    <View style={styles.paragraphCard}>
+      {paragraphs.map((paragraph, index) => (
+        <View key={index} style={index > 0 ? styles.paragraphSpacing : undefined}>
+          {paragraph.heading ? (
+            <Text style={styles.paragraphHeading}>{paragraph.heading}</Text>
+          ) : null}
+          <Text style={styles.paragraphBody}>{paragraph.body}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
@@ -208,5 +296,64 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.65,
+  },
+  inputBlock: {
+    paddingVertical: 10,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#71717A',
+    marginBottom: 6,
+  },
+  input: {
+    minHeight: 42,
+    borderWidth: 1,
+    borderColor: '#E4E4E7',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    color: '#18181B',
+    backgroundColor: '#FAFAFA',
+  },
+  inputMultiline: {
+    minHeight: 110,
+    paddingTop: 10,
+    textAlignVertical: 'top',
+  },
+  primaryButton: {
+    marginTop: 18,
+    minHeight: 48,
+    borderRadius: 14,
+    backgroundColor: '#18181B',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonDisabled: {
+    opacity: 0.4,
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  paragraphCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    padding: 16,
+  },
+  paragraphSpacing: {
+    marginTop: 14,
+  },
+  paragraphHeading: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#18181B',
+    marginBottom: 4,
+  },
+  paragraphBody: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#52525B',
   },
 });
