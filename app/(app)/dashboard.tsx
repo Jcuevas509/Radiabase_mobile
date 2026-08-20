@@ -683,6 +683,8 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         minHeight: 72,
         borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#D4D4D8',
         backgroundColor: '#FFFFFF',
         paddingVertical: 10,
         paddingHorizontal: 10,
