@@ -45,16 +45,6 @@ function getAreaTileLabel(area: MapAreaResponse, geocodedCity?: string): string 
     return 'Unassigned';
 }
 
-function getAreaTileSubtitle(area: MapAreaResponse, sessionUserId: number): string {
-    if (!area.assignee) {
-        return 'Unassigned area';
-    }
-    if (area.assignee.id === sessionUserId) {
-        return 'Your assigned area';
-    }
-    return `${area.assignee.firstName} ${area.assignee.lastName}`.trim() || 'Assigned area';
-}
-
 const DashboardScreen = () => {
     const navigation = useNavigation();
     const { session } = useSession();
@@ -165,7 +155,6 @@ const DashboardScreen = () => {
     const firstName = session?.user?.firstName?.trim() || 'there';
     const fullName = `${session?.user?.firstName ?? ''} ${session?.user?.lastName ?? ''}`.trim();
     const roleLabel = session?.user?.roleLabel?.trim() || 'Setter';
-    const sessionUserId = Number(session?.user?.id ?? 0);
     const notificationCount = 0;
 
     return (
@@ -296,9 +285,6 @@ const DashboardScreen = () => {
                                                 <View style={styles.turfOverlayText}>
                                                     <Text style={styles.turfCity} numberOfLines={1}>
                                                         {getAreaTileLabel(area, areaCities[area.id])}
-                                                    </Text>
-                                                    <Text style={styles.turfSubtitle} numberOfLines={1}>
-                                                        {getAreaTileSubtitle(area, sessionUserId)}
                                                     </Text>
                                                 </View>
                                             </View>
@@ -550,14 +536,6 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: '800',
-        textShadowColor: 'rgba(0, 0, 0, 0.6)',
-        textShadowOffset: { width: 0, height: 1 },
-        textShadowRadius: 3,
-    },
-    turfSubtitle: {
-        color: 'rgba(255, 255, 255, 0.92)',
-        fontSize: 12,
-        fontWeight: '600',
         textShadowColor: 'rgba(0, 0, 0, 0.6)',
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 3,
