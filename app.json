@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Suntapped-Mobile",
-    "slug": "Suntapped-Mobile",
+    "slug": "radiabase",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -59,15 +59,15 @@
         "origin": false
       },
       "eas": {
-        "projectId": "d62434c8-1a14-4e34-8e66-f91331225e5b"
+        "projectId": "0690760f-cd35-4881-b7ef-0df872c35f39"
       }
     },
     "runtimeVersion": {
       "policy": "appVersion"
     },
     "updates": {
-      "url": "https://u.expo.dev/d62434c8-1a14-4e34-8e66-f91331225e5b"
+      "url": "https://u.expo.dev/0690760f-cd35-4881-b7ef-0df872c35f39"
     },
-    "owner": "visiot-dev"
+    "owner": "vantagemedia"
   }
 }

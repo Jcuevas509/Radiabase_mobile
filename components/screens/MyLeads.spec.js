@@ -2,11 +2,7 @@ const React = require('react');
 const { Alert } = require('react-native');
 const TestRenderer = require('react-test-renderer');
 const { act } = TestRenderer;
-const { fetchMyLeads } = require('services/leads-api');
-const {
-  cancelLeadAppointmentRemindersForScope,
-  scheduleLeadAppointmentReminder,
-} = require('services/lead-appointment-reminders');
+const { fetchMyLeads, updateFieldLeadStatus } = require('services/leads-api');
 const MyLeadsScreen = require('app/(app)/myLeads').default;
 
 let mockSession;
@@ -24,14 +20,7 @@ jest.mock('context/AuthenticationContext', () => ({
 }));
 jest.mock('services/leads-api', () => ({
   fetchMyLeads: jest.fn(),
-}));
-jest.mock('services/lead-appointment-reminders', () => ({
-  buildLeadAppointmentReminderKey: ({ scopeKey, leadId, appointmentAt }) => (
-    `${scopeKey}:${leadId}:${appointmentAt}`
-  ),
-  cancelLeadAppointmentRemindersForScope: jest.fn().mockResolvedValue(undefined),
-  listLeadAppointmentReminderKeys: jest.fn().mockResolvedValue(new Set()),
-  scheduleLeadAppointmentReminder: jest.fn(),
+  updateFieldLeadStatus: jest.fn(),
 }));
 
 const followUpLead = {
@@ -74,8 +63,7 @@ describe('MyLeadsScreen request lifecycle', () => {
       },
     };
     fetchMyLeads.mockReset();
-    scheduleLeadAppointmentReminder.mockReset();
-    cancelLeadAppointmentRemindersForScope.mockClear();
+    updateFieldLeadStatus.mockReset();
     globalThis.IS_REACT_ACT_ENVIRONMENT = true;
     alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
   });
@@ -146,126 +134,66 @@ describe('MyLeadsScreen request lifecycle', () => {
     expect(textContent(renderer)).not.toContain('Maria Lopez');
   });
 
-  it('schedules and marks a future appointment reminder for the current scope', async () => {
-    const appointmentAt = '2027-08-20T18:00:00.000Z';
-    const reminderKey = `42:1:3:5:7:${appointmentAt}`;
+  it('changes a lead status from the row pill and saves it to the server', async () => {
     fetchMyLeads.mockResolvedValueOnce({
-      leads: [{ ...followUpLead, appointmentAt }],
+      leads: [followUpLead],
       totalCount: 1,
       hasMore: false,
     });
-    scheduleLeadAppointmentReminder.mockResolvedValueOnce({ status: 'scheduled', reminderKey });
+    updateFieldLeadStatus.mockResolvedValueOnce(undefined);
 
     await act(async () => {
       renderer = TestRenderer.create(React.createElement(MyLeadsScreen));
       await Promise.resolve();
     });
-    const reminderButton = renderer.root.find((node) => (
-      node.props.accessibilityLabel === 'Set appointment reminder for Maria Lopez'
+    const statusPill = renderer.root.find((node) => (
+      node.props.accessibilityLabel === 'Change status for Maria Lopez'
       && typeof node.props.onPress === 'function'
     ));
     await act(async () => {
-      reminderButton.props.onPress();
+      statusPill.props.onPress();
       await Promise.resolve();
     });
 
-    expect(scheduleLeadAppointmentReminder).toHaveBeenCalledWith({
-      scopeKey: '42:1:3:5',
-      leadId: 7,
-      appointmentAt,
+    const [, , buttons] = alertSpy.mock.calls[alertSpy.mock.calls.length - 1];
+    const soldOption = buttons.find((button) => button.text === 'Sold');
+    await act(async () => {
+      soldOption.onPress();
+      await Promise.resolve();
     });
-    expect(renderer.root.findAll((node) => (
-      node.props.accessibilityLabel === 'Appointment reminder set for Maria Lopez'
-    ))).not.toHaveLength(0);
+
+    expect(updateFieldLeadStatus).toHaveBeenCalledWith({ leadId: 7, status: 'sold' });
+    expect(textContent(renderer)).toContain('Sold');
   });
 
-  it('removes a reminder that finishes scheduling after the account scope changed', async () => {
-    const appointmentAt = '2027-08-20T18:00:00.000Z';
-    let resolveReminder;
-    fetchMyLeads
-      .mockResolvedValueOnce({
-        leads: [{ ...followUpLead, appointmentAt }],
-        totalCount: 1,
-        hasMore: false,
-      })
-      .mockResolvedValueOnce({ leads: [], totalCount: 0, hasMore: false });
-    scheduleLeadAppointmentReminder.mockImplementationOnce(() => new Promise((resolve) => {
-      resolveReminder = resolve;
-    }));
-
-    await act(async () => {
-      renderer = TestRenderer.create(React.createElement(MyLeadsScreen));
-      await Promise.resolve();
-    });
-    const reminderButton = renderer.root.find((node) => (
-      node.props.accessibilityLabel === 'Set appointment reminder for Maria Lopez'
-      && typeof node.props.onPress === 'function'
-    ));
-    await act(async () => {
-      reminderButton.props.onPress();
-      await Promise.resolve();
-    });
-
-    mockSession = {
-      ...mockSession,
-      token: 'token-b',
-      user: { ...mockSession.user, salesOrgId: 9, officeId: 12 },
-    };
-    await act(async () => {
-      renderer.update(React.createElement(MyLeadsScreen));
-      await Promise.resolve();
-    });
-    await act(async () => {
-      resolveReminder({
-        status: 'scheduled',
-        reminderKey: `42:1:3:5:7:${appointmentAt}`,
-      });
-      await Promise.resolve();
-    });
-
-    expect(cancelLeadAppointmentRemindersForScope).toHaveBeenCalledWith('42:1:3:5');
-    expect(renderer.root.findAll((node) => (
-      node.props.accessibilityLabel === 'Appointment reminder set for Maria Lopez'
-    ))).toHaveLength(0);
-  });
-
-  it('does not update UI or alert after a same-scope screen unmount', async () => {
-    const appointmentAt = '2027-08-20T18:00:00.000Z';
-    let resolveReminder;
+  it('reverts the optimistic status when the server rejects the change', async () => {
     fetchMyLeads.mockResolvedValueOnce({
-      leads: [{ ...followUpLead, appointmentAt }],
+      leads: [followUpLead],
       totalCount: 1,
       hasMore: false,
     });
-    scheduleLeadAppointmentReminder.mockImplementationOnce(() => new Promise((resolve) => {
-      resolveReminder = resolve;
-    }));
+    updateFieldLeadStatus.mockRejectedValueOnce(new Error('nope'));
 
     await act(async () => {
       renderer = TestRenderer.create(React.createElement(MyLeadsScreen));
       await Promise.resolve();
     });
-    const reminderButton = renderer.root.find((node) => (
-      node.props.accessibilityLabel === 'Set appointment reminder for Maria Lopez'
+    const statusPill = renderer.root.find((node) => (
+      node.props.accessibilityLabel === 'Change status for Maria Lopez'
       && typeof node.props.onPress === 'function'
     ));
     await act(async () => {
-      reminderButton.props.onPress();
+      statusPill.props.onPress();
       await Promise.resolve();
     });
-    await act(async () => renderer.unmount());
-    renderer = null;
-    alertSpy.mockClear();
-
+    const [, , buttons] = alertSpy.mock.calls[alertSpy.mock.calls.length - 1];
+    const soldOption = buttons.find((button) => button.text === 'Sold');
     await act(async () => {
-      resolveReminder({
-        status: 'scheduled',
-        reminderKey: `42:1:3:5:7:${appointmentAt}`,
-      });
+      soldOption.onPress();
       await Promise.resolve();
     });
 
-    expect(alertSpy).not.toHaveBeenCalled();
-    expect(cancelLeadAppointmentRemindersForScope).not.toHaveBeenCalled();
+    expect(textContent(renderer)).toContain('Follow Up');
+    expect(textContent(renderer)).not.toContain('Sold');
   });
 });

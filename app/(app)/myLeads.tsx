@@ -1,5 +1,3 @@
-import AlarmClockCheckIcon from '@hugeicons/core-free-icons/AlarmClockCheckIcon';
-import AlarmClockPlusIcon from '@hugeicons/core-free-icons/AlarmClockPlusIcon';
 import Search01Icon from '@hugeicons/core-free-icons/Search01Icon';
 import UserGroupIcon from '@hugeicons/core-free-icons/UserGroupIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -21,19 +19,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import {
-  buildLeadAppointmentReminderKey,
-  cancelLeadAppointmentRemindersForScope,
-  listLeadAppointmentReminderKeys,
-  scheduleLeadAppointmentReminder,
-} from 'services/lead-appointment-reminders';
-import { fetchMyLeads } from 'services/leads-api';
+import { fetchMyLeads, updateFieldLeadStatus } from 'services/leads-api';
 import { fetchSampleMyLeads } from 'services/sample-leads';
 import type { MyLead, MyLeadFilter } from 'types/my-leads.types';
 
-// Demo data while the UI is being designed. Off in tests (they exercise the
+// Demo data while the UI is being designed — including in published demo
+// updates, so the design reviews with data. Off in tests (they exercise the
 // real fetch path); flip to `false` to go back to live leads.
-const USE_SAMPLE_LEADS = __DEV__ && !process.env.JEST_WORKER_ID;
+const USE_SAMPLE_LEADS = !process.env.JEST_WORKER_ID;
 const loadMyLeadsPage = USE_SAMPLE_LEADS ? fetchSampleMyLeads : fetchMyLeads;
 import { getApiErrorMessage } from 'utils/get-api-error-message';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
@@ -82,6 +75,11 @@ function formatActivityTime(value: string): string {
   return `${day}, ${time}`;
 }
 
+const LEAD_STATUS_OPTIONS: readonly string[] = [
+  'new', 'assigned', 'follow_up', 'rescheduled', 'unresponsive',
+  'unqualified', 'not_interested', 'sold', 'canceled',
+];
+
 const STATUS_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   new: 'add',
   assigned: 'person-outline',
@@ -110,21 +108,27 @@ function openContactUrl(url: string, failureMessage: string): void {
 
 function LeadCard({
   lead,
-  isReminderPending,
-  isReminderScheduled,
-  onScheduleReminder,
+  onChangeStatus,
 }: {
   readonly lead: MyLead;
-  readonly isReminderPending: boolean;
-  readonly isReminderScheduled: boolean;
-  readonly onScheduleReminder: (lead: MyLead) => void;
+  readonly onChangeStatus: (lead: MyLead, status: string) => void;
 }) {
   const statusColor = STATUS_COLORS[lead.status] ?? '#52525B';
   const statusIcon = STATUS_ICONS[lead.status] ?? 'ellipse-outline';
   const phoneDigits = lead.phone?.replace(/[^\d+]/g, '') ?? '';
-  const appointmentMs = lead.appointmentAt ? Date.parse(lead.appointmentAt) : Number.NaN;
-  const canScheduleReminder = Number.isFinite(appointmentMs) && appointmentMs > Date.now() + 5_000;
   const [firstName = '', ...lastNameParts] = lead.fullName.split(' ');
+
+  const openStatusPicker = () => {
+    Alert.alert('Change status', lead.fullName, [
+      ...LEAD_STATUS_OPTIONS
+        .filter((status) => status !== lead.status)
+        .map((status) => ({
+          text: formatStatus(status),
+          onPress: () => onChangeStatus(lead, status),
+        })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
 
   return (
     <View style={styles.row}>
@@ -140,46 +144,25 @@ function LeadCard({
         {lead.address ? (
           <Text style={styles.rowAddress} numberOfLines={1}>{lead.address}</Text>
         ) : null}
-        <View style={[styles.statusPill, { backgroundColor: statusColor }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Change status for ${lead.fullName}`}
+          hitSlop={4}
+          onPress={openStatusPicker}
+          style={({ pressed }) => [
+            styles.statusPill,
+            { backgroundColor: statusColor },
+            pressed && styles.pressed,
+          ]}
+        >
           <Ionicons name={statusIcon} size={13} color="white" />
           <Text style={styles.statusText}>{formatStatus(lead.status)}</Text>
           <Ionicons name="chevron-down" size={12} color="white" />
-        </View>
+        </Pressable>
       </View>
       <View style={styles.rowRight}>
         <Text style={styles.rowTime}>{formatActivityTime(lead.createdAt ?? '')}</Text>
         <View style={styles.rowRightBottom}>
-          {canScheduleReminder ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isReminderScheduled
-                ? `Appointment reminder set for ${lead.fullName}`
-                : `Set appointment reminder for ${lead.fullName}`}
-              accessibilityState={{
-                busy: isReminderPending,
-                disabled: isReminderPending || isReminderScheduled,
-              }}
-              disabled={isReminderPending || isReminderScheduled}
-              hitSlop={6}
-              onPress={() => onScheduleReminder(lead)}
-              style={({ pressed }) => [
-                styles.reminderButton,
-                isReminderScheduled && styles.reminderButtonScheduled,
-                pressed && styles.pressed,
-              ]}
-            >
-              {isReminderPending ? (
-                <ActivityIndicator size="small" color="#7C3AED" />
-              ) : (
-                <HugeiconsIcon
-                  icon={isReminderScheduled ? AlarmClockCheckIcon : AlarmClockPlusIcon}
-                  size={17}
-                  color={isReminderScheduled ? '#15803D' : '#7C3AED'}
-                  strokeWidth={2}
-                />
-              )}
-            </Pressable>
-          ) : null}
           {phoneDigits ? (
             <>
               <Pressable
@@ -196,9 +179,9 @@ function LeadCard({
                 accessibilityLabel={`Message ${lead.fullName}`}
                 hitSlop={6}
                 onPress={() => openContactUrl(`sms:${phoneDigits}`, 'Open Messages and try again.')}
-                style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
+                style={({ pressed }) => [styles.contactButton, styles.contactButtonMessage, pressed && styles.pressed]}
               >
-                <Ionicons name="chatbubble-ellipses" size={16} color="#1687E8" />
+                <Ionicons name="chatbubble-ellipses" size={16} color="#34C759" />
               </Pressable>
             </>
           ) : null}
@@ -226,16 +209,9 @@ export default function MyLeadsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [scheduledReminderKeys, setScheduledReminderKeys] = useState<Set<string>>(new Set());
-  const [pendingReminderLeadId, setPendingReminderLeadId] = useState<number | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const generationRef = useRef(0);
   const loadMoreControllerRef = useRef<AbortController | null>(null);
-  const pendingReminderLeadIdRef = useRef<number | null>(null);
-  const reminderRequestIdRef = useRef(0);
-  const isMountedRef = useRef(true);
-  const currentScopeKeyRef = useRef(authenticatedScopeKey);
-  currentScopeKeyRef.current = authenticatedScopeKey;
   const loadedQueryKeyRef = useRef<string | null>(null);
   const effectiveSearch = controlsScopeKey === authenticatedScopeKey ? debouncedSearch : '';
   const effectiveFilter = controlsScopeKey === authenticatedScopeKey ? activeFilter : 'all';
@@ -243,14 +219,6 @@ export default function MyLeadsScreen() {
   const currentQueryKey = authenticatedScopeKey
     ? JSON.stringify([authenticatedScopeKey, effectiveSearch, effectiveFilter])
     : null;
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-      reminderRequestIdRef.current += 1;
-      pendingReminderLeadIdRef.current = null;
-    };
-  }, []);
 
   useEffect(() => {
     const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -273,26 +241,7 @@ export default function MyLeadsScreen() {
     setIsLoading(Boolean(authenticatedScopeKey && isFocused));
     setIsLoadingMore(false);
     setErrorMessage(null);
-    setScheduledReminderKeys(new Set());
-    setPendingReminderLeadId(null);
-    pendingReminderLeadIdRef.current = null;
-    reminderRequestIdRef.current += 1;
   }, [authenticatedScopeKey]);
-
-  useEffect(() => {
-    if (!authenticatedScopeKey || !isFocused) {
-      return;
-    }
-    let cancelled = false;
-    listLeadAppointmentReminderKeys(authenticatedScopeKey).then((keys) => {
-      if (!cancelled) {
-        setScheduledReminderKeys(keys);
-      }
-    }).catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [authenticatedScopeKey, isFocused]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -419,57 +368,27 @@ export default function MyLeadsScreen() {
       ? 'Leads submitted from the field map will appear here.'
       : `No ${activeFilterLabel.toLowerCase()} leads are loaded.`;
 
-  const handleScheduleReminder = useCallback(async (lead: MyLead) => {
-    if (!authenticatedScopeKey || !lead.appointmentAt || pendingReminderLeadIdRef.current !== null) {
+  const handleChangeStatus = useCallback(async (lead: MyLead, nextStatus: string) => {
+    if (nextStatus === lead.status) {
       return;
     }
-    pendingReminderLeadIdRef.current = lead.id;
-    setPendingReminderLeadId(lead.id);
-    const requestId = reminderRequestIdRef.current + 1;
-    reminderRequestIdRef.current = requestId;
-    const requestScopeKey = authenticatedScopeKey;
-    try {
-      const result = await scheduleLeadAppointmentReminder({
-        scopeKey: requestScopeKey,
-        leadId: lead.id,
-        appointmentAt: lead.appointmentAt,
-      });
-      if (currentScopeKeyRef.current !== requestScopeKey) {
-        await cancelLeadAppointmentRemindersForScope(requestScopeKey).catch(() => undefined);
-        return;
-      }
-      if (!isMountedRef.current) {
-        return;
-      }
-      if (result.status === 'permission_denied') {
-        Alert.alert(
-          'Notifications are off',
-          'Allow notifications for Radiabase in iPhone Settings to set appointment reminders.',
-        );
-        return;
-      }
-      if (result.status === 'appointment_unavailable') {
-        Alert.alert('Reminder unavailable', 'This appointment has already started or passed.');
-        return;
-      }
-      if (result.status === 'scheduled' || result.status === 'already_scheduled') {
-        setScheduledReminderKeys((current) => new Set(current).add(result.reminderKey));
-        Alert.alert(
-          result.status === 'already_scheduled' ? 'Reminder already set' : 'Reminder set',
-          'Radiabase will remind you 30 minutes before the appointment, or at the appointment time if it is sooner.',
-        );
-      }
-    } catch {
-      if (isMountedRef.current && currentScopeKeyRef.current === requestScopeKey) {
-        Alert.alert('Could not set reminder', 'Please try again from My Leads.');
-      }
-    } finally {
-      if (isMountedRef.current && reminderRequestIdRef.current === requestId) {
-        pendingReminderLeadIdRef.current = null;
-        setPendingReminderLeadId(null);
-      }
+    const previousStatus = lead.status;
+    setLeads((current) => current.map((candidate) =>
+      candidate.id === lead.id ? { ...candidate, status: nextStatus } : candidate));
+    if (USE_SAMPLE_LEADS) {
+      return;
     }
-  }, [authenticatedScopeKey]);
+    try {
+      await updateFieldLeadStatus({ leadId: lead.id, status: nextStatus });
+    } catch (error) {
+      setLeads((current) => current.map((candidate) =>
+        candidate.id === lead.id ? { ...candidate, status: previousStatus } : candidate));
+      Alert.alert(
+        'Could not change status',
+        getApiErrorMessage(error, 'The status was not saved. Try again.'),
+      );
+    }
+  }, []);
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -558,23 +477,9 @@ export default function MyLeadsScreen() {
             tintColor="#1687E8"
           />
         )}
-        renderItem={({ item }) => {
-          const reminderKey = authenticatedScopeKey && item.appointmentAt
-            ? buildLeadAppointmentReminderKey({
-              scopeKey: authenticatedScopeKey,
-              leadId: item.id,
-              appointmentAt: item.appointmentAt,
-            })
-            : null;
-          return (
-            <LeadCard
-              lead={item}
-              isReminderPending={pendingReminderLeadId === item.id}
-              isReminderScheduled={Boolean(reminderKey && scheduledReminderKeys.has(reminderKey))}
-              onScheduleReminder={handleScheduleReminder}
-            />
-          );
-        }}
+        renderItem={({ item }) => (
+          <LeadCard lead={item} onChangeStatus={handleChangeStatus} />
+        )}
         ListEmptyComponent={isLoading ? (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color="#1687E8" />
@@ -768,16 +673,8 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     backgroundColor: '#E8F4FE',
   },
-  reminderButton: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 15,
-    backgroundColor: '#EDE9FE',
-  },
-  reminderButtonScheduled: {
-    backgroundColor: '#DCFCE7',
+  contactButtonMessage: {
+    backgroundColor: '#E9F9EE',
   },
   centerState: {
     flex: 1,

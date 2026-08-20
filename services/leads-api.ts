@@ -50,6 +50,19 @@ export async function createFieldLead(payload: SubmitLeadPayload): Promise<Field
 /**
  * Updates homeowner contact fields on an existing canvassing lead.
  */
+/**
+ * Change a lead's status from the My Leads row pill. Same route the web
+ * inbox uses.
+ */
+export async function updateFieldLeadStatus(input: {
+  readonly leadId: number;
+  readonly status: string;
+}): Promise<void> {
+  await apiClient.patch(`/leads/${input.leadId}/status`, {
+    lead_status: input.status,
+  });
+}
+
 export async function updateFieldLeadInfo(input: {
   readonly leadId: number;
   readonly firstName?: string;
