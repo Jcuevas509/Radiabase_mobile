@@ -7,7 +7,9 @@ import Message01Icon from '@hugeicons/core-free-icons/Message01Icon';
 import Search01Icon from '@hugeicons/core-free-icons/Search01Icon';
 import UserGroupIcon from '@hugeicons/core-free-icons/UserGroupIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { useIsFocused } from '@react-navigation/native';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { DrawerActions, useIsFocused, useNavigation } from '@react-navigation/native';
+import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { useSession } from 'context/AuthenticationContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -104,9 +106,15 @@ function LeadCard({
   const appointmentMs = lead.appointmentAt ? Date.parse(lead.appointmentAt) : Number.NaN;
   const canScheduleReminder = Number.isFinite(appointmentMs) && appointmentMs > Date.now() + 5_000;
 
+  const [firstName = '', ...lastNameParts] = lead.fullName.split(' ');
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
+        <UserAvatar
+          firstName={firstName}
+          lastName={lastNameParts.join(' ')}
+          size={40}
+        />
         <View style={styles.nameBlock}>
           <Text style={styles.name} numberOfLines={1}>{lead.fullName}</Text>
           <Text style={styles.leadNumber}>Lead #{lead.id}</Text>
@@ -200,6 +208,7 @@ function LeadCard({
 }
 
 export default function MyLeadsScreen() {
+  const navigation = useNavigation();
   const { session } = useSession();
   const isFocused = useIsFocused();
   const salesRepId = Number(session?.user?.id ?? 0);
@@ -464,12 +473,18 @@ export default function MyLeadsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>My Leads</Text>
-          <Text style={styles.headerSubtitle}>{summaryText}</Text>
-        </View>
-        <View style={styles.headerIcon}>
-          <HugeiconsIcon icon={UserGroupIcon} size={24} color="#1687E8" strokeWidth={1.8} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Open menu"
+          hitSlop={12}
+          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+          style={styles.headerSide}
+        >
+          <MaterialIcons name="menu" size={28} color="#18181B" />
+        </Pressable>
+        <Text style={styles.headerTitle}>My Leads</Text>
+        <View style={[styles.headerSide, styles.headerRight]}>
+          <Ionicons name="notifications-outline" size={24} color="#18181B" />
         </View>
       </View>
 
@@ -499,11 +514,7 @@ export default function MyLeadsScreen() {
               accessibilityRole="tab"
               accessibilityState={{ selected }}
               onPress={() => setActiveFilter(filter.value)}
-              style={({ pressed }) => [
-                styles.filterChip,
-                selected && styles.filterChipSelected,
-                pressed && styles.pressed,
-              ]}
+              style={[styles.filterChip, selected && styles.filterChipSelected]}
             >
               <Text style={[styles.filterText, selected && styles.filterTextSelected]}>
                 {filter.label}
@@ -512,6 +523,7 @@ export default function MyLeadsScreen() {
           );
         })}
       </View>
+      <Text style={styles.summaryText}>{summaryText}</Text>
 
       {errorMessage ? (
         <Pressable
@@ -585,47 +597,37 @@ export default function MyLeadsScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#F5F7FA',
+    backgroundColor: '#F4F4F5',
   },
   header: {
-    minHeight: 68,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E4E4E7',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 18,
-    paddingVertical: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   headerTitle: {
     color: '#18181B',
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '800',
   },
-  headerSubtitle: {
-    marginTop: 2,
-    color: '#71717A',
-    fontSize: 12,
-  },
-  headerIcon: {
-    width: 42,
-    height: 42,
-    alignItems: 'center',
+  headerSide: {
+    width: 44,
+    height: 44,
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    borderRadius: 21,
-    backgroundColor: '#E8F4FE',
+  },
+  headerRight: {
+    alignItems: 'flex-end',
   },
   searchContainer: {
     minHeight: 46,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 9,
-    marginHorizontal: 14,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
-    borderRadius: 13,
+    marginHorizontal: 20,
+    marginTop: 4,
+    borderRadius: 14,
     backgroundColor: '#FFFFFF',
     paddingHorizontal: 12,
   },
@@ -637,31 +639,37 @@ const styles = StyleSheet.create({
   },
   filters: {
     flexDirection: 'row',
-    gap: 7,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    backgroundColor: '#E4E4E7',
+    borderRadius: 10,
+    padding: 3,
+    marginHorizontal: 20,
+    marginTop: 10,
   },
   filterChip: {
-    minHeight: 34,
+    flex: 1,
+    minHeight: 32,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#D4D4D8',
-    borderRadius: 17,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
   },
   filterChipSelected: {
-    borderColor: '#18181B',
-    backgroundColor: '#18181B',
+    backgroundColor: '#FFFFFF',
   },
   filterText: {
-    color: '#52525B',
-    fontSize: 12,
-    fontWeight: '700',
+    color: '#71717A',
+    fontSize: 13,
+    fontWeight: '600',
   },
   filterTextSelected: {
-    color: '#FFFFFF',
+    color: '#18181B',
+  },
+  summaryText: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    marginBottom: 2,
+    color: '#A1A1AA',
+    fontSize: 11,
+    fontWeight: '600',
   },
   errorBanner: {
     marginHorizontal: 14,
@@ -684,27 +692,21 @@ const styles = StyleSheet.create({
   },
   listContent: {
     gap: 10,
-    paddingHorizontal: 14,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 24,
   },
   emptyListContent: {
     flexGrow: 1,
   },
   card: {
-    borderWidth: 1,
-    borderColor: '#E4E4E7',
     borderRadius: 16,
     backgroundColor: '#FFFFFF',
     padding: 14,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-    elevation: 2,
   },
   cardHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     justifyContent: 'space-between',
     gap: 10,
   },

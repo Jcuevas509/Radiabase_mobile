@@ -165,7 +165,7 @@ const DashboardScreen = () => {
     // its API field here and the grid needs no other change.
     const performanceMetrics = [
         { label: 'Knocks', value: contactData.knocks },
-        { label: 'Answers', value: 0 },
+        { label: 'Sets', value: 0 },
         { label: 'Sits', value: 0 },
         { label: 'Deals', value: contactData.customers },
         { label: 'Cancels', value: 0 },

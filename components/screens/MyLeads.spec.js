@@ -16,6 +16,8 @@ jest.mock('@hugeicons/react-native', () => ({
 }));
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => true,
+  useNavigation: () => ({ dispatch: jest.fn() }),
+  DrawerActions: { openDrawer: () => ({ type: 'OPEN_DRAWER' }) },
 }));
 jest.mock('context/AuthenticationContext', () => ({
   useSession: () => ({ session: mockSession }),
