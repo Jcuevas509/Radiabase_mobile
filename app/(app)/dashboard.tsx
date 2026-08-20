@@ -240,7 +240,7 @@ const DashboardScreen = () => {
 
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Your turf</Text>
+                        <Text style={styles.sectionTitle}>Assigned area</Text>
                     </View>
                     {isLoadingAreas ? (
                         <ActivityIndicator style={styles.loader} color="#32A0FF" />
