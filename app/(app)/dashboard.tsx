@@ -237,6 +237,7 @@ const DashboardScreen = () => {
                                 imageUrl={AVATAR_URL_PLACEHOLDER}
                                 size={60}
                                 color="#18181B"
+                                ringWidth={1}
                             />
                         </View>
                         <View style={styles.presenceDot} />
@@ -246,8 +247,8 @@ const DashboardScreen = () => {
                         <View style={styles.reviewsRow}>
                             {[0, 1, 2, 3, 4].map((starIndex) => (
                                 <View key={starIndex} style={styles.starWrap}>
-                                    <Ionicons name="star" size={19} color="#18181B" style={styles.starStroke} />
-                                    <Ionicons name="star" size={13} color="#FBBF24" />
+                                    <Ionicons name="star" size={17} color="#18181B" style={styles.starStroke} />
+                                    <Ionicons name="star" size={14} color="#FBBF24" />
                                 </View>
                             ))}
                             <Text style={styles.reviewsCount}>
@@ -505,8 +506,8 @@ const styles = StyleSheet.create({
         gap: 3,
     },
     starWrap: {
-        width: 19,
-        height: 19,
+        width: 17,
+        height: 17,
         alignItems: 'center',
         justifyContent: 'center',
     },
@@ -516,6 +517,7 @@ const styles = StyleSheet.create({
     reviewsCount: {
         marginLeft: 5,
         fontSize: 13,
+        lineHeight: 17,
         fontWeight: '600',
         color: '#71717A',
     },

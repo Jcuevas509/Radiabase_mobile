@@ -7,6 +7,7 @@ type UserAvatarProps = {
   readonly imageUrl?: string | null;
   readonly color?: string;
   readonly size?: number;
+  readonly ringWidth?: number;
   readonly onImageLoad?: () => void;
 };
 
@@ -25,9 +26,11 @@ export function UserAvatar({
   imageUrl,
   color = '#32A0FF',
   size = 36,
+  ringWidth = 2,
   onImageLoad,
 }: UserAvatarProps) {
   const remoteImageUrl = pickRemoteImageUrl(imageUrl);
+  const imageSize = size - ringWidth * 2;
   return (
     <View
       style={[
@@ -37,13 +40,14 @@ export function UserAvatar({
           width: size,
           borderRadius: size / 2,
           borderColor: color,
+          borderWidth: ringWidth,
         },
       ]}
     >
       {remoteImageUrl ? (
         <Image
           source={{ uri: remoteImageUrl }}
-          style={{ height: size - 4, width: size - 4, borderRadius: (size - 4) / 2 }}
+          style={{ height: imageSize, width: imageSize, borderRadius: imageSize / 2 }}
           onLoad={onImageLoad}
         />
       ) : (
@@ -57,7 +61,6 @@ export function UserAvatar({
 
 const styles = StyleSheet.create({
   avatar: {
-    borderWidth: 2,
     backgroundColor: '#F3F2EF',
     alignItems: 'center',
     justifyContent: 'center',
