@@ -5,7 +5,7 @@ import type MapView from 'react-native-maps';
 import { Polygon } from 'react-native-maps';
 import type { Region } from 'react-native-maps';
 import type { RefObject } from 'react';
-import type { CoordinateProps } from 'types/componentsTypes';
+import { useDraftAreaStore } from 'store/DraftAreaStore';
 import {
   fitScreenProjection,
   invertScreenPointWithFit,
@@ -13,16 +13,15 @@ import {
 } from 'utils/fit-screen-projection';
 import type { StrokePoint } from 'utils/simplify-stroke-points';
 
-type DraftAreaPolygonProps = {
-  readonly coordinates: CoordinateProps[];
-};
-
 /**
  * The painted-but-unsaved boundary, rendered as a real MapView child so it
- * stays glued to the ground while the map pans and zooms.
+ * stays glued to the ground while the map pans and zooms. Subscribes to the
+ * draft store directly so vertex drags re-render only this polygon, never
+ * the map screen.
  */
-export function DraftAreaPolygon({ coordinates }: DraftAreaPolygonProps) {
-  if (coordinates.length < 3) {
+export function DraftAreaPolygon() {
+  const coordinates = useDraftAreaStore((state) => state.coordinates);
+  if (!coordinates || coordinates.length < 3) {
     return null;
   }
   return (
@@ -37,11 +36,9 @@ export function DraftAreaPolygon({ coordinates }: DraftAreaPolygonProps) {
 }
 
 type DraftVertexHandlesProps = {
-  readonly coordinates: CoordinateProps[];
   readonly region: Region | null;
   readonly mapRef: RefObject<MapView | null>;
   readonly hidden: boolean;
-  readonly onMoveVertex: (index: number, coordinate: CoordinateProps) => void;
 };
 
 /**
@@ -53,12 +50,12 @@ type DraftVertexHandlesProps = {
  * the dots pass through and pan the map normally.
  */
 export function DraftVertexHandles({
-  coordinates,
   region,
   mapRef,
   hidden,
-  onMoveVertex,
 }: DraftVertexHandlesProps) {
+  const coordinates = useDraftAreaStore((state) => state.coordinates) ?? [];
+  const moveVertex = useDraftAreaStore((state) => state.moveVertex);
   const [points, setPoints] = useState<Array<StrokePoint | null>>([]);
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   const draggingRef = useRef(false);
@@ -118,8 +115,8 @@ export function DraftVertexHandles({
       next[index] = point;
       return next;
     });
-    onMoveVertex(index, coordinate);
-  }, [onMoveVertex]);
+    moveVertex(index, coordinate);
+  }, [moveVertex]);
 
   if (hidden || !region || coordinates.length < 3) {
     return null;

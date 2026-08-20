@@ -35,6 +35,7 @@ import {
 } from 'components/FieldMap/MapCompassController';
 import { MyLocationSvg } from 'components/svg';
 import { useSession } from 'context/AuthenticationContext';
+import { useDraftAreaStore } from 'store/DraftAreaStore';
 import { useAppIsActive } from 'hooks/useAppIsActive';
 import { useLiveForegroundLocation } from 'hooks/useLiveForegroundLocation';
 import { useMapBuildings } from 'hooks/useMapBuildings';
@@ -110,7 +111,6 @@ export function FieldMapScreen() {
   const displayName = `${session?.user?.firstName ?? ''} ${session?.user?.lastName ?? ''}`.trim() || 'You';
 
   const [mode, setMode] = useState<MapMode>('idle');
-  const [draftCoordinates, setDraftCoordinates] = useState<CoordinateProps[] | null>(null);
   const [region, setRegion] = useState<Region | null>(null);
   const [viewportRegion, setViewportRegion] = useState<Region | null>(null);
   const [polygons, setPolygons] = useState<MapPolygon[]>([]);
@@ -521,7 +521,7 @@ export function FieldMapScreen() {
   };
 
   const handleToggleDrawing = useCallback(() => {
-    setDraftCoordinates(null);
+    useDraftAreaStore.getState().setCoordinates(null);
     setMode((current) => (current === 'idle' ? 'drawing' : 'idle'));
   }, []);
 
@@ -548,35 +548,25 @@ export function FieldMapScreen() {
         Alert.alert('Keep painting', 'Paint a loop around at least a few homes, then lift your finger.');
         return;
       }
-      setDraftCoordinates(polygon);
+      useDraftAreaStore.getState().setCoordinates(polygon);
       setMode('reviewingDraft');
     } catch {
       Alert.alert('Could not read the map', 'Try painting the area again.');
     }
   }, []);
 
-  const handleMoveDraftVertex = useCallback((index: number, coordinate: CoordinateProps) => {
-    setDraftCoordinates((current) => {
-      if (!current) {
-        return current;
-      }
-      const next = [...current];
-      next[index] = coordinate;
-      return next;
-    });
-  }, []);
-
   const handleDiscardDraft = useCallback(() => {
-    setDraftCoordinates(null);
+    useDraftAreaStore.getState().setCoordinates(null);
     setMode('idle');
   }, []);
 
   const handleRedrawDraft = useCallback(() => {
-    setDraftCoordinates(null);
+    useDraftAreaStore.getState().setCoordinates(null);
     setMode('drawing');
   }, []);
 
   const handleSaveDraft = async () => {
+    const draftCoordinates = useDraftAreaStore.getState().coordinates;
     if (!draftCoordinates) {
       return;
     }
@@ -609,7 +599,7 @@ export function FieldMapScreen() {
         salesOrgId: session.user.salesOrgId,
         boundary: convertCoordinatesToGeoJsonPolygon(draftCoordinates),
       });
-      setDraftCoordinates(null);
+      useDraftAreaStore.getState().setCoordinates(null);
       setMode('idle');
       const refreshedPolygons = await loadFieldData();
       const createdArea = refreshedPolygons
@@ -1046,9 +1036,7 @@ export function FieldMapScreen() {
             </View>
           </Marker>
           <AreaLayer areas={areaDisplays} />
-          {mode === 'reviewingDraft' && draftCoordinates ? (
-            <DraftAreaPolygon coordinates={draftCoordinates} />
-          ) : null}
+          {mode === 'reviewingDraft' ? <DraftAreaPolygon /> : null}
         </MapView>
       )}
       {isStreetZoom && isIdle ? (
@@ -1071,13 +1059,11 @@ export function FieldMapScreen() {
           }
         }}
       />
-      {mode === 'reviewingDraft' && draftCoordinates ? (
+      {mode === 'reviewingDraft' ? (
         <DraftVertexHandles
-          coordinates={draftCoordinates}
           region={viewportRegion ?? region}
           mapRef={mapRef}
           hidden={isMapMoving}
-          onMoveVertex={handleMoveDraftVertex}
         />
       ) : null}
       {mode === 'drawing' ? (
