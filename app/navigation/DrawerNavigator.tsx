@@ -91,6 +91,9 @@ function CustomDrawerContent({
 const DrawerNavigator = ({ menuItems }: DrawerNavigatorProps) => {
     return (
         <Drawer
+            // Back returns to the previously visited screen (e.g. Profile ->
+            // settings pages -> back), not the drawer's first route (the map).
+            backBehavior="history"
             screenOptions={{
                 headerShown: false,
                 drawerType: 'front',
