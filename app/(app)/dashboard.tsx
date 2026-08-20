@@ -14,6 +14,7 @@ import MapView, { Polygon } from 'react-native-maps';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
+import { LeaderboardCard, type LeaderboardEntry } from 'components/Card/LeaderboardCard';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchFieldStats, fetchMapAreas, FieldStatsResponse, MapAreaResponse } from 'services/area-api';
 import { pickDashboardPreviewAreas } from 'utils/pick-dashboard-preview-areas';
@@ -31,6 +32,9 @@ const PERIODS = ['Today', 'This Week', 'This Month'] as const;
 // Seam for the reviews backend: replace with the fetched count when the API
 // exists. The row renders whatever number it is given.
 const REVIEWS_COUNT_PLACEHOLDER = 72;
+
+// Temp portrait until the profile API serves a real avatar URL.
+const AVATAR_URL_PLACEHOLDER = 'https://randomuser.me/api/portraits/men/32.jpg';
 
 function getAreaTileLabel(area: MapAreaResponse, geocodedCity?: string): string {
     if (geocodedCity) {
@@ -165,6 +169,21 @@ const DashboardScreen = () => {
         { label: 'Cancels', value: 0 },
         { label: 'Installs', value: 0 },
     ];
+    // Seam for the leaderboard backend: replace these sample rows (and drop
+    // isSampleData) with the fetched, sorted standings. The current user's
+    // knocks are live so their row moves with the period toggle.
+    const leaderboardEntries: LeaderboardEntry[] = [
+        { id: -1, firstName: 'Marcus', lastName: 'Rivera', value: 96 },
+        { id: -2, firstName: 'Dana', lastName: 'Whitfield', value: 71 },
+        {
+            id: Number(session?.user?.id ?? 0),
+            firstName: session?.user?.firstName ?? 'You',
+            lastName: session?.user?.lastName ?? '',
+            value: contactData.knocks,
+            isCurrentUser: true,
+        },
+        { id: -3, firstName: 'Priya', lastName: 'Shah', value: 12 },
+    ];
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -199,6 +218,7 @@ const DashboardScreen = () => {
                             <UserAvatar
                                 firstName={session?.user?.firstName ?? ''}
                                 lastName={session?.user?.lastName ?? ''}
+                                imageUrl={AVATAR_URL_PLACEHOLDER}
                                 size={56}
                                 color="#1687E8"
                             />
@@ -347,6 +367,17 @@ const DashboardScreen = () => {
                         ))}
                     </View>
                 </View>
+
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Leaderboard</Text>
+                    </View>
+                    <LeaderboardCard
+                        entries={leaderboardEntries}
+                        metricLabel="knocks"
+                        isSampleData
+                    />
+                </View>
             </ScrollView>
         </SafeAreaView>
     );
@@ -405,12 +436,9 @@ const styles = StyleSheet.create({
     heroCard: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 18,
         marginHorizontal: 20,
         marginTop: 2,
-        paddingHorizontal: 16,
-        paddingVertical: 12,
+        paddingVertical: 8,
         gap: 14,
     },
     avatarWrap: {
