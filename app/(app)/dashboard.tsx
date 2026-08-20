@@ -6,12 +6,14 @@ import {
     TouchableOpacity,
     ScrollView,
     ActivityIndicator,
+    FlatList,
+    useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { AgentCard } from 'components/Card/AgentCard';
 import MapView, { Polygon } from 'react-native-maps';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchFieldStats, fetchMapAreas, FieldStatsResponse, MapAreaResponse } from 'services/area-api';
 import { pickDashboardPreviewAreas } from 'utils/pick-dashboard-preview-areas';
@@ -26,6 +28,10 @@ import * as Location from 'expo-location';
 
 const PERIODS = ['Today', 'This Week', 'This Month'] as const;
 
+// Seam for the reviews backend: replace with the fetched count when the API
+// exists. The badge renders whatever number it is given.
+const REVIEWS_COUNT_PLACEHOLDER = 0;
+
 function getAreaTileLabel(area: MapAreaResponse, geocodedCity?: string): string {
     if (geocodedCity) {
         return geocodedCity;
@@ -39,9 +45,20 @@ function getAreaTileLabel(area: MapAreaResponse, geocodedCity?: string): string 
     return 'Unassigned';
 }
 
+function getAreaTileSubtitle(area: MapAreaResponse, sessionUserId: number): string {
+    if (!area.assignee) {
+        return 'Unassigned area';
+    }
+    if (area.assignee.id === sessionUserId) {
+        return 'Your assigned area';
+    }
+    return `${area.assignee.firstName} ${area.assignee.lastName}`.trim() || 'Assigned area';
+}
+
 const DashboardScreen = () => {
     const navigation = useNavigation();
     const { session } = useSession();
+    const { width: windowWidth } = useWindowDimensions();
     const [activeTab, setActiveTab] = useState<string>('Today');
     const [contactData, setContactData] = useState({
         leads: 0,
@@ -53,9 +70,11 @@ const DashboardScreen = () => {
     const [isLoadingAreas, setIsLoadingAreas] = useState<boolean>(true);
     const [hasAreaError, setHasAreaError] = useState<boolean>(false);
     const [areaCities, setAreaCities] = useState<Record<number, string>>({});
+    const [activeTurfIndex, setActiveTurfIndex] = useState(0);
+    const turfCardWidth = windowWidth - 40;
 
-    // Label every tile with the city its turf sits in, resolved on-device
-    // from the area centroid. Failures just leave the fallback label.
+    // Label every turf card with the city its turf sits in, resolved
+    // on-device from the area centroid. Failures just leave the fallback.
     useEffect(() => {
         let isCancelled = false;
         (async () => {
@@ -78,7 +97,7 @@ const DashboardScreen = () => {
                             current[area.id] === city ? current : { ...current, [area.id]: city });
                     }
                 } catch {
-                    // Keep the fallback label for this tile.
+                    // Keep the fallback label for this card.
                 }
             }
         })();
@@ -144,6 +163,10 @@ const DashboardScreen = () => {
     }, [session?.token]);
 
     const firstName = session?.user?.firstName?.trim() || 'there';
+    const fullName = `${session?.user?.firstName ?? ''} ${session?.user?.lastName ?? ''}`.trim();
+    const roleLabel = session?.user?.roleLabel?.trim() || 'Setter';
+    const sessionUserId = Number(session?.user?.id ?? 0);
+    const notificationCount = 0;
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
@@ -151,38 +174,65 @@ const DashboardScreen = () => {
                 <TouchableOpacity
                     onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
                     hitSlop={12}
-                    style={styles.menuHit}
+                    style={styles.headerSide}
                 >
                     <MaterialIcons name="menu" size={28} color="#18181B" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Home</Text>
-                <View style={styles.menuHit} />
+                <View style={[styles.headerSide, styles.headerRight]}>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Notifications"
+                        hitSlop={12}
+                    >
+                        <Ionicons name="notifications-outline" size={24} color="#18181B" />
+                        {notificationCount > 0 ? (
+                            <View style={styles.bellBadge}>
+                                <Text style={styles.bellBadgeText}>{notificationCount}</Text>
+                            </View>
+                        ) : null}
+                    </TouchableOpacity>
+                </View>
             </View>
             <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-                <View style={styles.profileBlock}>
-                    <AgentCard
-                        fromMenu={true}
-                        data={{
-                            id: Number(session?.user?.id ?? 0),
-                            name: session?.user?.firstName ?? '',
-                            lastname: session?.user?.lastName ?? '',
-                            description: session?.user?.roleLabel ?? 'Sales Representative',
-                            salesRole: session?.user?.roleLabel ?? null,
-                            officeName: session?.user?.officeName ?? null,
-                            structureName: session?.user?.structureName ?? null,
-                            color: '#32A0FF',
-                        }}
-                    />
-                    <Text style={styles.greeting}>Hi, {firstName}</Text>
-                    <Text style={styles.subtitle}>Open the field map to knock doors and log leads.</Text>
-                    <TouchableOpacity style={styles.primaryButton} onPress={openMap}>
-                        <Ionicons name="map" size={18} color="#FFFFFF" />
-                        <Text style={styles.primaryButtonText}>Open field map</Text>
-                    </TouchableOpacity>
+                <View style={styles.heroCard}>
+                    <View style={styles.avatarWrap}>
+                        <View style={styles.avatarRing}>
+                            <UserAvatar
+                                firstName={session?.user?.firstName ?? ''}
+                                lastName={session?.user?.lastName ?? ''}
+                                size={64}
+                                color="#1687E8"
+                            />
+                        </View>
+                        <View style={styles.presenceDot} />
+                    </View>
+                    <View style={styles.heroTextBlock}>
+                        <Text style={styles.greeting}>Hi, {firstName} 👋</Text>
+                        <Text style={styles.heroMeta} numberOfLines={1}>
+                            {[fullName, roleLabel].filter(Boolean).join(' · ')}
+                        </Text>
+                    </View>
+                    <View style={styles.reviewsBadge}>
+                        <Ionicons name="star-outline" size={20} color="#18181B" />
+                        <Text style={styles.reviewsCount}>
+                            {REVIEWS_COUNT_PLACEHOLDER.toLocaleString()}
+                        </Text>
+                    </View>
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Your turf</Text>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Your turf</Text>
+                        <TouchableOpacity
+                            accessibilityRole="button"
+                            style={styles.sectionAction}
+                            onPress={openMap}
+                        >
+                            <Ionicons name="map-outline" size={16} color="#18181B" />
+                            <Text style={styles.sectionActionText}>View on map</Text>
+                        </TouchableOpacity>
+                    </View>
                     {isLoadingAreas ? (
                         <ActivityIndicator style={styles.loader} color="#32A0FF" />
                     ) : hasAreaError ? (
@@ -195,54 +245,94 @@ const DashboardScreen = () => {
                             </Text>
                         </View>
                     ) : (
-                        <View style={styles.areaGrid}>
-                            {previewAreas.map((area) => {
-                                const region = getMapRegionFromCoordinates(area.coordinates);
-                                const stroke = area.assignee
-                                    ? pickAssigneeColor(area.assignee.id)
-                                    : '#8B8682';
-                                return (
-                                    <TouchableOpacity
-                                        key={area.id}
-                                        style={styles.areaCard}
-                                        onPress={openMap}
-                                        activeOpacity={0.85}
-                                    >
-                                        {region ? (
-                                            <MapView
-                                                style={styles.map}
-                                                mapType="satellite"
-                                                region={region}
-                                                scrollEnabled={false}
-                                                zoomEnabled={false}
-                                                rotateEnabled={false}
-                                                pitchEnabled={false}
-                                                pointerEvents="none"
-                                            >
-                                                {area.coordinates.length > 2 ? (
-                                                    <Polygon
-                                                        coordinates={area.coordinates}
-                                                        strokeColor={stroke}
-                                                        fillColor={hexToRgba(stroke, 0.28)}
-                                                        strokeWidth={2}
-                                                    />
-                                                ) : null}
-                                            </MapView>
-                                        ) : (
-                                            <View style={[styles.map, styles.mapFallback]} />
-                                        )}
-                                        <Text style={styles.areaName} numberOfLines={1}>
-                                            {getAreaTileLabel(area, areaCities[area.id])}
-                                        </Text>
-                                    </TouchableOpacity>
-                                );
-                            })}
-                        </View>
+                        <>
+                            <FlatList
+                                data={previewAreas}
+                                horizontal
+                                pagingEnabled
+                                showsHorizontalScrollIndicator={false}
+                                snapToInterval={turfCardWidth + 12}
+                                decelerationRate="fast"
+                                keyExtractor={(area) => String(area.id)}
+                                onMomentumScrollEnd={(event) => {
+                                    const index = Math.round(
+                                        event.nativeEvent.contentOffset.x / (turfCardWidth + 12),
+                                    );
+                                    setActiveTurfIndex(Math.max(0, Math.min(index, previewAreas.length - 1)));
+                                }}
+                                renderItem={({ item: area }) => {
+                                    const region = getMapRegionFromCoordinates(area.coordinates);
+                                    const stroke = area.assignee
+                                        ? pickAssigneeColor(area.assignee.id)
+                                        : '#8B8682';
+                                    return (
+                                        <TouchableOpacity
+                                            style={[styles.turfCard, { width: turfCardWidth }]}
+                                            onPress={openMap}
+                                            activeOpacity={0.9}
+                                        >
+                                            {region ? (
+                                                <MapView
+                                                    style={styles.turfMap}
+                                                    mapType="satellite"
+                                                    region={region}
+                                                    scrollEnabled={false}
+                                                    zoomEnabled={false}
+                                                    rotateEnabled={false}
+                                                    pitchEnabled={false}
+                                                    pointerEvents="none"
+                                                >
+                                                    {area.coordinates.length > 2 ? (
+                                                        <Polygon
+                                                            coordinates={area.coordinates}
+                                                            strokeColor={stroke}
+                                                            fillColor={hexToRgba(stroke, 0.28)}
+                                                            strokeWidth={2}
+                                                        />
+                                                    ) : null}
+                                                </MapView>
+                                            ) : (
+                                                <View style={[styles.turfMap, styles.mapFallback]} />
+                                            )}
+                                            <View style={styles.turfOverlay} pointerEvents="none">
+                                                <View style={styles.turfPin}>
+                                                    <Ionicons name="location-outline" size={20} color="#18181B" />
+                                                </View>
+                                                <View style={styles.turfOverlayText}>
+                                                    <Text style={styles.turfCity} numberOfLines={1}>
+                                                        {getAreaTileLabel(area, areaCities[area.id])}
+                                                    </Text>
+                                                    <Text style={styles.turfSubtitle} numberOfLines={1}>
+                                                        {getAreaTileSubtitle(area, sessionUserId)}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                }}
+                                ItemSeparatorComponent={() => <View style={styles.turfSeparator} />}
+                            />
+                            {previewAreas.length > 1 ? (
+                                <View style={styles.pageDots}>
+                                    {previewAreas.map((area, index) => (
+                                        <View
+                                            key={area.id}
+                                            style={[
+                                                styles.pageDot,
+                                                index === activeTurfIndex && styles.pageDotActive,
+                                            ]}
+                                        />
+                                    ))}
+                                </View>
+                            ) : null}
+                        </>
                     )}
                 </View>
 
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Activity</Text>
+                    <View style={styles.sectionHeader}>
+                        <Text style={styles.sectionTitle}>Activity / Performance</Text>
+                    </View>
                     <View style={styles.periodRow}>
                         {PERIODS.map((title) => {
                             const isActive = activeTab === title;
@@ -282,28 +372,46 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#FAFAF9',
+        backgroundColor: '#F4F4F5',
     },
     header: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 12,
-        paddingBottom: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E4E4E7',
-        backgroundColor: '#FFFFFF',
+        paddingVertical: 8,
+        backgroundColor: '#F4F4F5',
     },
     headerTitle: {
-        fontSize: 18,
-        fontWeight: '700',
+        fontSize: 20,
+        fontWeight: '800',
         color: '#18181B',
     },
-    menuHit: {
+    headerSide: {
         width: 44,
         height: 44,
+        alignItems: 'flex-start',
+        justifyContent: 'center',
+    },
+    headerRight: {
+        alignItems: 'flex-end',
+    },
+    bellBadge: {
+        position: 'absolute',
+        top: -4,
+        right: -6,
+        minWidth: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: '#1687E8',
         alignItems: 'center',
         justifyContent: 'center',
+        paddingHorizontal: 3,
+    },
+    bellBadgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: '800',
     },
     content: {
         flex: 1,
@@ -311,50 +419,101 @@ const styles = StyleSheet.create({
     scrollContent: {
         paddingBottom: 32,
     },
-    profileBlock: {
+    heroCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: '#FFFFFF',
-        paddingHorizontal: 20,
-        paddingTop: 16,
-        paddingBottom: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E4E4E7',
+        borderRadius: 18,
+        marginHorizontal: 20,
+        marginTop: 6,
+        paddingHorizontal: 16,
+        paddingVertical: 18,
+        gap: 14,
+    },
+    avatarWrap: {
+        width: 72,
+        height: 72,
+    },
+    avatarRing: {
+        width: 72,
+        height: 72,
+        borderRadius: 36,
+        borderWidth: 2,
+        borderColor: '#1687E8',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    presenceDot: {
+        position: 'absolute',
+        bottom: 2,
+        right: 2,
+        width: 14,
+        height: 14,
+        borderRadius: 7,
+        backgroundColor: '#22C55E',
+        borderWidth: 2,
+        borderColor: 'white',
+    },
+    heroTextBlock: {
+        flex: 1,
+        gap: 3,
     },
     greeting: {
-        marginTop: 4,
-        fontSize: 24,
+        fontSize: 26,
         fontWeight: '800',
         color: '#18181B',
     },
-    subtitle: {
-        marginTop: 6,
+    heroMeta: {
         fontSize: 14,
-        lineHeight: 20,
-        color: '#52525B',
+        color: '#71717A',
+        fontWeight: '500',
     },
-    primaryButton: {
-        marginTop: 16,
-        height: 48,
-        borderRadius: 10,
-        backgroundColor: '#18181B',
-        flexDirection: 'row',
+    reviewsBadge: {
+        minWidth: 62,
+        borderRadius: 26,
+        backgroundColor: '#FFFFFF',
+        borderWidth: 1,
+        borderColor: '#E4E4E7',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
+        paddingVertical: 10,
+        paddingHorizontal: 10,
+        gap: 2,
     },
-    primaryButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '700',
+    reviewsCount: {
+        fontSize: 14,
+        fontWeight: '800',
+        color: '#18181B',
     },
     section: {
         paddingHorizontal: 20,
         paddingTop: 24,
     },
+    sectionHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+    },
     sectionTitle: {
-        fontSize: 16,
+        fontSize: 18,
+        fontWeight: '800',
+        color: '#18181B',
+    },
+    sectionAction: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 18,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
+        borderWidth: 1,
+        borderColor: '#E4E4E7',
+    },
+    sectionActionText: {
+        fontSize: 13,
         fontWeight: '700',
         color: '#18181B',
-        marginBottom: 12,
     },
     loader: {
         marginVertical: 24,
@@ -377,40 +536,71 @@ const styles = StyleSheet.create({
         color: '#18181B',
         marginBottom: 4,
     },
-    areaGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        gap: 12,
-    },
-    areaCard: {
-        width: '47.5%',
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#E4E4E7',
+    turfCard: {
+        borderRadius: 18,
         overflow: 'hidden',
-        paddingBottom: 10,
-    },
-    map: {
-        width: '100%',
-        height: 112,
         backgroundColor: '#E4E4E7',
+    },
+    turfMap: {
+        width: '100%',
+        height: 190,
     },
     mapFallback: {
         backgroundColor: '#E4E4E7',
     },
-    areaName: {
-        marginTop: 8,
-        marginHorizontal: 10,
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#18181B',
+    turfSeparator: {
+        width: 12,
     },
-    areaMeta: {
-        marginTop: 2,
-        marginHorizontal: 10,
+    turfOverlay: {
+        position: 'absolute',
+        left: 12,
+        bottom: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    turfPin: {
+        width: 44,
+        height: 44,
+        borderRadius: 12,
+        backgroundColor: 'white',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    turfOverlayText: {
+        gap: 1,
+    },
+    turfCity: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: '800',
+        textShadowColor: 'rgba(0, 0, 0, 0.6)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    turfSubtitle: {
+        color: 'rgba(255, 255, 255, 0.92)',
         fontSize: 12,
-        color: '#71717A',
+        fontWeight: '600',
+        textShadowColor: 'rgba(0, 0, 0, 0.6)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
+    },
+    pageDots: {
+        flexDirection: 'row',
+        justifyContent: 'center',
+        gap: 6,
+        marginTop: 10,
+    },
+    pageDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: '#D4D4D8',
+    },
+    pageDotActive: {
+        width: 16,
+        backgroundColor: '#18181B',
     },
     periodRow: {
         flexDirection: 'row',
@@ -446,8 +636,6 @@ const styles = StyleSheet.create({
         minHeight: 92,
         borderRadius: 12,
         backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E4E4E7',
         paddingVertical: 14,
         paddingHorizontal: 10,
         justifyContent: 'center',
