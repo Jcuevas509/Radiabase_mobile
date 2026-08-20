@@ -1,9 +1,5 @@
 import AlarmClockCheckIcon from '@hugeicons/core-free-icons/AlarmClockCheckIcon';
 import AlarmClockPlusIcon from '@hugeicons/core-free-icons/AlarmClockPlusIcon';
-import Calendar03Icon from '@hugeicons/core-free-icons/Calendar03Icon';
-import Call02Icon from '@hugeicons/core-free-icons/Call02Icon';
-import Location01Icon from '@hugeicons/core-free-icons/Location01Icon';
-import Message01Icon from '@hugeicons/core-free-icons/Message01Icon';
 import Search01Icon from '@hugeicons/core-free-icons/Search01Icon';
 import UserGroupIcon from '@hugeicons/core-free-icons/UserGroupIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
@@ -82,6 +78,36 @@ function formatDateTime(value: string): string {
   });
 }
 
+function formatActivityTime(value: string): string {
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return '';
+  }
+  const time = date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  if (date.getTime() >= startOfToday) {
+    return time;
+  }
+  if (date.getTime() >= startOfToday - 86_400_000) {
+    return `Yesterday, ${time}`;
+  }
+  const day = date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return `${day}, ${time}`;
+}
+
+const STATUS_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
+  new: 'add',
+  assigned: 'person-outline',
+  follow_up: 'return-up-forward',
+  rescheduled: 'calendar-outline',
+  unresponsive: 'remove-circle-outline',
+  unqualified: 'ban-outline',
+  not_interested: 'close',
+  sold: 'cash-outline',
+  canceled: 'close-circle-outline',
+};
+
 function mergeLeadPages(current: MyLead[], incoming: MyLead[]): MyLead[] {
   const byId = new Map(current.map((lead) => [lead.id, lead]));
   for (const lead of incoming) {
@@ -108,45 +134,68 @@ function LeadCard({
   readonly onScheduleReminder: (lead: MyLead) => void;
 }) {
   const statusColor = STATUS_COLORS[lead.status] ?? '#52525B';
+  const statusIcon = STATUS_ICONS[lead.status] ?? 'ellipse-outline';
   const phoneDigits = lead.phone?.replace(/[^\d+]/g, '') ?? '';
   const appointmentMs = lead.appointmentAt ? Date.parse(lead.appointmentAt) : Number.NaN;
   const canScheduleReminder = Number.isFinite(appointmentMs) && appointmentMs > Date.now() + 5_000;
-
+  // Demo heat count until the API reports knock activity per lead.
+  const heatCount = lead.id % 5;
   const [firstName = '', ...lastNameParts] = lead.fullName.split(' ');
+
+  const openRowMenu = () => {
+    Alert.alert(lead.fullName, undefined, [
+      ...(phoneDigits ? [
+        {
+          text: 'Call',
+          onPress: () => openContactUrl(`tel:${phoneDigits}`, 'Open the Phone app and try again.'),
+        },
+        {
+          text: 'Message',
+          onPress: () => openContactUrl(`sms:${phoneDigits}`, 'Open Messages and try again.'),
+        },
+      ] : []),
+      ...(lead.appointmentAt ? [{
+        text: `Appointment: ${formatDateTime(lead.appointmentAt)}`,
+        onPress: () => undefined,
+      }] : []),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  };
+
   return (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <UserAvatar
-          firstName={firstName}
-          lastName={lastNameParts.join(' ')}
-          size={40}
-        />
-        <View style={styles.nameBlock}>
-          <Text style={styles.name} numberOfLines={1}>{lead.fullName}</Text>
-          <Text style={styles.leadNumber}>Lead #{lead.id}</Text>
-        </View>
-        <View style={[styles.statusPill, { backgroundColor: `${statusColor}18` }]}>
-          <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-          <Text style={[styles.statusText, { color: statusColor }]}>
-            {formatStatus(lead.status)}
-          </Text>
+    <View style={styles.row}>
+      <UserAvatar
+        firstName={firstName}
+        lastName={lastNameParts.join(' ')}
+        size={52}
+        color="#18181B"
+        ringWidth={1.5}
+      />
+      <View style={styles.rowBody}>
+        <Text style={styles.name} numberOfLines={1}>{lead.fullName}</Text>
+        {lead.address ? (
+          <Text style={styles.rowAddress} numberOfLines={1}>{lead.address}</Text>
+        ) : null}
+        <View style={[styles.statusPill, { backgroundColor: statusColor }]}>
+          <Ionicons name={statusIcon} size={13} color="white" />
+          <Text style={styles.statusText}>{formatStatus(lead.status)}</Text>
+          <Ionicons name="chevron-down" size={12} color="white" />
         </View>
       </View>
-
-      {lead.address ? (
-        <View style={styles.detailRow}>
-          <HugeiconsIcon icon={Location01Icon} size={17} color="#71717A" strokeWidth={1.8} />
-          <Text style={styles.detailText} numberOfLines={2}>{lead.address}</Text>
+      <View style={styles.rowRight}>
+        <View style={styles.rowRightTop}>
+          <Text style={styles.rowTime}>{formatActivityTime(lead.createdAt ?? '')}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`More actions for ${lead.fullName}`}
+            hitSlop={8}
+            onPress={openRowMenu}
+            style={({ pressed }) => [styles.moreButton, pressed && styles.pressed]}
+          >
+            <Ionicons name="ellipsis-vertical" size={17} color="#18181B" />
+          </Pressable>
         </View>
-      ) : null}
-
-      {lead.appointmentAt ? (
-        <View style={[styles.detailRow, styles.appointmentRow]}>
-          <HugeiconsIcon icon={Calendar03Icon} size={17} color="#7C3AED" strokeWidth={1.8} />
-          <View style={styles.detailCopy}>
-            <Text style={styles.appointmentLabel}>Appointment</Text>
-            <Text style={styles.appointmentText}>{formatDateTime(lead.appointmentAt)}</Text>
-          </View>
+        <View style={styles.rowRightBottom}>
           {canScheduleReminder ? (
             <Pressable
               accessibilityRole="button"
@@ -171,43 +220,18 @@ function LeadCard({
               ) : (
                 <HugeiconsIcon
                   icon={isReminderScheduled ? AlarmClockCheckIcon : AlarmClockPlusIcon}
-                  size={19}
+                  size={17}
                   color={isReminderScheduled ? '#15803D' : '#7C3AED'}
                   strokeWidth={2}
                 />
               )}
             </Pressable>
           ) : null}
-        </View>
-      ) : null}
-
-      <View style={styles.cardFooter}>
-        <View style={styles.metaBlock}>
-          {lead.officeName ? <Text style={styles.metaText}>{lead.officeName}</Text> : null}
-          {lead.verticalName ? <Text style={styles.metaText}>{lead.verticalName}</Text> : null}
-        </View>
-        {phoneDigits ? (
-          <View style={styles.contactActions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Call ${lead.fullName}`}
-              hitSlop={6}
-              onPress={() => openContactUrl(`tel:${phoneDigits}`, 'Open the Phone app and try again.')}
-              style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
-            >
-              <HugeiconsIcon icon={Call02Icon} size={19} color="#1687E8" strokeWidth={2} />
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Message ${lead.fullName}`}
-              hitSlop={6}
-              onPress={() => openContactUrl(`sms:${phoneDigits}`, 'Open Messages and try again.')}
-              style={({ pressed }) => [styles.contactButton, pressed && styles.pressed]}
-            >
-              <HugeiconsIcon icon={Message01Icon} size={19} color="#1687E8" strokeWidth={2} />
-            </Pressable>
+          <View style={styles.heatChip}>
+            <Text style={styles.heatCount}>{heatCount}</Text>
+            <Text style={styles.heatFlame}>🔥</Text>
           </View>
-        ) : null}
+        </View>
       </View>
     </View>
   );
@@ -544,10 +568,12 @@ export default function MyLeadsScreen() {
       ) : null}
 
       <FlatList
+        style={styles.list}
         contentContainerStyle={[
           styles.listContent,
           scopedLeads.length === 0 && styles.emptyListContent,
         ]}
+        ItemSeparatorComponent={() => <View style={styles.rowSeparator} />}
         data={scopedLeads}
         keyExtractor={(lead) => String(lead.id)}
         keyboardDismissMode="on-drag"
@@ -696,128 +722,111 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
   },
+  list: {
+    marginTop: 10,
+    backgroundColor: '#FFFFFF',
+  },
   listContent: {
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 8,
     paddingBottom: 24,
   },
   emptyListContent: {
     flexGrow: 1,
   },
-  card: {
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    padding: 14,
-  },
-  cardHeader: {
+  row: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    backgroundColor: '#FFFFFF',
   },
-  nameBlock: {
+  rowSeparator: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: '#D4D4D8',
+    marginLeft: 80,
+  },
+  rowBody: {
     flex: 1,
+    gap: 3,
   },
   name: {
     color: '#18181B',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
   },
-  leadNumber: {
-    marginTop: 2,
-    color: '#A1A1AA',
-    fontSize: 11,
-    fontWeight: '600',
+  rowAddress: {
+    color: '#71717A',
+    fontSize: 13,
   },
   statusPill: {
-    minHeight: 27,
+    alignSelf: 'flex-start',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderRadius: 14,
-    paddingHorizontal: 9,
-  },
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
+    minHeight: 28,
+    borderRadius: 7,
+    paddingHorizontal: 10,
+    marginTop: 4,
   },
   statusText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
+    color: '#FFFFFF',
   },
-  detailRow: {
+  rowRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    minHeight: 74,
+  },
+  rowRightTop: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginTop: 12,
+    alignItems: 'center',
+    gap: 4,
   },
-  detailCopy: {
-    flex: 1,
-  },
-  detailText: {
-    flex: 1,
-    color: '#52525B',
+  rowTime: {
+    color: '#3F3F46',
     fontSize: 13,
-    lineHeight: 18,
+    fontWeight: '600',
   },
-  appointmentRow: {
-    borderRadius: 11,
-    backgroundColor: '#F5F3FF',
-    padding: 9,
-  },
-  appointmentLabel: {
-    color: '#7C3AED',
-    fontSize: 10,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  appointmentText: {
-    marginTop: 2,
-    color: '#4C1D95',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  reminderButton: {
-    width: 38,
-    height: 38,
+  moreButton: {
+    width: 26,
+    height: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 19,
+  },
+  rowRightBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  heatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 7,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  heatCount: {
+    color: '#D97706',
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  heatFlame: {
+    fontSize: 12,
+  },
+  reminderButton: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
     backgroundColor: '#EDE9FE',
   },
   reminderButtonScheduled: {
     backgroundColor: '#DCFCE7',
-  },
-  cardFooter: {
-    minHeight: 40,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    marginTop: 10,
-  },
-  metaBlock: {
-    flex: 1,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 5,
-  },
-  metaText: {
-    color: '#71717A',
-    fontSize: 11,
-  },
-  contactActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  contactButton: {
-    width: 38,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 19,
-    backgroundColor: '#E8F4FE',
   },
   centerState: {
     flex: 1,
