@@ -21,7 +21,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchSampleMyDeals } from 'services/sample-deals';
+import { Button } from 'components/Button/Button';
+import { PlainModal } from 'components/Modal/Modal';
 import type { MyDeal, MyDealFilter } from 'types/my-deals.types';
+import { estimateDealCommission, formatCommission } from 'utils/estimate-deal-commission';
 import { formatCalendarDate } from 'utils/format-calendar-date';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
 
@@ -83,7 +86,7 @@ function SpecChip({ label, value }: { readonly label: string; readonly value: st
   );
 }
 
-function DealCard({ deal }: { readonly deal: MyDeal }) {
+function DealCard({ deal, onPress }: { readonly deal: MyDeal; readonly onPress: (deal: MyDeal) => void }) {
   const phone = sanitizePhone(deal.phone);
   const normalizedStatus = deal.status.toLowerCase();
   const statusColor = STATUS_COLORS[normalizedStatus] ?? '#52525B';
@@ -98,8 +101,14 @@ function DealCard({ deal }: { readonly deal: MyDeal }) {
     deal.closerName ? `Closer ${deal.closerName}` : null,
   ].filter(Boolean).join(' · ');
 
+  const commission = estimateDealCommission(deal);
   return (
-    <View style={styles.card}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open deal for ${deal.customerName}`}
+      onPress={() => onPress(deal)}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
       <View style={styles.cardHeader}>
         <UserAvatar
           firstName={firstName}
@@ -137,6 +146,12 @@ function DealCard({ deal }: { readonly deal: MyDeal }) {
         ) : null}
         {deal.installDate ? (
           <SpecChip label="Install" value={formatCalendarDate(deal.installDate)} />
+        ) : null}
+        {commission > 0 ? (
+          <View style={styles.commissionChip}>
+            <Text style={styles.commissionChipLabel}>Est. commission</Text>
+            <Text style={styles.commissionChipValue}>{formatCommission(commission)}</Text>
+          </View>
         ) : null}
         {deal.campaignName ? (
           <View style={styles.campaignChip}>
@@ -178,7 +193,95 @@ function DealCard({ deal }: { readonly deal: MyDeal }) {
           </View>
         ) : null}
       </View>
-    </View>
+    </Pressable>
+  );
+}
+
+function DealDetailModal({
+  deal,
+  visible,
+  onClose,
+}: {
+  readonly deal: MyDeal | null;
+  readonly visible: boolean;
+  readonly onClose: () => void;
+}) {
+  if (!deal) {
+    return null;
+  }
+  const commission = estimateDealCommission(deal);
+  const normalizedStatus = deal.status.toLowerCase();
+  const statusColor = STATUS_COLORS[normalizedStatus] ?? '#52525B';
+  const phone = sanitizePhone(deal.phone);
+  const detailRows: Array<{ label: string; value: string }> = [
+    { label: 'Status', value: deal.status },
+    { label: 'System size', value: typeof deal.systemSizeKw === 'number' ? `${deal.systemSizeKw} kW` : '—' },
+    { label: 'PPW', value: typeof deal.pricePerWatt === 'number' ? `$${deal.pricePerWatt.toFixed(2)}` : '—' },
+    { label: 'Sold', value: deal.dateSold ? formatCalendarDate(deal.dateSold) : '—' },
+    { label: 'Install', value: deal.installDate ? formatCalendarDate(deal.installDate) : '—' },
+    { label: 'Office', value: deal.officeName ?? '—' },
+    { label: 'Installer', value: deal.providerName ?? '—' },
+    { label: 'Setter', value: deal.setterName ?? '—' },
+    { label: 'Closer', value: deal.closerName ?? '—' },
+    ...(deal.campaignName ? [{ label: 'Campaign', value: deal.campaignName }] : []),
+  ];
+  return (
+    <PlainModal
+      visible={visible}
+      onClose={onClose}
+      title={deal.customerName}
+      hasCloseButton
+      buttons={(
+        <Button
+          text="Done"
+          onPress={onClose}
+          buttonStyle={styles.modalDoneButton}
+          textStyle={styles.modalDoneText}
+        />
+      )}
+    >
+      <View>
+        <View style={styles.commissionHero}>
+          <Text style={styles.commissionHeroLabel}>Estimated commission</Text>
+          <Text style={styles.commissionHeroValue}>{formatCommission(commission)}</Text>
+          <Text style={styles.commissionHeroNote}>Estimate only — final commission may vary.</Text>
+        </View>
+        {detailRows.map((row, index) => (
+          <View key={row.label} style={[styles.modalRow, index > 0 && styles.modalRowDivider]}>
+            <Text style={styles.modalRowLabel}>{row.label}</Text>
+            {row.label === 'Status' ? (
+              <View style={[styles.modalStatusPill, { backgroundColor: statusColor }]}>
+                <Text style={styles.modalStatusText}>{deal.status}</Text>
+              </View>
+            ) : (
+              <Text style={styles.modalRowValue} numberOfLines={1}>{row.value}</Text>
+            )}
+          </View>
+        ))}
+        {phone ? (
+          <View style={styles.modalActions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Call ${deal.customerName}`}
+              onPress={() => openContactUrl(`tel:${phone}`, 'Open the Phone app and try again.')}
+              style={({ pressed }) => [styles.modalActionButton, pressed && styles.pressed]}
+            >
+              <Ionicons name="call" size={16} color="#1687E8" />
+              <Text style={styles.modalActionText}>Call</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Message ${deal.customerName}`}
+              onPress={() => openContactUrl(`sms:${phone}`, 'Open Messages and try again.')}
+              style={({ pressed }) => [styles.modalActionButton, styles.modalActionMessage, pressed && styles.pressed]}
+            >
+              <Ionicons name="chatbubble-ellipses" size={16} color="#34C759" />
+              <Text style={[styles.modalActionText, styles.modalActionTextMessage]}>Message</Text>
+            </Pressable>
+          </View>
+        ) : null}
+      </View>
+    </PlainModal>
   );
 }
 
@@ -193,6 +296,8 @@ export default function MyDealsScreen() {
   const [activeFilter, setActiveFilter] = useState<MyDealFilter>('all');
   const [controlsScopeKey, setControlsScopeKey] = useState(authenticatedScopeKey);
   const [isPullRefreshing, setIsPullRefreshing] = useState(false);
+  const [selectedDeal, setSelectedDeal] = useState<MyDeal | null>(null);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const controlsAreCurrent = controlsScopeKey === authenticatedScopeKey;
   const effectiveSearch = controlsAreCurrent ? debouncedSearch : '';
   const effectiveFilter = controlsAreCurrent ? activeFilter : 'all';
@@ -312,6 +417,11 @@ export default function MyDealsScreen() {
         </Pressable>
       ) : null}
 
+      <DealDetailModal
+        deal={selectedDeal}
+        visible={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+      />
       <FlatList
         automaticallyAdjustContentInsets={false}
         contentInsetAdjustmentBehavior="never"
@@ -332,7 +442,15 @@ export default function MyDealsScreen() {
             tintColor="#1687E8"
           />
         )}
-        renderItem={({ item }) => <DealCard deal={item} />}
+        renderItem={({ item }) => (
+          <DealCard
+            deal={item}
+            onPress={(deal) => {
+              setSelectedDeal(deal);
+              setIsDetailOpen(true);
+            }}
+          />
+        )}
         ListEmptyComponent={isLoading ? (
           <View style={styles.centerState}>
             <ActivityIndicator size="large" color="#1687E8" />
@@ -618,5 +736,116 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.62,
+  },
+  cardPressed: {
+    opacity: 0.85,
+  },
+  commissionChip: {
+    borderRadius: 9,
+    backgroundColor: '#F0FDF4',
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+  },
+  commissionChipLabel: {
+    color: '#15803D',
+    fontSize: 9,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  commissionChipValue: {
+    marginTop: 1,
+    color: '#15803D',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  commissionHero: {
+    borderRadius: 14,
+    backgroundColor: '#F0FDF4',
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginBottom: 12,
+  },
+  commissionHeroLabel: {
+    color: '#15803D',
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  commissionHeroValue: {
+    marginTop: 4,
+    color: '#15803D',
+    fontSize: 32,
+    fontWeight: '900',
+  },
+  commissionHeroNote: {
+    marginTop: 4,
+    color: '#4D7C0F',
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  modalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    minHeight: 40,
+    gap: 12,
+  },
+  modalRowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E4E7',
+  },
+  modalRowLabel: {
+    color: '#71717A',
+    fontSize: 13,
+  },
+  modalRowValue: {
+    flexShrink: 1,
+    color: '#18181B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  modalStatusPill: {
+    borderRadius: 7,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+  },
+  modalStatusText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+  },
+  modalActionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 42,
+    borderRadius: 12,
+    backgroundColor: '#E8F4FE',
+  },
+  modalActionMessage: {
+    backgroundColor: '#E9F9EE',
+  },
+  modalActionText: {
+    color: '#1687E8',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalActionTextMessage: {
+    color: '#34C759',
+  },
+  modalDoneButton: {
+    width: '100%',
+    backgroundColor: '#18181B',
+  },
+  modalDoneText: {
+    color: 'white',
   },
 });
