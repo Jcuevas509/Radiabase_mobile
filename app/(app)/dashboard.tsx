@@ -457,6 +457,7 @@ const DashboardScreen = () => {
                         rankOffset={(clampedLeaderboardPage - 1) * LEADERBOARD_PAGE_SIZE}
                         page={clampedLeaderboardPage}
                         pageCount={leaderboardPageCount}
+                        totalCount={allLeaderboardEntries.length}
                         onPageChange={setLeaderboardPage}
                     />
                 </View>

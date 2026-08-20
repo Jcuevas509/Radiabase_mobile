@@ -18,6 +18,7 @@ type LeaderboardCardProps = {
   readonly rankOffset?: number;
   readonly page?: number;
   readonly pageCount?: number;
+  readonly totalCount?: number;
   readonly onPageChange?: (page: number) => void;
   /** Shows a small tag marking the data as sample until the API exists. */
   readonly isSampleData?: boolean;
@@ -52,6 +53,7 @@ export function LeaderboardCard({
   rankOffset = 0,
   page = 1,
   pageCount = 1,
+  totalCount,
   onPageChange,
   isSampleData = false,
 }: LeaderboardCardProps) {
@@ -92,37 +94,42 @@ export function LeaderboardCard({
       })}
       {showPager ? (
         <View style={styles.pager}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Previous leaderboard page"
-            accessibilityState={{ disabled: page <= 1 }}
-            disabled={page <= 1}
-            hitSlop={8}
-            onPress={() => onPageChange(page - 1)}
-            style={({ pressed }) => [
-              styles.pagerButton,
-              page <= 1 && styles.pagerButtonDisabled,
-              pressed && styles.pagerPressed,
-            ]}
-          >
-            <Ionicons name="chevron-back" size={17} color={page <= 1 ? '#C4C4CC' : '#18181B'} />
-          </Pressable>
-          <Text style={styles.pagerText}>{page} / {pageCount}</Text>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Next leaderboard page"
-            accessibilityState={{ disabled: page >= pageCount }}
-            disabled={page >= pageCount}
-            hitSlop={8}
-            onPress={() => onPageChange(page + 1)}
-            style={({ pressed }) => [
-              styles.pagerButton,
-              page >= pageCount && styles.pagerButtonDisabled,
-              pressed && styles.pagerPressed,
-            ]}
-          >
-            <Ionicons name="chevron-forward" size={17} color={page >= pageCount ? '#C4C4CC' : '#18181B'} />
-          </Pressable>
+          <Text style={styles.pagerCount}>
+            {entries.length}/{totalCount ?? entries.length}
+          </Text>
+          <View style={styles.pagerControls}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Previous leaderboard page"
+              accessibilityState={{ disabled: page <= 1 }}
+              disabled={page <= 1}
+              hitSlop={8}
+              onPress={() => onPageChange(page - 1)}
+              style={({ pressed }) => [
+                styles.pagerButton,
+                page <= 1 && styles.pagerButtonDisabled,
+                pressed && styles.pagerPressed,
+              ]}
+            >
+              <Ionicons name="chevron-back" size={17} color={page <= 1 ? '#C4C4CC' : '#18181B'} />
+            </Pressable>
+            <Text style={styles.pagerText}>{page} / {pageCount}</Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Next leaderboard page"
+              accessibilityState={{ disabled: page >= pageCount }}
+              disabled={page >= pageCount}
+              hitSlop={8}
+              onPress={() => onPageChange(page + 1)}
+              style={({ pressed }) => [
+                styles.pagerButton,
+                page >= pageCount && styles.pagerButtonDisabled,
+                pressed && styles.pagerPressed,
+              ]}
+            >
+              <Ionicons name="chevron-forward" size={17} color={page >= pageCount ? '#C4C4CC' : '#18181B'} />
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </View>
@@ -203,12 +210,22 @@ const styles = StyleSheet.create({
   pager: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 14,
+    justifyContent: 'space-between',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: '#E4E4E7',
     paddingVertical: 8,
+    paddingHorizontal: 6,
     marginTop: 2,
+  },
+  pagerCount: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#71717A',
+  },
+  pagerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   pagerButton: {
     width: 30,
