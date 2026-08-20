@@ -458,6 +458,8 @@ export default function MyLeadsScreen() {
       ) : null}
 
       <FlatList
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
         style={styles.list}
         contentContainerStyle={[
           styles.listContent,

@@ -258,6 +258,8 @@ export default function MyDealsScreen() {
       ) : null}
 
       <FlatList
+        automaticallyAdjustContentInsets={false}
+        contentInsetAdjustmentBehavior="never"
         contentContainerStyle={[styles.listContent, deals.length === 0 && styles.emptyListContent]}
         data={deals}
         keyExtractor={(deal) => String(deal.id)}
