@@ -58,7 +58,7 @@ export function LeaderboardCard({
       {entries.map((entry, index) => {
         const rank = index + 1;
         return (
-          <View key={entry.id} style={styles.row}>
+          <View key={entry.id} style={[styles.row, index > 0 && styles.rowDivider]}>
             <Medal rank={rank} />
             <UserAvatar
               firstName={entry.firstName}
@@ -111,7 +111,10 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
     paddingHorizontal: 6,
-    borderRadius: 12,
+  },
+  rowDivider: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E4E4E7',
   },
   rankBubble: {
     width: 30,
