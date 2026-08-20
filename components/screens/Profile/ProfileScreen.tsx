@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import type { ProfileViewModel } from 'utils/build-profile-view-model';
@@ -39,18 +40,26 @@ type ProfileScreenProps = {
 export function ProfileScreen({ profile, appVersion, onSignOut }: ProfileScreenProps) {
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.identity}>
+      <LinearGradient
+        colors={['#1687E8', '#0E5CAB', '#0A2E55']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.heroBanner}
+      >
+        <View style={[styles.heroCircle, styles.heroCircleLarge]} />
+        <View style={[styles.heroCircle, styles.heroCircleMedium]} />
+        <View style={[styles.heroCircle, styles.heroCircleSmall]} />
         <UserAvatar
           firstName={profile.firstName}
           lastName={profile.lastName}
           imageUrl={AVATAR_URL_PLACEHOLDER}
           size={84}
-          color="#18181B"
-          ringWidth={1}
+          color="#FFFFFF"
+          ringWidth={2}
         />
         <Text style={styles.name}>{profile.fullName}</Text>
         <Text style={styles.role}>{profile.roleLabel}</Text>
-      </View>
+      </LinearGradient>
 
       <Text style={styles.sectionHeader}>Account</Text>
       <View style={styles.card}>
@@ -127,21 +136,47 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 32,
   },
-  identity: {
+  heroBanner: {
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 26,
     gap: 3,
+    borderRadius: 20,
+    overflow: 'hidden',
+  },
+  heroCircle: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255, 255, 255, 0.09)',
+    borderRadius: 999,
+  },
+  heroCircleLarge: {
+    width: 220,
+    height: 220,
+    top: -110,
+    right: -70,
+  },
+  heroCircleMedium: {
+    width: 140,
+    height: 140,
+    bottom: -60,
+    left: -40,
+  },
+  heroCircleSmall: {
+    width: 64,
+    height: 64,
+    top: 24,
+    left: 34,
+    backgroundColor: 'rgba(255, 255, 255, 0.07)',
   },
   name: {
-    marginTop: 8,
+    marginTop: 10,
     fontSize: 22,
     fontWeight: '800',
-    color: '#18181B',
+    color: '#FFFFFF',
   },
   role: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#1687E8',
+    color: 'rgba(255, 255, 255, 0.85)',
   },
   sectionHeader: {
     marginTop: 18,
