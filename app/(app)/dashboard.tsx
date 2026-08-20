@@ -235,8 +235,8 @@ const DashboardScreen = () => {
                                 firstName={session?.user?.firstName ?? ''}
                                 lastName={session?.user?.lastName ?? ''}
                                 imageUrl={AVATAR_URL_PLACEHOLDER}
-                                size={56}
-                                color="#1687E8"
+                                size={60}
+                                color="transparent"
                             />
                         </View>
                         <View style={styles.presenceDot} />
@@ -473,8 +473,6 @@ const styles = StyleSheet.create({
         width: 64,
         height: 64,
         borderRadius: 32,
-        borderWidth: 2,
-        borderColor: '#1687E8',
         alignItems: 'center',
         justifyContent: 'center',
     },

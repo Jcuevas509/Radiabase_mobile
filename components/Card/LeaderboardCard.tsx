@@ -1,5 +1,4 @@
-import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 
 export type LeaderboardEntry = {
@@ -18,59 +17,22 @@ type LeaderboardCardProps = {
   readonly isSampleData?: boolean;
 };
 
-type MedalTheme = {
-  readonly disc: readonly [string, string, string];
-  readonly rim: string;
-  readonly ribbonLeft: string;
-  readonly ribbonRight: string;
-};
-
-const MEDAL_THEMES: Record<number, MedalTheme> = {
-  1: {
-    disc: ['#FDE68A', '#F5B301', '#B45309'],
-    rim: '#92610A',
-    ribbonLeft: '#DC2626',
-    ribbonRight: '#B91C1C',
-  },
-  2: {
-    disc: ['#F8FAFC', '#C7CCD4', '#8E9196'],
-    rim: '#6B7280',
-    ribbonLeft: '#3B82F6',
-    ribbonRight: '#1D4ED8',
-  },
-  3: {
-    disc: ['#FBD38D', '#C97B34', '#8C4A18'],
-    rim: '#713F12',
-    ribbonLeft: '#16A34A',
-    ribbonRight: '#15803D',
-  },
+const MEDAL_IMAGES: Record<number, ReturnType<typeof require>> = {
+  1: require('../../assets/images/medals/gold.jpg'),
+  2: require('../../assets/images/medals/silver.jpg'),
+  3: require('../../assets/images/medals/bronze.jpg'),
 };
 
 function Medal({ rank }: { readonly rank: number }) {
-  const theme = MEDAL_THEMES[rank];
-  if (!theme) {
+  const image = MEDAL_IMAGES[rank];
+  if (!image) {
     return (
       <View style={styles.rankBubble}>
         <Text style={styles.rankText}>{rank}</Text>
       </View>
     );
   }
-  return (
-    <View style={styles.medal}>
-      <View style={[styles.ribbon, styles.ribbonLeft, { backgroundColor: theme.ribbonLeft }]} />
-      <View style={[styles.ribbon, styles.ribbonRight, { backgroundColor: theme.ribbonRight }]} />
-      <LinearGradient
-        colors={[...theme.disc]}
-        start={{ x: 0.2, y: 0.1 }}
-        end={{ x: 0.8, y: 1 }}
-        style={[styles.medalDisc, { borderColor: theme.rim }]}
-      >
-        <View style={styles.medalInnerRing}>
-          <Text style={styles.medalRankText}>{rank}</Text>
-        </View>
-      </LinearGradient>
-    </View>
-  );
+  return <Image source={image} style={styles.medalImage} resizeMode="contain" />;
 }
 
 /**
@@ -168,56 +130,9 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#71717A',
   },
-  medal: {
+  medalImage: {
     width: 30,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-  },
-  ribbon: {
-    position: 'absolute',
-    top: 0,
-    width: 9,
-    height: 16,
-    borderRadius: 2,
-  },
-  ribbonLeft: {
-    left: 5,
-    transform: [{ rotate: '18deg' }],
-  },
-  ribbonRight: {
-    right: 5,
-    transform: [{ rotate: '-18deg' }],
-  },
-  medalDisc: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  medalInnerRing: {
-    width: 21,
-    height: 21,
-    borderRadius: 10.5,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  medalRankText: {
-    fontSize: 11,
-    fontWeight: '900',
-    color: 'white',
-    textShadowColor: 'rgba(0, 0, 0, 0.35)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
+    height: 40,
   },
   name: {
     flex: 1,
