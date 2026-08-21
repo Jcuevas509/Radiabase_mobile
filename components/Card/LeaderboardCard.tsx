@@ -7,6 +7,7 @@ export type LeaderboardEntry = {
   readonly firstName: string;
   readonly lastName: string;
   readonly avatarUrl?: string | null;
+  readonly officeName?: string | null;
   readonly value: number;
   readonly isCurrentUser?: boolean;
 };
@@ -81,10 +82,15 @@ export function LeaderboardCard({
               color="#18181B"
               ringWidth={1}
             />
-            <Text style={styles.name} numberOfLines={1}>
-              {`${entry.firstName} ${entry.lastName}`.trim()}
-              {entry.isCurrentUser ? ' (you)' : ''}
-            </Text>
+            <View style={styles.nameBlock}>
+              <Text style={styles.name} numberOfLines={1}>
+                {`${entry.firstName} ${entry.lastName}`.trim()}
+                {entry.isCurrentUser ? ' (you)' : ''}
+              </Text>
+              {entry.officeName ? (
+                <Text style={styles.office} numberOfLines={1}>{entry.officeName}</Text>
+              ) : null}
+            </View>
             <View style={styles.valueBlock}>
               <Text style={styles.value}>{entry.value.toLocaleString()}</Text>
               <Text style={styles.valueLabel}>{metricLabel}</Text>
@@ -188,11 +194,19 @@ const styles = StyleSheet.create({
     width: 30,
     height: 40,
   },
-  name: {
+  nameBlock: {
     flex: 1,
+    gap: 1,
+  },
+  name: {
     fontSize: 14,
     fontWeight: '600',
     color: '#18181B',
+  },
+  office: {
+    fontSize: 11,
+    color: '#A1A1AA',
+    fontWeight: '600',
   },
   valueBlock: {
     alignItems: 'flex-end',

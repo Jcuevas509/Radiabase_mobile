@@ -258,6 +258,7 @@ const DashboardScreen = () => {
             firstName: rep.first,
             lastName: rep.last,
             avatarUrl: `https://randomuser.me/api/portraits/${rep.portrait}.jpg`,
+            officeName: index % 5 === 2 ? 'Kaos Cartel' : 'Suntrappers',
             value: rep.value,
         })),
         {
@@ -265,6 +266,7 @@ const DashboardScreen = () => {
             firstName: session?.user?.firstName ?? 'You',
             lastName: session?.user?.lastName ?? '',
             avatarUrl: AVATAR_URL_PLACEHOLDER,
+            officeName: session?.user?.officeName ?? 'Suntrappers',
             value: currentUserMetricValue,
             isCurrentUser: true,
         },
