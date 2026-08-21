@@ -198,7 +198,8 @@ const DashboardScreen = () => {
     }, [session?.token]);
 
     const firstName = session?.user?.firstName?.trim() || 'there';
-    const notificationCount = 0;
+    // Placeholder until a notifications backend exists.
+    const notificationCount = 7;
     // Knocks and Deals come from the live field-stats API; the other four
     // are zero until the stats endpoint reports them - swap each value for
     // its API field here and the grid needs no other change.
@@ -501,7 +502,7 @@ const styles = StyleSheet.create({
         minWidth: 16,
         height: 16,
         borderRadius: 8,
-        backgroundColor: '#1687E8',
+        backgroundColor: '#EF4444',
         alignItems: 'center',
         justifyContent: 'center',
         paddingHorizontal: 3,
