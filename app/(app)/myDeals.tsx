@@ -233,7 +233,14 @@ function DealDetailModal({
     <PlainModal
       visible={visible}
       onClose={onClose}
-      title={deal.customerName}
+      customTitle={(
+        <View style={styles.modalTitleBlock}>
+          <Text style={styles.modalTitleName} numberOfLines={1}>{deal.customerName}</Text>
+          {deal.address ? (
+            <Text style={styles.modalTitleAddress} numberOfLines={1}>{deal.address}</Text>
+          ) : null}
+        </View>
+      )}
       hasCloseButton
     >
       <View>
@@ -247,7 +254,6 @@ function DealDetailModal({
             <Text style={styles.commissionValue}>{formatCommission(commission.net)}</Text>
           </View>
         </View>
-        <Text style={styles.commissionNote}>Estimates only — final commission may vary.</Text>
         {detailRows.map((row, index) => (
           <View key={row.label} style={[styles.modalRow, index > 0 && styles.modalRowDivider]}>
             <Text style={styles.modalRowLabel}>{row.label}</Text>
@@ -767,6 +773,21 @@ const styles = StyleSheet.create({
   commissionRow: {
     flexDirection: 'row',
     gap: 8,
+    marginBottom: 12,
+  },
+  modalTitleBlock: {
+    flex: 1,
+    paddingRight: 10,
+    gap: 2,
+  },
+  modalTitleName: {
+    color: '#18181B',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  modalTitleAddress: {
+    color: '#71717A',
+    fontSize: 12,
   },
   commissionBlock: {
     flex: 1,
@@ -787,14 +808,6 @@ const styles = StyleSheet.create({
     color: '#18181B',
     fontSize: 22,
     fontWeight: '900',
-  },
-  commissionNote: {
-    marginTop: 6,
-    marginBottom: 10,
-    textAlign: 'center',
-    color: '#A1A1AA',
-    fontSize: 10,
-    fontWeight: '600',
   },
   modalRow: {
     flexDirection: 'row',
