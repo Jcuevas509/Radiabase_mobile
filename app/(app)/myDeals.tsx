@@ -282,15 +282,6 @@ function DealDetailModal({
             </Pressable>
           </View>
         ) : null}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close deal details"
-          onPress={onClose}
-          style={({ pressed }) => [styles.modalDoneButton, pressed && styles.pressed]}
-        >
-          <Ionicons name="checkmark" size={16} color="white" />
-          <Text style={styles.modalDoneText}>Done</Text>
-        </Pressable>
       </View>
     </PlainModal>
   );
@@ -861,20 +852,5 @@ const styles = StyleSheet.create({
   },
   modalActionTextMessage: {
     color: '#34C759',
-  },
-  modalDoneButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    minHeight: 42,
-    borderRadius: 12,
-    backgroundColor: '#18181B',
-    marginTop: 8,
-  },
-  modalDoneText: {
-    color: 'white',
-    fontSize: 14,
-    fontWeight: '700',
   },
 });
