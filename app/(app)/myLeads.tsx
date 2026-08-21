@@ -406,7 +406,12 @@ export default function MyLeadsScreen() {
         </Pressable>
         <Text style={styles.headerTitle}>My Leads</Text>
         <View style={[styles.headerSide, styles.headerRight]}>
-          <Ionicons name="notifications-outline" size={24} color="#18181B" />
+          <View>
+            <Ionicons name="notifications-outline" size={24} color="#18181B" />
+            <View style={styles.bellBadge}>
+              <Text style={styles.bellBadgeText}>7</Text>
+            </View>
+          </View>
         </View>
       </View>
 
@@ -534,6 +539,23 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     alignItems: 'flex-end',
+  },
+  bellBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -6,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: '#EF4444',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  bellBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '800',
   },
   searchContainer: {
     minHeight: 46,
