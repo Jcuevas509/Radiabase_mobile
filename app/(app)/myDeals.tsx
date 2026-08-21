@@ -21,7 +21,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchSampleMyDeals } from 'services/sample-deals';
-import { Button } from 'components/Button/Button';
 import { PlainModal } from 'components/Modal/Modal';
 import type { MyDeal, MyDealFilter } from 'types/my-deals.types';
 import { estimateDealCommissions, formatCommission } from 'utils/estimate-deal-commission';
@@ -236,14 +235,6 @@ function DealDetailModal({
       onClose={onClose}
       title={deal.customerName}
       hasCloseButton
-      buttons={(
-        <Button
-          text="Done"
-          onPress={onClose}
-          buttonStyle={styles.modalDoneButton}
-          textStyle={styles.modalDoneText}
-        />
-      )}
     >
       <View>
         <View style={styles.commissionRow}>
@@ -291,6 +282,15 @@ function DealDetailModal({
             </Pressable>
           </View>
         ) : null}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close deal details"
+          onPress={onClose}
+          style={({ pressed }) => [styles.modalDoneButton, pressed && styles.pressed]}
+        >
+          <Ionicons name="checkmark" size={16} color="white" />
+          <Text style={styles.modalDoneText}>Done</Text>
+        </Pressable>
       </View>
     </PlainModal>
   );
@@ -863,8 +863,14 @@ const styles = StyleSheet.create({
     color: '#34C759',
   },
   modalDoneButton: {
-    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    minHeight: 42,
+    borderRadius: 12,
     backgroundColor: '#18181B',
+    marginTop: 8,
   },
   modalDoneText: {
     color: 'white',

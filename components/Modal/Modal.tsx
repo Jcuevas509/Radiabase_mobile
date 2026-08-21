@@ -7,7 +7,7 @@ interface ModalProps {
     onClose: () => void;
     customTitle?: React.ReactElement;
     children: React.ReactElement;
-    buttons: React.ReactElement;
+    buttons?: React.ReactElement;
     visible: boolean;
     title?: string;
     isLoading?: boolean;
@@ -43,9 +43,11 @@ export function PlainModal({ visible, customTitle, onClose, children, title, but
                     </View>
 
                     {/* Buttons Section */}
-                    <View style={[styles.buttonContainer, isLoading && styles.hidden]}>
-                        {buttons}
-                    </View>
+                    {buttons ? (
+                        <View style={[styles.buttonContainer, isLoading && styles.hidden]}>
+                            {buttons}
+                        </View>
+                    ) : null}
                 </View>
             </View>
         </Modal>
