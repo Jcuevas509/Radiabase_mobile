@@ -134,6 +134,7 @@ const DashboardScreen = () => {
     const [areaCities, setAreaCities] = useState<Record<number, string>>({});
     const [activeTurfIndex, setActiveTurfIndex] = useState(0);
     const [leaderboardMetric, setLeaderboardMetric] = useState<'Knocks' | 'Deals' | 'Installs'>('Knocks');
+    const [leaderboardRole, setLeaderboardRole] = useState<'Setters' | 'Closers' | 'Self Gens'>('Setters');
     const [leaderboardPage, setLeaderboardPage] = useState(1);
     const turfCardWidth = windowWidth - 40;
 
@@ -252,15 +253,19 @@ const DashboardScreen = () => {
         : leaderboardMetric === 'Deals'
             ? contactData.customers
             : 0;
+    const ROLE_GROUPS: ReadonlyArray<'Setters' | 'Closers' | 'Self Gens'> = ['Setters', 'Closers', 'Self Gens'];
     const allLeaderboardEntries: LeaderboardEntry[] = [
-        ...SAMPLE_LEADERBOARD_REPS.map((rep, index) => ({
-            id: -(index + 1),
-            firstName: rep.first,
-            lastName: rep.last,
-            avatarUrl: `https://randomuser.me/api/portraits/${rep.portrait}.jpg`,
-            officeName: index % 5 === 2 ? 'Kaos Cartel' : 'Suntrappers',
-            value: rep.value,
-        })),
+        ...SAMPLE_LEADERBOARD_REPS
+            .map((rep, index) => ({
+                id: -(index + 1),
+                firstName: rep.first,
+                lastName: rep.last,
+                avatarUrl: `https://randomuser.me/api/portraits/${rep.portrait}.jpg`,
+                officeName: index % 5 === 2 ? 'Kaos Cartel' : 'Suntrappers',
+                value: rep.value,
+                roleGroup: ROLE_GROUPS[index % 3],
+            }))
+            .filter((rep) => rep.roleGroup === leaderboardRole),
         {
             id: Number(session?.user?.id ?? 0),
             firstName: session?.user?.firstName ?? 'You',
@@ -283,6 +288,19 @@ const DashboardScreen = () => {
             { text: 'Knocks', onPress: () => setLeaderboardMetric('Knocks') },
             { text: 'Deals', onPress: () => setLeaderboardMetric('Deals') },
             { text: 'Installs', onPress: () => setLeaderboardMetric('Installs') },
+            { text: 'Cancel', style: 'cancel' },
+        ]);
+    };
+
+    const openLeaderboardRoleFilter = () => {
+        const pickRole = (role: 'Setters' | 'Closers' | 'Self Gens') => {
+            setLeaderboardRole(role);
+            setLeaderboardPage(1);
+        };
+        Alert.alert('Leaderboard roles', undefined, [
+            { text: 'Setters', onPress: () => pickRole('Setters') },
+            { text: 'Closers', onPress: () => pickRole('Closers') },
+            { text: 'Self Gens', onPress: () => pickRole('Self Gens') },
             { text: 'Cancel', style: 'cancel' },
         ]);
     };
@@ -481,15 +499,26 @@ const DashboardScreen = () => {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Leaderboard</Text>
-                        <TouchableOpacity
-                            accessibilityRole="button"
-                            accessibilityLabel="Filter leaderboard metric"
-                            style={styles.filterButton}
-                            onPress={openLeaderboardFilter}
-                        >
-                            <Ionicons name="filter-outline" size={15} color="#18181B" />
-                            <Text style={styles.filterButtonText}>{leaderboardMetric}</Text>
-                        </TouchableOpacity>
+                        <View style={styles.filterGroup}>
+                            <TouchableOpacity
+                                accessibilityRole="button"
+                                accessibilityLabel="Filter leaderboard roles"
+                                style={styles.filterButton}
+                                onPress={openLeaderboardRoleFilter}
+                            >
+                                <Ionicons name="people-outline" size={15} color="#18181B" />
+                                <Text style={styles.filterButtonText}>{leaderboardRole}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                accessibilityRole="button"
+                                accessibilityLabel="Filter leaderboard metric"
+                                style={styles.filterButton}
+                                onPress={openLeaderboardFilter}
+                            >
+                                <Ionicons name="filter-outline" size={15} color="#18181B" />
+                                <Text style={styles.filterButtonText}>{leaderboardMetric}</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                     <LeaderboardCard
                         entries={leaderboardEntries}
@@ -636,6 +665,10 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: '800',
         color: '#18181B',
+    },
+    filterGroup: {
+        flexDirection: 'row',
+        gap: 6,
     },
     filterButton: {
         flexDirection: 'row',
