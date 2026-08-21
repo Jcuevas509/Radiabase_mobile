@@ -216,10 +216,6 @@ function DealDetailModal({
   const detailRows: Array<{ label: string; value: string }> = [
     { label: 'Status', value: deal.status },
     {
-      label: 'Transaction ID',
-      value: deal.isAccountPaid ? (deal.transactionId ?? 'N/A') : 'N/A',
-    },
-    {
       label: 'Deposit date',
       value: deal.isAccountPaid && deal.depositDate ? formatCalendarDate(deal.depositDate) : 'N/A',
     },
