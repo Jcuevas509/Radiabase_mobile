@@ -294,6 +294,7 @@ const DashboardScreen = () => {
                     </View>
                     <View style={styles.heroTextBlock}>
                         <Text style={styles.greeting}>Hi, {firstName} 👋</Text>
+                        <Text style={styles.heroTitleRow}>Energy Consultant | Suntapped Energy</Text>
                         <View style={styles.reviewsRow}>
                             {[0, 1, 2, 3, 4].map((starIndex) => (
                                 <View key={starIndex} style={styles.starWrap}>
@@ -554,6 +555,12 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: '800',
         color: '#18181B',
+    },
+    heroTitleRow: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#71717A',
+        marginBottom: 2,
     },
     reviewsRow: {
         flexDirection: 'row',
