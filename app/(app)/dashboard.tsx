@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polygon } from 'react-native-maps';
+import Svg, { Polyline } from 'react-native-svg';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
@@ -86,6 +87,34 @@ function getAreaTileLabel(area: MapAreaResponse, geocodedCity?: string): string 
         return `${area.assignee.firstName} ${area.assignee.lastName}`.trim();
     }
     return 'Unassigned';
+}
+
+const TREND_POINTS = {
+    up: '1,15 11,11 21,13 31,6 41,3',
+    down: '1,3 11,7 21,5 31,11 41,15',
+    flat: '1,9 11,9 21,10 31,9 41,9',
+} as const;
+
+function TrendSparkline({ change }: { readonly change: number }) {
+    const direction = change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+    const color = direction === 'up' ? '#16A34A' : direction === 'down' ? '#DC2626' : '#A1A1AA';
+    return (
+        <View style={styles.trendBlock}>
+            <Svg width={42} height={18}>
+                <Polyline
+                    points={TREND_POINTS[direction]}
+                    fill="none"
+                    stroke={color}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                />
+            </Svg>
+            <Text style={[styles.trendText, { color }]}>
+                {change > 0 ? '+' : ''}{change}%
+            </Text>
+        </View>
+    );
 }
 
 const DashboardScreen = () => {
@@ -200,23 +229,21 @@ const DashboardScreen = () => {
     const firstName = session?.user?.firstName?.trim() || 'there';
     // Placeholder until a notifications backend exists.
     const notificationCount = 7;
-    // Sample performance numbers per period while the stats endpoint only
-    // reports knocks/leads/customers - swap each row for its API field and
-    // the grid needs no other change.
-    const SAMPLE_PERFORMANCE: Record<string, readonly number[]> = {
-        'Today': [34, 6, 4, 2, 0, 1],
-        'This Week': [186, 31, 22, 9, 1, 5],
-        'This Month': [742, 118, 84, 31, 6, 22],
+    // Sample performance numbers per period ([value, % change vs the prior
+    // period]) while the stats endpoint only reports knocks/leads/customers -
+    // swap each row for its API fields and the grid needs no other change.
+    const SAMPLE_PERFORMANCE: Record<string, ReadonlyArray<readonly [number, number]>> = {
+        'Today': [[34, 12], [6, 20], [4, -9], [2, 100], [0, 0], [1, 0]],
+        'This Week': [[186, 6], [31, 14], [22, -4], [9, 29], [1, -50], [5, 25]],
+        'This Month': [[742, 11], [118, 9], [84, 3], [31, -6], [6, 20], [22, 10]],
     };
     const periodValues = SAMPLE_PERFORMANCE[activeTab] ?? SAMPLE_PERFORMANCE['Today'];
-    const performanceMetrics = [
-        { label: 'Knocks', value: periodValues[0] },
-        { label: 'Sets', value: periodValues[1] },
-        { label: 'Sits', value: periodValues[2] },
-        { label: 'Deals', value: periodValues[3] },
-        { label: 'Cancels', value: periodValues[4] },
-        { label: 'Installs', value: periodValues[5] },
-    ];
+    const METRIC_LABELS = ['Knocks', 'Sets', 'Sits', 'Deals', 'Cancels', 'Installs'];
+    const performanceMetrics = METRIC_LABELS.map((label, index) => ({
+        label,
+        value: periodValues[index][0],
+        change: periodValues[index][1],
+    }));
     // Seam for the leaderboard backend: replace these rows with the fetched
     // standings for the selected metric. The current user's Knocks/Deals are
     // live so their row moves with the period toggle.
@@ -439,8 +466,11 @@ const DashboardScreen = () => {
                     <View style={styles.statsGrid}>
                         {performanceMetrics.map((metric) => (
                             <View key={metric.label} style={styles.statCard}>
-                                <Text style={styles.statLabel}>{metric.label}</Text>
-                                <Text style={styles.statNumber}>{metric.value}</Text>
+                                <View>
+                                    <Text style={styles.statLabel}>{metric.label}</Text>
+                                    <Text style={styles.statNumber}>{metric.value}</Text>
+                                </View>
+                                <TrendSparkline change={metric.change} />
                             </View>
                         ))}
                     </View>
@@ -738,7 +768,18 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         paddingVertical: 10,
         paddingHorizontal: 10,
-        justifyContent: 'center',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 4,
+    },
+    trendBlock: {
+        alignItems: 'flex-end',
+        gap: 1,
+    },
+    trendText: {
+        fontSize: 9,
+        fontWeight: '800',
     },
     statLabel: {
         fontSize: 13,
