@@ -200,16 +200,22 @@ const DashboardScreen = () => {
     const firstName = session?.user?.firstName?.trim() || 'there';
     // Placeholder until a notifications backend exists.
     const notificationCount = 7;
-    // Knocks and Deals come from the live field-stats API; the other four
-    // are zero until the stats endpoint reports them - swap each value for
-    // its API field here and the grid needs no other change.
+    // Sample performance numbers per period while the stats endpoint only
+    // reports knocks/leads/customers - swap each row for its API field and
+    // the grid needs no other change.
+    const SAMPLE_PERFORMANCE: Record<string, readonly number[]> = {
+        'Today': [34, 6, 4, 2, 0, 1],
+        'This Week': [186, 31, 22, 9, 1, 5],
+        'This Month': [742, 118, 84, 31, 6, 22],
+    };
+    const periodValues = SAMPLE_PERFORMANCE[activeTab] ?? SAMPLE_PERFORMANCE['Today'];
     const performanceMetrics = [
-        { label: 'Knocks', value: contactData.knocks },
-        { label: 'Sets', value: 0 },
-        { label: 'Sits', value: 0 },
-        { label: 'Deals', value: contactData.customers },
-        { label: 'Cancels', value: 0 },
-        { label: 'Installs', value: 0 },
+        { label: 'Knocks', value: periodValues[0] },
+        { label: 'Sets', value: periodValues[1] },
+        { label: 'Sits', value: periodValues[2] },
+        { label: 'Deals', value: periodValues[3] },
+        { label: 'Cancels', value: periodValues[4] },
+        { label: 'Installs', value: periodValues[5] },
     ];
     // Seam for the leaderboard backend: replace these rows with the fetched
     // standings for the selected metric. The current user's Knocks/Deals are
