@@ -18,6 +18,7 @@ export type MyDeal = {
   readonly providerName: string | null;
   readonly systemSizeKw?: number | null;
   readonly pricePerWatt?: number | null;
+  readonly netPricePerWatt?: number | null;
   readonly notes?: string | null;
   readonly transactionId?: string | null;
   readonly depositDate?: string | null;

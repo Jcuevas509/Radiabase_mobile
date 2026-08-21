@@ -24,7 +24,7 @@ const STATUS_SEQUENCE = [
 const INSTALLERS = ['Ecovole', 'Limitless Electric'];
 const OFFICES = ['Suntrappers', 'Kaos Cartel'];
 const SIZES = [10.66, 12.3, 8.61, 12.95, 16.4, 9.72, 11.05, 14.2, 7.9, 13.48];
-const PPWS = [3.87, 2.84, 2.93, 2.86, 3.2, 3.05, 2.79, 3.44, 2.98, 3.12];
+const PPWS = [3.87, 3.42, 3.65, 3.28, 3.95, 3.51, 3.34, 4.05, 3.6, 3.73];
 const DAY_MS = 86_400_000;
 
 function buildSampleDeal(index: number, nowMs: number): MyDeal {
@@ -50,6 +50,7 @@ function buildSampleDeal(index: number, nowMs: number): MyDeal {
     providerName: INSTALLERS[index % INSTALLERS.length],
     systemSizeKw: SIZES[index % SIZES.length],
     pricePerWatt: PPWS[index % PPWS.length],
+    netPricePerWatt: Number((PPWS[index % PPWS.length] - 0.55).toFixed(2)),
     notes: outcome.status === 'Scheduled'
       ? `Scheduled ${new Date(installMs).toLocaleDateString(undefined, { month: '2-digit', day: '2-digit' })}`
       : null,

@@ -24,7 +24,7 @@ import { fetchSampleMyDeals } from 'services/sample-deals';
 import { Button } from 'components/Button/Button';
 import { PlainModal } from 'components/Modal/Modal';
 import type { MyDeal, MyDealFilter } from 'types/my-deals.types';
-import { estimateDealCommission, formatCommission } from 'utils/estimate-deal-commission';
+import { estimateDealCommissions, formatCommission } from 'utils/estimate-deal-commission';
 import { formatCalendarDate } from 'utils/format-calendar-date';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
 
@@ -101,7 +101,7 @@ function DealCard({ deal, onPress }: { readonly deal: MyDeal; readonly onPress: 
     deal.closerName ? `Closer ${deal.closerName}` : null,
   ].filter(Boolean).join(' · ');
 
-  const commission = estimateDealCommission(deal);
+  const commission = estimateDealCommissions(deal);
   return (
     <Pressable
       accessibilityRole="button"
@@ -139,7 +139,10 @@ function DealCard({ deal, onPress }: { readonly deal: MyDeal; readonly onPress: 
           <SpecChip label="Size" value={`${deal.systemSizeKw} kW`} />
         ) : null}
         {typeof deal.pricePerWatt === 'number' ? (
-          <SpecChip label="PPW" value={`$${deal.pricePerWatt.toFixed(2)}`} />
+          <SpecChip label="Gross PPW" value={`$${deal.pricePerWatt.toFixed(2)}`} />
+        ) : null}
+        {typeof deal.netPricePerWatt === 'number' ? (
+          <SpecChip label="Net PPW" value={`$${deal.netPricePerWatt.toFixed(2)}`} />
         ) : null}
         {deal.dateSold ? (
           <SpecChip label="Sold" value={formatCalendarDate(deal.dateSold)} />
@@ -147,11 +150,8 @@ function DealCard({ deal, onPress }: { readonly deal: MyDeal; readonly onPress: 
         {deal.installDate ? (
           <SpecChip label="Install" value={formatCalendarDate(deal.installDate)} />
         ) : null}
-        {commission > 0 ? (
-          <View style={styles.commissionChip}>
-            <Text style={styles.commissionChipLabel}>Est. commission</Text>
-            <Text style={styles.commissionChipValue}>{formatCommission(commission)}</Text>
-          </View>
+        {commission.net > 0 ? (
+          <SpecChip label="Est. net comm." value={formatCommission(commission.net)} />
         ) : null}
         {deal.campaignName ? (
           <View style={styles.campaignChip}>
@@ -209,7 +209,7 @@ function DealDetailModal({
   if (!deal) {
     return null;
   }
-  const commission = estimateDealCommission(deal);
+  const commission = estimateDealCommissions(deal);
   const normalizedStatus = deal.status.toLowerCase();
   const statusColor = STATUS_COLORS[normalizedStatus] ?? '#52525B';
   const phone = sanitizePhone(deal.phone);
@@ -224,7 +224,8 @@ function DealDetailModal({
       value: deal.isAccountPaid && deal.depositDate ? formatCalendarDate(deal.depositDate) : 'N/A',
     },
     { label: 'System size', value: typeof deal.systemSizeKw === 'number' ? `${deal.systemSizeKw} kW` : '—' },
-    { label: 'PPW', value: typeof deal.pricePerWatt === 'number' ? `$${deal.pricePerWatt.toFixed(2)}` : '—' },
+    { label: 'Gross PPW', value: typeof deal.pricePerWatt === 'number' ? `$${deal.pricePerWatt.toFixed(2)}` : '—' },
+    { label: 'Net PPW', value: typeof deal.netPricePerWatt === 'number' ? `$${deal.netPricePerWatt.toFixed(2)}` : '—' },
     { label: 'Sold', value: deal.dateSold ? formatCalendarDate(deal.dateSold) : '—' },
     { label: 'Install', value: deal.installDate ? formatCalendarDate(deal.installDate) : '—' },
     { label: 'Office', value: deal.officeName ?? '—' },
@@ -249,11 +250,17 @@ function DealDetailModal({
       )}
     >
       <View>
-        <View style={styles.commissionHero}>
-          <Text style={styles.commissionHeroLabel}>Estimated commission</Text>
-          <Text style={styles.commissionHeroValue}>{formatCommission(commission)}</Text>
-          <Text style={styles.commissionHeroNote}>Estimate only — final commission may vary.</Text>
+        <View style={styles.commissionRow}>
+          <View style={styles.commissionBlock}>
+            <Text style={styles.commissionLabel}>Gross commission</Text>
+            <Text style={styles.commissionValue}>{formatCommission(commission.gross)}</Text>
+          </View>
+          <View style={styles.commissionBlock}>
+            <Text style={styles.commissionLabel}>Net commission</Text>
+            <Text style={styles.commissionValue}>{formatCommission(commission.net)}</Text>
+          </View>
         </View>
+        <Text style={styles.commissionNote}>Estimates only — final commission may vary.</Text>
         {detailRows.map((row, index) => (
           <View key={row.label} style={[styles.modalRow, index > 0 && styles.modalRowDivider]}>
             <Text style={styles.modalRowLabel}>{row.label}</Text>
@@ -770,47 +777,35 @@ const styles = StyleSheet.create({
   cardPressed: {
     opacity: 0.85,
   },
-  commissionChip: {
-    borderRadius: 9,
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+  commissionRow: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  commissionChipLabel: {
-    color: '#15803D',
-    fontSize: 9,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  commissionChipValue: {
-    marginTop: 1,
-    color: '#15803D',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  commissionHero: {
+  commissionBlock: {
+    flex: 1,
     borderRadius: 14,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: '#F4F4F5',
     alignItems: 'center',
-    paddingVertical: 16,
-    marginBottom: 12,
+    paddingVertical: 14,
   },
-  commissionHeroLabel: {
-    color: '#15803D',
-    fontSize: 11,
+  commissionLabel: {
+    color: '#71717A',
+    fontSize: 10,
     fontWeight: '800',
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.3,
   },
-  commissionHeroValue: {
+  commissionValue: {
     marginTop: 4,
-    color: '#15803D',
-    fontSize: 32,
+    color: '#18181B',
+    fontSize: 22,
     fontWeight: '900',
   },
-  commissionHeroNote: {
-    marginTop: 4,
-    color: '#4D7C0F',
+  commissionNote: {
+    marginTop: 6,
+    marginBottom: 10,
+    textAlign: 'center',
+    color: '#A1A1AA',
     fontSize: 10,
     fontWeight: '600',
   },
