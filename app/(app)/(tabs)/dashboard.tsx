@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polygon } from 'react-native-maps';
 import Svg, { Polyline } from 'react-native-svg';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { HeaderMenuButton, HeaderMessagesButton } from 'components/Menu/HeaderMenuButton';
 import { LeaderboardCard, type LeaderboardEntry } from 'components/Card/LeaderboardCard';

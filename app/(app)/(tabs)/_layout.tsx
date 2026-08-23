@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { DynamicColorIOS, Platform, type ColorValue } from 'react-native';
 import { useDraftActionsStore } from 'store/DraftActionsStore';
 
@@ -66,24 +66,24 @@ export default function TabsLayout() {
             minimizeBehavior="onScrollDown"
         >
             <NativeTabs.Trigger name="dashboard">
-                <Icon sf={isMorphed ? 'xmark' : 'house.fill'} />
-                <Label>{isMorphed ? 'Cancel' : 'Home'}</Label>
+                <NativeTabs.Trigger.Icon sf={isMorphed ? 'xmark' : 'house.fill'} />
+                <NativeTabs.Trigger.Label>{isMorphed ? 'Cancel' : 'Home'}</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
             <NativeTabs.Trigger name="index">
-                <Icon sf={isMorphed ? 'checkmark' : 'map.fill'} />
-                <Label>{isMorphed ? 'Save area' : 'Map'}</Label>
+                <NativeTabs.Trigger.Icon sf={isMorphed ? 'checkmark' : 'map.fill'} />
+                <NativeTabs.Trigger.Label>{isMorphed ? 'Save area' : 'Map'}</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
             <NativeTabs.Trigger name="myLeads">
-                <Icon sf={isMorphed ? 'arrow.counterclockwise' : 'person.2.fill'} />
-                <Label>{isMorphed ? 'Redraw' : 'My Leads'}</Label>
+                <NativeTabs.Trigger.Icon sf={isMorphed ? 'arrow.counterclockwise' : 'person.2.fill'} />
+                <NativeTabs.Trigger.Label>{isMorphed ? 'Redraw' : 'My Leads'}</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
-            <NativeTabs.Trigger name="myDeals" hidden={false}>
-                <Icon sf="doc.text.fill" />
-                <Label>My Deals</Label>
+            <NativeTabs.Trigger name="myDeals" hidden={isCompactBar}>
+                <NativeTabs.Trigger.Icon sf="doc.text.fill" />
+                <NativeTabs.Trigger.Label>My Deals</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
-            <NativeTabs.Trigger name="profile" hidden={false}>
-                <Icon sf="person.crop.circle.fill" />
-                <Label>Profile</Label>
+            <NativeTabs.Trigger name="profile" hidden={isCompactBar}>
+                <NativeTabs.Trigger.Icon sf="person.crop.circle.fill" />
+                <NativeTabs.Trigger.Label>Profile</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
         </NativeTabs>
     );

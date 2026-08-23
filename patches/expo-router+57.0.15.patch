@@ -1,0 +1,17 @@
+diff --git a/node_modules/expo-router/build/native-tabs/NativeBottomTabsNavigator.js b/node_modules/expo-router/build/native-tabs/NativeBottomTabsNavigator.js
+index 76a6b95..a0fb6dd 100644
+--- a/node_modules/expo-router/build/native-tabs/NativeBottomTabsNavigator.js
++++ b/node_modules/expo-router/build/native-tabs/NativeBottomTabsNavigator.js
+@@ -126,6 +126,12 @@ function NativeTabsNavigator({ children, backBehavior = defaultBackBehavior, lab
+         provenanceRef.current = provenance;
+         if (isNativeAction) {
+             const { route } = descriptors[selectedKey];
++            // PATCH(radiabase): allow the app to intercept a tab press and
++            // run an action instead of navigating (nav-morph action bar).
++            const interceptor = globalThis.__radiabaseTabPressInterceptor;
++            if (typeof interceptor === 'function' && interceptor(route.name)) {
++                return;
++            }
+             navigation.emit({
+                 type: 'tabPress',
+                 target: selectedKey,

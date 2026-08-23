@@ -167,7 +167,7 @@ export function DraftVertexHandles({
 
 const styles = StyleSheet.create({
   layer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 10,
   },
   touchTarget: {

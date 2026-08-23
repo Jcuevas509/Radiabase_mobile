@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-dev-menu/ios/Interceptors/DevMenuKeyCommandsInterceptor.swift b/node_modules/expo-dev-menu/ios/Interceptors/DevMenuKeyCommandsInterceptor.swift
-index 4e7b6d7..d56fea2 100644
+index 4f21233..ffaaa03 100644
 --- a/node_modules/expo-dev-menu/ios/Interceptors/DevMenuKeyCommandsInterceptor.swift
 +++ b/node_modules/expo-dev-menu/ios/Interceptors/DevMenuKeyCommandsInterceptor.swift
 @@ -97,13 +97,19 @@ class DevMenuKeyCommandsInterceptor {

@@ -14,10 +14,10 @@ jest.mock('components/Menu/HeaderMenuButton', () => ({
   HeaderMenuButton: () => null,
   HeaderMessagesButton: () => null,
 }));
-jest.mock('@react-navigation/native', () => ({
+jest.mock('expo-router', () => ({
+  ...jest.requireActual('expo-router'),
   useIsFocused: () => true,
   useNavigation: () => ({ dispatch: jest.fn() }),
-  DrawerActions: { openDrawer: () => ({ type: 'OPEN_DRAWER' }) },
 }));
 jest.mock('context/AuthenticationContext', () => ({
   useSession: () => ({ session: mockSession }),

@@ -9,7 +9,7 @@ import {
 import { useColorScheme } from 'components/useColorScheme';
 import { PropsWithChildren, useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as Notifications from 'expo-notifications';
 
 Notifications.setNotificationHandler({

@@ -2,7 +2,9 @@ import React from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { HomeSvg } from 'components/svg';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { useNavigation } from 'expo-router';
+// expo-router vendors navigation; DrawerActions isn't re-exported publicly.
+import { DrawerActions } from 'expo-router/build/react-navigation/routers';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HeaderMenuButton } from 'components/Menu/HeaderMenuButton';

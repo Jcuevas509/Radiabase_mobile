@@ -49,7 +49,7 @@ export function StatusTooltip({
 
 const styles = StyleSheet.create({
     overlay: {
-        ...StyleSheet.absoluteFillObject,
+        ...StyleSheet.absoluteFill,
         backgroundColor: 'rgba(0, 0, 0, 0.45)',
         justifyContent: 'flex-end',
         zIndex: 1001,

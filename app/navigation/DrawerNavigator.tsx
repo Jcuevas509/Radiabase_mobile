@@ -1,6 +1,5 @@
 import React from 'react';
-import { Drawer } from 'expo-router/drawer';
-import { DrawerContentComponentProps } from '@react-navigation/drawer';
+import { Drawer, type DrawerContentComponentProps } from 'expo-router/drawer';
 import { useRouter, usePathname } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import TopMenu from 'components/Menu/TopMenu';

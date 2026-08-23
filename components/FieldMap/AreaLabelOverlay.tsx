@@ -80,7 +80,7 @@ export const AreaLabelOverlay = memo(function AreaLabelOverlay({
 
 const styles = StyleSheet.create({
   layer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 8,
   },
   labelPosition: {

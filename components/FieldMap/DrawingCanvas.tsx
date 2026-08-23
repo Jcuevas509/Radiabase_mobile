@@ -103,7 +103,7 @@ function buildPathData(points: readonly StrokePoint[]): string {
 
 const styles = StyleSheet.create({
   canvas: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 9,
   },
   hint: {

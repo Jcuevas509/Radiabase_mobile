@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255, 255, 255, 0.22)',
   },
   tickLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
   },
   tick: {
@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     top: COMPASS_SIZE / 2 - 6.5,
   },
   needleLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   // Centered by flexbox instead of hand-tuned offsets so the cap can never
   // drift off the true middle of the face.
   pivotLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
   },

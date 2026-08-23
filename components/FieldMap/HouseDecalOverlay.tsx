@@ -93,7 +93,7 @@ export const HouseDecalOverlay = memo(function HouseDecalOverlay({
 
 const styles = StyleSheet.create({
   layer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 9,
   },
   badge: {

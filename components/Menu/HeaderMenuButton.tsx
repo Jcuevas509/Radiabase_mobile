@@ -1,7 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router';
+// expo-router vendors navigation; DrawerActions isn't re-exported publicly.
+import { DrawerActions } from 'expo-router/build/react-navigation/routers';
 import { useRouter } from 'expo-router';
 import { useSession } from 'context/AuthenticationContext';
 import { useUnreadMessages } from 'hooks/useUnreadMessages';

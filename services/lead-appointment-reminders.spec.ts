@@ -216,7 +216,7 @@ describe('lead appointment reminders', () => {
       .mockResolvedValueOnce([scheduledRequest()]);
 
     const schedulePromise = scheduleLeadAppointmentReminder(baseInput);
-    await new Promise((resolve) => setImmediate(resolve));
+    await new Promise((resolve) => setImmediate(() => resolve(undefined)));
     expect(scheduleNotification).toHaveBeenCalledTimes(1);
     beginRadiabaseReminderAccountTransition();
     const logoutCleanupPromise = cancelAllRadiabaseLeadAppointmentReminders();
