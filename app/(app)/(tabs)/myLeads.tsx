@@ -1,8 +1,9 @@
 import Search01Icon from '@hugeicons/core-free-icons/Search01Icon';
 import UserGroupIcon from '@hugeicons/core-free-icons/UserGroupIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { DrawerActions, useIsFocused, useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
+import { HeaderMenuButton, HeaderMessagesButton } from 'components/Menu/HeaderMenuButton';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { useSession } from 'context/AuthenticationContext';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -192,7 +193,6 @@ function LeadCard({
 }
 
 export default function MyLeadsScreen() {
-  const navigation = useNavigation();
   const { session } = useSession();
   const isFocused = useIsFocused();
   const salesRepId = Number(session?.user?.id ?? 0);
@@ -395,17 +395,12 @@ export default function MyLeadsScreen() {
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Open menu"
-          hitSlop={12}
-          onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-          style={styles.headerSide}
-        >
-          <MaterialIcons name="menu" size={28} color="#18181B" />
-        </Pressable>
+        <View style={styles.headerSide}>
+          <HeaderMenuButton />
+        </View>
         <Text style={styles.headerTitle}>My Leads</Text>
-        <View style={[styles.headerSide, styles.headerRight]}>
+        <View style={styles.headerRightGroup}>
+          <HeaderMessagesButton />
           <View>
             <Ionicons name="notifications-outline" size={24} color="#18181B" />
             <View style={styles.bellBadge}>
@@ -539,6 +534,14 @@ const styles = StyleSheet.create({
   },
   headerRight: {
     alignItems: 'flex-end',
+  },
+  headerRightGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 18,
+    minWidth: 44,
+    height: 44,
   },
   bellBadge: {
     position: 'absolute',

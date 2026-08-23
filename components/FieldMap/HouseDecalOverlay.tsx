@@ -54,6 +54,11 @@ export const HouseDecalOverlay = memo(function HouseDecalOverlay({
           ? leadStatuses.find((item) => item.statusId === house.statusId)
           : undefined;
         const BadgeIcon = status ? BADGE_ICON_BY_STATUS_ID[status.statusId] : undefined;
+        // Unworked houses show no badge — the roof itself is tappable, and
+        // the default white dots just cluttered the map.
+        if (!status || !BadgeIcon) {
+          return null;
+        }
         const point = projectCoordinateWithFit(fit, {
           latitude: house.latitude,
           longitude: house.longitude,
@@ -68,25 +73,17 @@ export const HouseDecalOverlay = memo(function HouseDecalOverlay({
           <Pressable
             key={`house-badge-${house.id}`}
             accessibilityRole="button"
-            accessibilityLabel={status
-              ? `Open house, status ${status.fullName}`
-              : 'Open saved house'}
+            accessibilityLabel={`Open house, status ${status.fullName}`}
             hitSlop={8}
             onPress={() => onHousePress(house)}
             style={({ pressed }) => [
               styles.badge,
               { left: point.x - BADGE_SIZE / 2, top: point.y - BADGE_SIZE / 2 },
-              status && BadgeIcon
-                ? { backgroundColor: status.color }
-                : styles.badgeUnworked,
+              { backgroundColor: status.color },
               pressed && styles.pressed,
             ]}
           >
-            {status && BadgeIcon ? (
-              <BadgeIcon color="white" />
-            ) : (
-              <View style={styles.unworkedDot} />
-            )}
+            <BadgeIcon color="white" />
           </Pressable>
         );
       })}
@@ -113,16 +110,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 2,
     elevation: 3,
-  },
-  badgeUnworked: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderColor: 'rgba(24, 24, 27, 0.35)',
-  },
-  unworkedDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#18181B',
   },
   pressed: {
     opacity: 0.6,

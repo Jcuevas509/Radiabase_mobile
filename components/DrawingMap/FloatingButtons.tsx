@@ -30,7 +30,7 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
 }) => {
     return (
         <>
-            <View style={styles.floatingButtonsContainer}>
+            <View style={styles.floatingButtonsContainer} pointerEvents="box-none">
                 {canFinishArea && isManager && onFinish && (
                     <Button
                         text='Complete'
@@ -42,9 +42,9 @@ const FloatingButtons: React.FC<FloatingButtonsProps> = ({
                 )}
                 {isManager && onToggleDrawing && <View style={styles.buttonContainer}>
                     <FloatingButton
-                        buttonStyle={{ backgroundColor: activeDrawing ? "#32A0FF" : 'white' }}
+                        buttonStyle={{ backgroundColor: '#00D1EA' }}
                         onPress={onToggleDrawing}
-                        buttonIcon={<DrawSvg color={activeDrawing ? 'white' : '#1F1F1F'} />}
+                        buttonIcon={<DrawSvg color="white" />}
                         accessibilityLabel={activeDrawing ? 'Cancel area painting' : 'Paint a new area'}
                     />
                 </View>}
@@ -88,13 +88,16 @@ const styles = StyleSheet.create({
     floatingButtonsContainer: {
         flexDirection: 'column',
         position: 'absolute',
-        bottom: 70,
-        right: 26,
+        top: 0,
+        bottom: 0,
+        right: 20,
         zIndex: 10,
         alignItems: 'flex-end',
+        // Vertically centered on the right edge, clear of the tab bar.
+        justifyContent: 'center',
     },
     buttonContainer: {
-        marginBottom: 24,
+        marginBottom: 18,
         alignItems: 'flex-end',
     },
 });

@@ -3,12 +3,16 @@ const { Alert } = require('react-native');
 const TestRenderer = require('react-test-renderer');
 const { act } = TestRenderer;
 const { fetchMyLeads, updateFieldLeadStatus } = require('services/leads-api');
-const MyLeadsScreen = require('app/(app)/myLeads').default;
+const MyLeadsScreen = require('app/(app)/(tabs)/myLeads').default;
 
 let mockSession;
 
 jest.mock('@hugeicons/react-native', () => ({
   HugeiconsIcon: () => null,
+}));
+jest.mock('components/Menu/HeaderMenuButton', () => ({
+  HeaderMenuButton: () => null,
+  HeaderMessagesButton: () => null,
 }));
 jest.mock('@react-navigation/native', () => ({
   useIsFocused: () => true,

@@ -1,6 +1,7 @@
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { Pressable, Text, StyleSheet, StyleSheet as RN, ViewStyle } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import type { ReactElement } from 'react';
+import { GlassSurface } from 'components/GlassSurface';
 
 interface MyButtonProps {
     onPress: () => void;
@@ -13,9 +14,12 @@ interface MyButtonProps {
 }
 
 /**
- * @description A button component that can be used as map floating button 
+ * Map floating button on native Liquid Glass. A `backgroundColor` passed in
+ * `buttonStyle` (the existing active-state contract) becomes the glass tint
+ * so callers didn't have to change; white/undefined means untinted glass.
+ * No opacity press feedback — that breaks the glass material; the native
+ * interactive shimmer plus haptics carry the press.
  */
-
 export function FloatingButton({
     onPress,
     text,
@@ -29,30 +33,46 @@ export function FloatingButton({
         Haptics.selectionAsync().catch(() => null);
         onPress();
     }
+    const { backgroundColor, ...restStyle } = RN.flatten([buttonStyle]) as ViewStyle;
+    const tintColor = backgroundColor && backgroundColor !== 'white' && backgroundColor !== '#FFFFFF'
+        ? String(backgroundColor)
+        : undefined;
     return (
-        <TouchableOpacity
-            accessibilityRole="button"
-            accessibilityLabel={accessibilityLabel}
-            accessibilityState={{ disabled: isDisabled }}
-            disabled={isDisabled}
-            style={[styles.container, buttonStyle]}
-            onPress={handlePress}
-            activeOpacity={0.8}
+        <GlassSurface
+            isInteractive
+            tintColor={tintColor}
+            style={[styles.container, restStyle]}
+            fallbackStyle={styles.fallback}
         >
-            {buttonIcon}
-            {text && <Text style={[styles.text, textStyle]}>{text}</Text>}
-        </TouchableOpacity>
+            <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={accessibilityLabel}
+                accessibilityState={{ disabled: isDisabled }}
+                disabled={isDisabled}
+                style={styles.press}
+                onPress={handlePress}
+            >
+                {buttonIcon}
+                {text && <Text style={[styles.text, textStyle]}>{text}</Text>}
+            </Pressable>
+        </GlassSurface>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'white',
         borderRadius: 24,
         width: 48,
-        height: 48
+        height: 48,
+        overflow: 'hidden',
+    },
+    fallback: {
+        backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    },
+    press: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     text: {
         color: 'black'

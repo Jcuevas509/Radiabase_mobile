@@ -4,7 +4,7 @@ import { DrawerContentComponentProps } from '@react-navigation/drawer';
 import { useRouter, usePathname } from 'expo-router';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 import TopMenu from 'components/Menu/TopMenu';
-import { AgentCard } from 'components/Card/AgentCard';
+import { DrawerHero } from 'components/Card/DrawerHero';
 import { MenuItemProps } from 'types/componentsTypes';
 import { useSession } from 'context/AuthenticationContext';
 import { isActiveMenuRoute } from 'utils/is-active-menu-route';
@@ -40,18 +40,11 @@ function CustomDrawerContent({
         <View style={styles.drawerContent}>
             <TopMenu color="black" isOnDashboard={isOnDashboard} onCloseMenu={closeDrawer} />
             <View style={styles.agentContainer}>
-                <AgentCard
-                    fromMenu={true}
-                    data={{
-                        id: Number(session?.user?.id ?? 0),
-                        name: session?.user?.firstName ?? '',
-                        lastname: session?.user?.lastName ?? '',
-                        description: session?.user?.roleLabel ?? session?.user?.role ?? '',
-                        salesRole: session?.user?.roleLabel ?? null,
-                        officeName: session?.user?.officeName ?? null,
-                        structureName: session?.user?.structureName ?? null,
-                        color: '#32A0FF',
-                    }}
+                <DrawerHero
+                    firstName={session?.user?.firstName ?? ''}
+                    lastName={session?.user?.lastName ?? ''}
+                    roleLabel={session?.user?.roleLabel ?? session?.user?.role ?? null}
+                    officeName={session?.user?.officeName ?? null}
                 />
             </View>
             <View style={styles.menuList}>
@@ -89,6 +82,10 @@ function CustomDrawerContent({
 }
 
 const DrawerNavigator = ({ menuItems }: DrawerNavigatorProps) => {
+    const { session } = useSession();
+    // The drawer is the manager admin-tools menu; standard reps navigate
+    // with the bottom tabs and the header Messages button instead.
+    const isManager = session?.user?.role === 'manager';
     return (
         <Drawer
             // Back returns to the previously visited screen (e.g. Profile ->
@@ -97,7 +94,7 @@ const DrawerNavigator = ({ menuItems }: DrawerNavigatorProps) => {
             screenOptions={{
                 headerShown: false,
                 drawerType: 'front',
-                swipeEnabled: true,
+                swipeEnabled: isManager,
                 drawerStyle: {
                     width: DRAWER_WIDTH,
                     backgroundColor: '#FFFFFF',
@@ -108,12 +105,8 @@ const DrawerNavigator = ({ menuItems }: DrawerNavigatorProps) => {
                 <CustomDrawerContent {...props} menuItems={menuItems} />
             )}
         >
-            <Drawer.Screen name="index" options={{ drawerLabel: 'Field map' }} />
-            <Drawer.Screen name="dashboard" options={{ drawerLabel: 'Home' }} />
-            <Drawer.Screen name="myLeads" options={{ drawerLabel: 'My Leads' }} />
-            <Drawer.Screen name="myDeals" options={{ drawerLabel: 'My Deals' }} />
+            <Drawer.Screen name="(tabs)" options={{ drawerLabel: 'Home' }} />
             <Drawer.Screen name="myLocation" options={{ drawerLabel: 'My location' }} />
-            <Drawer.Screen name="profile" options={{ drawerLabel: 'Profile' }} />
         </Drawer>
     );
 };
@@ -124,9 +117,9 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
     },
     agentContainer: {
-        paddingLeft: 20,
-        paddingRight: 16,
+        paddingHorizontal: 16,
         paddingTop: 16,
+        paddingBottom: 16,
         borderBottomColor: '#E4E4E7',
         borderBottomWidth: 1,
     },
@@ -138,7 +131,7 @@ const styles = StyleSheet.create({
         minHeight: 52,
         marginHorizontal: 12,
         paddingHorizontal: 12,
-        borderRadius: 10,
+        borderRadius: 16,
         flexDirection: 'row',
         alignItems: 'center',
     },

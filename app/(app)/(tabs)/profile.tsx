@@ -1,9 +1,8 @@
-import { MaterialIcons } from '@expo/vector-icons';
-import { DrawerActions, useNavigation } from '@react-navigation/native';
 import Constants from 'expo-constants';
 import React from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { HeaderMenuButton } from 'components/Menu/HeaderMenuButton';
 import { ProfileScreen } from 'components/screens/Profile/ProfileScreen';
 import { useSession } from 'context/AuthenticationContext';
 import { buildProfileViewModel } from 'utils/build-profile-view-model';
@@ -14,7 +13,6 @@ import { buildProfileViewModel } from 'utils/build-profile-view-model';
  * a dedicated profile API later only changes this file.
  */
 export default function Profile() {
-    const navigation = useNavigation();
     const { session, signOut } = useSession();
     const profile = buildProfileViewModel(session?.user);
     const handleSignOut = () => {
@@ -27,13 +25,9 @@ export default function Profile() {
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
             <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-                    hitSlop={12}
-                    style={styles.menuHit}
-                >
-                    <MaterialIcons name="menu" size={28} color="#18181B" />
-                </TouchableOpacity>
+                <View style={styles.menuHit}>
+                    <HeaderMenuButton />
+                </View>
                 <Text style={styles.headerTitle}>Profile</Text>
                 <View style={styles.menuHit} />
             </View>

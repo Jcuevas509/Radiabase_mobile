@@ -112,10 +112,10 @@ const MapComponent = () => {
             <FloatingButtons
                 buttons={[
                     {
-                        icon: <MyLocationSvg color={isAtCurrentLocation ? 'white' : '#1F1F1F'} />,
+                        icon: <MyLocationSvg color="white" />,
                         onPress: handleMyLocation,
                         accessibilityLabel: 'Center map on my location',
-                        style: { backgroundColor: isAtCurrentLocation ? '#32A0FF' : 'white' },
+                        style: { backgroundColor: '#00D1EA' },
                     },
                 ]}
                 isManager={isManager}

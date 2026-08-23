@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Suntapped-Mobile",
+    "name": "Radiabase",
     "slug": "radiabase",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -17,8 +17,14 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.visiotdev.SuntappedMobile",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocalNetworkUsageDescription": "Radiabase development builds connect to the local Metro dev server.",
+        "NSBonjourServices": [
+          "_expo._tcp",
+          "_http._tcp"
+        ]
+      },
+      "appleTeamId": "55G43DC8XL"
     },
     "android": {
       "adaptiveIcon": {

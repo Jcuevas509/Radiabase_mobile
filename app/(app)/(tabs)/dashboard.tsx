@@ -14,11 +14,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import MapView, { Polygon } from 'react-native-maps';
 import Svg, { Polyline } from 'react-native-svg';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useNavigation, DrawerActions } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
+import { HeaderMenuButton, HeaderMessagesButton } from 'components/Menu/HeaderMenuButton';
 import { LeaderboardCard, type LeaderboardEntry } from 'components/Card/LeaderboardCard';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchFieldStats, fetchMapAreas, FieldStatsResponse, MapAreaResponse } from 'services/area-api';
+import { SAMPLE_LEADERBOARD_REPS } from 'services/sample-leaderboard';
 import { pickDashboardPreviewAreas } from 'utils/pick-dashboard-preview-areas';
 import { pickFieldStatsBucket } from 'utils/pick-field-stats-bucket';
 import { getMapRegionFromCoordinates } from 'utils/get-map-region-from-coordinates';
@@ -40,41 +42,6 @@ const AVATAR_URL_PLACEHOLDER = 'https://randomuser.me/api/portraits/men/32.jpg';
 
 const LEADERBOARD_PAGE_SIZE = 10;
 
-// Seam for the leaderboard backend: replace this sample roster with the
-// fetched standings. Portraits are randomuser placeholders.
-const SAMPLE_LEADERBOARD_REPS: ReadonlyArray<{
-    first: string; last: string; portrait: string; value: number;
-}> = [
-    { first: 'Marcus', last: 'Rivera', portrait: 'men/45', value: 128 },
-    { first: 'Dana', last: 'Whitfield', portrait: 'women/68', value: 121 },
-    { first: 'Priya', last: 'Shah', portrait: 'women/44', value: 117 },
-    { first: 'Tyler', last: 'Bennett', portrait: 'men/12', value: 109 },
-    { first: 'Alexis', last: 'Moreno', portrait: 'women/21', value: 104 },
-    { first: 'Jordan', last: 'Kim', portrait: 'men/76', value: 98 },
-    { first: 'Sofia', last: 'Delgado', portrait: 'women/12', value: 93 },
-    { first: 'Caleb', last: 'Nguyen', portrait: 'men/61', value: 88 },
-    { first: 'Maya', last: 'Thompson', portrait: 'women/33', value: 84 },
-    { first: 'Devon', last: 'Brooks', portrait: 'men/23', value: 79 },
-    { first: 'Isabella', last: 'Reyes', portrait: 'women/57', value: 73 },
-    { first: 'Logan', last: 'Price', portrait: 'men/85', value: 68 },
-    { first: 'Amara', last: 'Osei', portrait: 'women/81', value: 62 },
-    { first: 'Ethan', last: 'Caldwell', portrait: 'men/37', value: 57 },
-    { first: 'Nina', last: 'Volkov', portrait: 'women/26', value: 51 },
-    { first: 'Andre', last: 'Fontaine', portrait: 'men/53', value: 46 },
-    { first: 'Harper', last: 'Sloane', portrait: 'women/49', value: 41 },
-    { first: 'Miguel', last: 'Santana', portrait: 'men/29', value: 37 },
-    { first: 'Zoe', last: 'Lambert', portrait: 'women/63', value: 33 },
-    { first: 'Trevor', last: 'Hale', portrait: 'men/71', value: 29 },
-    { first: 'Camille', last: 'Baptiste', portrait: 'women/17', value: 25 },
-    { first: 'Owen', last: 'Mercer', portrait: 'men/18', value: 21 },
-    { first: 'Leah', last: 'Ito', portrait: 'women/72', value: 18 },
-    { first: 'Ruben', last: 'Castillo', portrait: 'men/64', value: 15 },
-    { first: 'Skye', last: 'Donovan', portrait: 'women/38', value: 12 },
-    { first: 'Felix', last: 'Aguilar', portrait: 'men/41', value: 9 },
-    { first: 'Talia', last: 'Novak', portrait: 'women/55', value: 7 },
-    { first: 'Grant', last: 'Ellison', portrait: 'men/8', value: 4 },
-    { first: 'Renee', last: 'Okafor', portrait: 'women/29', value: 2 },
-];
 
 function getAreaTileLabel(area: MapAreaResponse, geocodedCity?: string): string {
     if (geocodedCity) {
@@ -308,15 +275,12 @@ const DashboardScreen = () => {
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
             <View style={styles.header}>
-                <TouchableOpacity
-                    onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
-                    hitSlop={12}
-                    style={styles.headerSide}
-                >
-                    <MaterialIcons name="menu" size={28} color="#18181B" />
-                </TouchableOpacity>
+                <View style={styles.headerSide}>
+                    <HeaderMenuButton />
+                </View>
                 <Text style={styles.headerTitle}>Home</Text>
-                <View style={[styles.headerSide, styles.headerRight]}>
+                <View style={styles.headerRightGroup}>
+                    <HeaderMessagesButton />
                     <TouchableOpacity
                         accessibilityRole="button"
                         accessibilityLabel="Notifications"
@@ -562,6 +526,14 @@ const styles = StyleSheet.create({
     headerRight: {
         alignItems: 'flex-end',
     },
+    headerRightGroup: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'flex-end',
+        gap: 18,
+        minWidth: 44,
+        height: 44,
+    },
     bellBadge: {
         position: 'absolute',
         top: -4,
@@ -675,11 +647,16 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 5,
         backgroundColor: '#FFFFFF',
-        borderRadius: 16,
-        paddingHorizontal: 12,
-        paddingVertical: 7,
-        borderWidth: 1,
-        borderColor: '#E4E4E7',
+        borderRadius: 20,
+        paddingHorizontal: 13,
+        paddingVertical: 8,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(24, 24, 27, 0.08)',
+        shadowColor: '#18181B',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+        elevation: 3,
     },
     filterButtonText: {
         fontSize: 12,
@@ -696,10 +673,15 @@ const styles = StyleSheet.create({
     },
     emptyCard: {
         padding: 16,
-        borderRadius: 12,
+        borderRadius: 18,
         backgroundColor: '#FFFFFF',
-        borderWidth: 1,
-        borderColor: '#E4E4E7',
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(24, 24, 27, 0.06)',
+        shadowColor: '#18181B',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+        elevation: 3,
     },
     emptyTitle: {
         fontSize: 16,
@@ -708,9 +690,14 @@ const styles = StyleSheet.create({
         marginBottom: 4,
     },
     turfCard: {
-        borderRadius: 18,
+        borderRadius: 22,
         overflow: 'hidden',
         backgroundColor: '#E4E4E7',
+        shadowColor: '#18181B',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+        elevation: 3,
     },
     turfMap: {
         width: '100%',
@@ -765,20 +752,25 @@ const styles = StyleSheet.create({
     },
     periodRow: {
         flexDirection: 'row',
-        backgroundColor: '#E4E4E7',
-        borderRadius: 10,
+        backgroundColor: 'rgba(24, 24, 27, 0.06)',
+        borderRadius: 14,
         padding: 3,
         marginBottom: 8,
     },
     periodChip: {
         flex: 1,
         minHeight: 32,
-        borderRadius: 8,
+        borderRadius: 11,
         alignItems: 'center',
         justifyContent: 'center',
     },
     periodChipActive: {
         backgroundColor: '#FFFFFF',
+        shadowColor: '#18181B',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.10,
+        shadowRadius: 6,
+        elevation: 2,
     },
     periodText: {
         fontSize: 13,
@@ -797,14 +789,19 @@ const styles = StyleSheet.create({
         width: '31%',
         flexGrow: 1,
         minHeight: 72,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#D4D4D8',
+        borderRadius: 18,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(24, 24, 27, 0.06)',
         backgroundColor: '#FFFFFF',
+        shadowColor: '#18181B',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.06,
+        shadowRadius: 16,
+        elevation: 3,
         paddingVertical: 10,
         paddingHorizontal: 10,
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'flex-end',
         justifyContent: 'space-between',
         gap: 4,
     },

@@ -1,0 +1,26 @@
+diff --git a/node_modules/expo-dev-menu/ios/Interceptors/DevMenuKeyCommandsInterceptor.swift b/node_modules/expo-dev-menu/ios/Interceptors/DevMenuKeyCommandsInterceptor.swift
+index 4e7b6d7..d56fea2 100644
+--- a/node_modules/expo-dev-menu/ios/Interceptors/DevMenuKeyCommandsInterceptor.swift
++++ b/node_modules/expo-dev-menu/ios/Interceptors/DevMenuKeyCommandsInterceptor.swift
+@@ -97,13 +97,19 @@ class DevMenuKeyCommandsInterceptor {
+       return
+     }
+ 
++    // Patched: a main-queue observer here makes NSNotificationCenter block
++    // the posting (JS) thread until main runs the block, deadlocking against
++    // TurboModuleManager waiting on the JS thread (watchdog 0x8BADF00D).
++    // Deliver on the posting thread and hop to main asynchronously instead.
+     moduleObserver = NotificationCenter.default.addObserver(
+       forName: NSNotification.Name.RCTDidInitializeModule,
+       object: nil,
+-      queue: .main
++      queue: nil
+     ) { notification in
+       if (notification.userInfo?["module"] as? RCTDevMenu) != nil {
+-        refreshKeyCommands()
++        DispatchQueue.main.async {
++          refreshKeyCommands()
++        }
+       }
+     }
+   }

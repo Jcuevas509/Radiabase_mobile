@@ -38,10 +38,17 @@ export function TrueNorthCompass({
       onLongPress={onAlignToDevice}
       style={({ pressed }) => [styles.face, pressed && styles.pressed]}
     >
+      <View pointerEvents="none" style={styles.innerRing} />
       <Animated.View
         pointerEvents="none"
         style={[StyleSheet.absoluteFill, { transform: [{ rotate: ringRotation }] }]}
       >
+        {[45, 135].map((angle) => (
+          <View key={angle} style={[styles.tickLayer, { transform: [{ rotate: `${angle}deg` }] }]}>
+            <View style={styles.tick} />
+            <View style={[styles.tick, styles.tickBottom]} />
+          </View>
+        ))}
         <Text style={[styles.cardinal, styles.cardinalNorth]}>N</Text>
         <Text style={[styles.cardinal, styles.cardinalEast]}>E</Text>
         <Text style={[styles.cardinal, styles.cardinalSouth]}>S</Text>
@@ -56,7 +63,9 @@ export function TrueNorthCompass({
           <View style={styles.needleSouth} />
         </Animated.View>
       ) : null}
-      <View pointerEvents="none" style={styles.pivot} />
+      <View pointerEvents="none" style={styles.pivotLayer}>
+        <View style={styles.pivot} />
+      </View>
     </Pressable>
   );
 }
@@ -103,46 +112,70 @@ const styles = StyleSheet.create({
     width: COMPASS_SIZE,
     height: COMPASS_SIZE,
     borderRadius: COMPASS_SIZE / 2,
-    backgroundColor: 'rgba(20, 20, 23, 0.92)',
-    borderWidth: 1.5,
-    borderColor: 'rgba(255, 255, 255, 0.28)',
+    backgroundColor: 'rgba(13, 14, 18, 0.94)',
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.28,
+    shadowRadius: 8,
     elevation: 6,
     zIndex: 20,
   },
   pressed: {
     opacity: 0.75,
   },
+  innerRing: {
+    position: 'absolute',
+    top: 3,
+    left: 3,
+    right: 3,
+    bottom: 3,
+    borderRadius: (COMPASS_SIZE - 6) / 2,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255, 255, 255, 0.22)',
+  },
+  tickLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+  },
+  tick: {
+    position: 'absolute',
+    top: 4,
+    width: 1.5,
+    height: 4,
+    borderRadius: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.35)',
+  },
+  tickBottom: {
+    top: undefined,
+    bottom: 4,
+  },
   cardinal: {
     position: 'absolute',
-    color: 'rgba(255, 255, 255, 0.85)',
+    color: 'rgba(255, 255, 255, 0.8)',
     fontSize: 9,
     fontWeight: '700',
   },
   cardinalNorth: {
-    top: 3,
+    top: 4,
     left: 0,
     right: 0,
     textAlign: 'center',
     color: '#FF453A',
-    fontWeight: '800',
+    fontWeight: '900',
   },
   cardinalSouth: {
-    bottom: 3,
+    bottom: 4,
     left: 0,
     right: 0,
     textAlign: 'center',
   },
   cardinalEast: {
-    right: 5,
-    top: COMPASS_SIZE / 2 - 8,
+    right: 6,
+    top: COMPASS_SIZE / 2 - 6.5,
   },
   cardinalWest: {
-    left: 5,
-    top: COMPASS_SIZE / 2 - 8,
+    left: 6,
+    top: COMPASS_SIZE / 2 - 6.5,
   },
   needleLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -152,9 +185,9 @@ const styles = StyleSheet.create({
   needleNorth: {
     width: 0,
     height: 0,
-    borderLeftWidth: 4.5,
-    borderRightWidth: 4.5,
-    borderBottomWidth: 15,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderBottomWidth: 14,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
     borderBottomColor: '#FF453A',
@@ -163,23 +196,29 @@ const styles = StyleSheet.create({
   needleSouth: {
     width: 0,
     height: 0,
-    borderLeftWidth: 4.5,
-    borderRightWidth: 4.5,
-    borderTopWidth: 15,
+    borderLeftWidth: 4,
+    borderRightWidth: 4,
+    borderTopWidth: 14,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderTopColor: 'rgba(255, 255, 255, 0.88)',
+    borderTopColor: 'rgba(255, 255, 255, 0.92)',
     marginTop: 1,
   },
+  // Centered by flexbox instead of hand-tuned offsets so the cap can never
+  // drift off the true middle of the face.
+  pivotLayer: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   pivot: {
-    position: 'absolute',
-    top: COMPASS_SIZE / 2 - 3.5,
-    left: COMPASS_SIZE / 2 - 3.5,
     width: 7,
     height: 7,
     borderRadius: 3.5,
-    backgroundColor: 'white',
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.4)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.4,
+    shadowRadius: 1.5,
   },
 });

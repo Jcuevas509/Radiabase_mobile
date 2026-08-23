@@ -1,10 +1,11 @@
 import React from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { HomeSvg } from 'components/svg';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { HeaderMenuButton } from 'components/Menu/HeaderMenuButton';
 
 interface TopMenuProps {
     color?: 'white' | 'black';
@@ -25,10 +26,6 @@ export function TopMenu({
     const insets = useSafeAreaInsets();
     const isDrawerHeader = color === 'black';
     const iconColor = isDrawerHeader ? '#18181B' : '#FFFFFF';
-
-    const openDrawer = () => {
-        navigation.dispatch(DrawerActions.openDrawer());
-    };
 
     const closeDrawer = () => {
         if (onCloseMenu) {
@@ -55,9 +52,7 @@ export function TopMenu({
                 </>
             ) : (
                 <>
-                    <TouchableOpacity onPress={openDrawer} hitSlop={12} style={styles.iconHit}>
-                        <MaterialIcons name="menu" size={30} color={iconColor} />
-                    </TouchableOpacity>
+                    <HeaderMenuButton color={iconColor} />
                     <View style={styles.mapActions}>
                         {!isOnDashboard ? (
                             <TouchableOpacity

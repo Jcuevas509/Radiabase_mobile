@@ -1,5 +1,4 @@
-import Route01Icon from '@hugeicons/core-free-icons/Route01Icon';
-import { HugeiconsIcon } from '@hugeicons/react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -8,7 +7,6 @@ import {
   Alert,
   AppState,
   Dimensions,
-  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -16,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import MapView, { MapPressEvent, Marker, Region } from 'react-native-maps';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CustomAlert } from 'components/Alert/Alert';
 import { AssignAreaModal } from 'components/DrawingMap/AssignAreaModal';
@@ -59,24 +58,23 @@ import { applyMapHouseDetailToBuilding } from 'utils/apply-map-house-detail-to-b
 import { buildAreaName } from 'utils/build-area-name';
 import { getPolygonAreaSquareMeters } from 'utils/get-polygon-area-square-meters';
 import { prepareDrawnStrokeVertices } from 'utils/prepare-drawn-stroke';
-import {
-  buildWalkingDirectionsUrl,
-  formatWalkingDistance,
-} from 'utils/build-walking-directions-url';
 import { convertCoordinatesToGeoJsonPolygon } from 'utils/convert-coordinates-to-geojson';
 import { convertMapAreasToPolygons } from 'utils/convert-map-areas-to-polygons';
 import { convertMapHouseDetailToHouse } from 'utils/convert-map-house-detail-to-house';
 import { convertMapHousesToBuildings } from 'utils/convert-map-houses-to-buildings';
 import { containsCoordinate, findMapBuildingAtCoordinate } from 'utils/find-map-building-at-coordinate';
 import { getApiErrorMessage } from 'utils/get-api-error-message';
+import { getMapRegionFromCoordinates } from 'utils/get-map-region-from-coordinates';
+import { SAMPLE_LEADERBOARD_REPS } from 'services/sample-leaderboard';
+import { LeaderboardCard } from 'components/Card/LeaderboardCard';
+import { PlainModal } from 'components/Modal/Modal';
+import { GlassSurface } from 'components/GlassSurface';
 import { getPolygonCentroid } from 'utils/get-polygon-centroid';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
-import { isMapRouteReady } from 'utils/is-map-route-ready';
 import { isStreetZoomRegion } from 'utils/is-street-zoom-region';
 import { mapLeadStatusIdToHouseStatus } from 'utils/map-house-status';
 import { mergeHouseDetailIntoPolygons } from 'utils/merge-house-detail-into-polygons';
-import { rankUnworkedDoorTargets } from 'utils/rank-unworked-door-targets';
 import { selectMapOverlayItems } from 'utils/select-map-overlay-items';
 import type { StrokePoint } from 'utils/simplify-stroke-points';
 import { Button } from 'components/Button/Button';
@@ -134,6 +132,7 @@ export function FieldMapScreen() {
   const [loadingHouseDetail, setLoadingHouseDetail] = useState(false);
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
   const [isMapMoving, setIsMapMoving] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
   const isMapMovingRef = useRef(false);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<MapView>(null);
@@ -143,6 +142,7 @@ export function FieldMapScreen() {
 
   const isIdle = mode === 'idle';
   const compassControllerRef = useRef<CompassControllerHandle | null>(null);
+  const insets = useSafeAreaInsets();
   const projectionFit = useScreenProjectionFit({
     mapRef,
     region: viewportRegion ?? region,
@@ -734,84 +734,92 @@ export function FieldMapScreen() {
     [visibleBuildingMarkers, visibleRegion],
   );
 
-  const isRouteReady = isMapRouteReady({
-    housesReady: isHouseViewportReady,
-    buildingsReady: isBuildingViewportReady,
-    buildingsFailed: hasBuildingDataError,
-    locationReady: hasFreshRouteLocation,
-  });
-  const nextUnworkedDoor = useMemo(
-    () => isRouteReady && visibleRegion
-      ? rankUnworkedDoorTargets(myLocation, mapBuildings, viewportHouses, visibleRegion)[0] ?? null
-      : null,
-    [isRouteReady, mapBuildings, myLocation, viewportHouses, visibleRegion],
-  );
 
-  const handleNavigateToNextDoor = useCallback(() => {
-    if (!hasFreshRouteLocation) {
-      Alert.alert('Updating your location', 'Wait for the live location marker, then try again.');
+  // Areas assigned to the signed-in rep, for the area switcher button.
+  const myAssignedAreas = useMemo(
+    () => polygons.filter(
+      (polygon) => Number(polygon.assignee?.id) === Number(session?.user?.id),
+    ),
+    [polygons, session?.user?.id],
+  );
+  const areaSwitchIndexRef = useRef(0);
+
+  const handleSwitchArea = useCallback(() => {
+    if (myAssignedAreas.length === 0) {
+      Alert.alert('No assigned areas', 'Areas assigned to you will show up here.');
       return;
     }
-    if (!isHouseViewportReady) {
-      Alert.alert('Updating door statuses', 'Wait for the current street data, then try again.');
-      return;
+    const nextArea = myAssignedAreas[areaSwitchIndexRef.current % myAssignedAreas.length];
+    areaSwitchIndexRef.current += 1;
+    const nextRegion = getMapRegionFromCoordinates(nextArea.coordinates);
+    if (nextRegion) {
+      mapRef.current?.animateToRegion(nextRegion, 550);
     }
-    if (!isBuildingViewportReady && !hasBuildingDataError) {
-      Alert.alert('Updating nearby roofs', 'Wait for the current street footprints, then try again.');
-      return;
-    }
-    if (!nextUnworkedDoor) {
-      Alert.alert(
-        'No unworked doors nearby',
-        'Pan to another street-level area and wait for the roofs to load.',
-      );
-      return;
-    }
-    const label = nextUnworkedDoor.address?.trim() &&
-      nextUnworkedDoor.address.trim().toLowerCase() !== 'unknown address'
-      ? nextUnworkedDoor.address.trim()
-      : 'Nearest unworked door';
-    const distance = formatWalkingDistance(nextUnworkedDoor.distanceMeters);
-    Alert.alert(
-      label,
-      `${distance} away. Open walking directions?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Walk there',
-          onPress: () => {
-            Linking.openURL(buildWalkingDirectionsUrl(
-              nextUnworkedDoor.coordinate,
-              Platform.OS,
-            )).catch(() => {
-              Alert.alert('Could not open directions', 'Open your Maps app and try again.');
-            });
-          },
-        },
-      ],
-    );
-  }, [hasBuildingDataError, hasFreshRouteLocation, isBuildingViewportReady, isHouseViewportReady, nextUnworkedDoor]);
+  }, [myAssignedAreas]);
+
+  const handleOpenFilter = useCallback(() => {
+    // Seam: wire the chosen status into the house decal overlay (and the
+    // houses fetch) once the filter API/design is settled.
+    Alert.alert('Filter houses', 'Show doors by status', [
+      ...['All', 'Unworked', 'Follow-up', 'Appointment set', 'Sold', 'Not interested'].map((label) => ({
+        text: label,
+        onPress: () => undefined,
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }, []);
 
   return (
     <View style={styles.container}>
       <FloatingButtons
         buttons={[
-          ...(isStreetZoom && isIdle && isRouteReady ? [{
-            icon: <HugeiconsIcon icon={Route01Icon} size={22} color="#1F1F1F" strokeWidth={2} />,
-            onPress: handleNavigateToNextDoor,
-            accessibilityLabel: 'Navigate to the nearest unworked door',
-          }] : []),
           {
-            icon: <MyLocationSvg color={isAtCurrentLocation ? 'white' : '#1F1F1F'} />,
+            icon: <Ionicons name="podium-outline" size={21} color="white" />,
+            onPress: () => setShowLeaderboard(true),
+            style: { backgroundColor: '#00D1EA' },
+            accessibilityLabel: 'Show the leaderboard',
+          },
+          {
+            icon: <MyLocationSvg color="white" />,
             onPress: handleMyLocation,
-            style: { backgroundColor: isAtCurrentLocation ? '#32A0FF' : 'white' },
+            style: { backgroundColor: '#00D1EA' },
             accessibilityLabel: 'Center map on my location',
           },
+          {
+            icon: <Ionicons name="funnel-outline" size={20} color="white" />,
+            onPress: handleOpenFilter,
+            style: { backgroundColor: '#00D1EA' },
+            accessibilityLabel: 'Filter doors by status',
+          },
+          ...(myAssignedAreas.length > 1 ? [{
+            icon: <Ionicons name="swap-horizontal" size={21} color="white" />,
+            onPress: handleSwitchArea,
+            style: { backgroundColor: '#00D1EA' },
+            accessibilityLabel: 'Jump to my next assigned area',
+          }] : []),
         ]}
         activeDrawing={mode === 'drawing'}
         onToggleDrawing={mode !== 'reviewingDraft' ? handleToggleDrawing : undefined}
         isManager={isManager}
       />
+      <PlainModal
+        visible={showLeaderboard}
+        title="Leaderboard"
+        onClose={() => setShowLeaderboard(false)}
+      >
+        <LeaderboardCard
+          entries={SAMPLE_LEADERBOARD_REPS.slice(0, 10).map((rep, index) => ({
+            id: -(index + 1),
+            firstName: rep.first,
+            lastName: rep.last,
+            avatarUrl: `https://randomuser.me/api/portraits/${rep.portrait}.jpg`,
+            officeName: index % 5 === 2 ? 'Kaos Cartel' : 'Suntrappers',
+            value: rep.value,
+          }))}
+          metricLabel="knocks"
+          isSampleData
+        />
+      </PlainModal>
       <CustomAlert
         visible={alertVisible}
         onDismiss={() => {
@@ -1075,18 +1083,24 @@ export function FieldMapScreen() {
         controllerRef={compassControllerRef}
       />
       {mode === 'reviewingDraft' ? (
-        <View style={styles.draftActions}>
-          <Text style={styles.draftHint}>Drag the handles to fine-tune the boundary</Text>
+        <GlassSurface
+          // Same clear, untinted material the system tab bar renders.
+          glassEffectStyle="clear"
+          style={[styles.draftActions, { bottom: insets.bottom + 78 }]}
+          fallbackStyle={styles.draftActionsFallback}
+        >
           <View style={styles.draftButtons}>
             <Button
               text="Cancel"
               onPress={handleDiscardDraft}
               buttonStyle={styles.draftSecondaryButton}
+              textStyle={styles.draftSecondaryButtonText}
             />
             <Button
               text="Redraw"
               onPress={handleRedrawDraft}
               buttonStyle={styles.draftSecondaryButton}
+              textStyle={styles.draftSecondaryButtonText}
             />
             <Button
               text="Save area"
@@ -1096,7 +1110,7 @@ export function FieldMapScreen() {
               textStyle={styles.draftPrimaryButtonText}
             />
           </View>
-        </View>
+        </GlassSurface>
       ) : null}
       {hasMapDataError ? (
         <Pressable
@@ -1167,39 +1181,46 @@ const styles = StyleSheet.create({
     left: 16,
     right: 16,
     bottom: 24,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.97)',
+    // Full capsule, matching the nav bar's rounded dock.
+    borderRadius: 34,
+    overflow: 'hidden',
     paddingHorizontal: 14,
     paddingVertical: 12,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
-    elevation: 6,
     zIndex: 11,
   },
-  draftHint: {
-    color: '#3F3F46',
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 10,
-    textAlign: 'center',
+  draftActionsFallback: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
   draftButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 10,
   },
   draftSecondaryButton: {
     flex: 1,
-    backgroundColor: '#F4F4F5',
+    height: 44,
+    minWidth: 0,
+    paddingHorizontal: 10,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+  },
+  draftSecondaryButtonText: {
+    color: '#18181B',
+    fontWeight: '700',
+    fontSize: 13,
   },
   draftPrimaryButton: {
     flex: 1,
-    backgroundColor: '#32A0FF',
+    height: 44,
+    minWidth: 0,
+    paddingHorizontal: 10,
+    borderRadius: 22,
+    backgroundColor: '#00D1EA',
   },
   draftPrimaryButtonText: {
     color: 'white',
+    fontWeight: '700',
+    fontSize: 13,
   },
   loaderContainer: {
     position: 'absolute',

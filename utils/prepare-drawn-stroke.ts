@@ -1,21 +1,41 @@
 import { simplifyStrokePoints, type StrokePoint } from 'utils/simplify-stroke-points';
 
 const DEFAULT_TOLERANCE_PX = 6;
-const DEFAULT_MAX_VERTICES = 12;
+const MIN_VERTICES = 6;
+const MAX_VERTICES = 12;
+const STROKE_PX_PER_VERTEX = 110;
 
 /**
  * Reduces a painted 60fps touch trail to the few vertices worth editing:
- * simplify, cap the count, and drop a loop-closing tail point so the first
- * corner does not get a stacked duplicate handle.
+ * simplify, budget the count by how big the drawn shape is (a small circle
+ * earns ~6 handles, only a large sweep gets the full 12), and drop a
+ * loop-closing tail point so the first corner does not get a stacked
+ * duplicate handle. Pass `maxVertices` to override the dynamic budget.
  */
 export function prepareDrawnStrokeVertices(
   points: readonly StrokePoint[],
   tolerancePx: number = DEFAULT_TOLERANCE_PX,
-  maxVertices: number = DEFAULT_MAX_VERTICES,
+  maxVertices?: number,
 ): StrokePoint[] {
   const simplified = simplifyStrokePoints(points, tolerancePx);
-  const bounded = limitVertexCount(simplified, maxVertices);
+  const budget = maxVertices ?? vertexBudgetForStroke(simplified);
+  const bounded = limitVertexCount(simplified, budget);
   return dropClosingTail(bounded, tolerancePx * 3);
+}
+
+/** Scales the handle count with the stroke's perimeter length. */
+function vertexBudgetForStroke(points: readonly StrokePoint[]): number {
+  let perimeterPx = 0;
+  for (let index = 1; index < points.length; index += 1) {
+    perimeterPx += Math.hypot(
+      points[index].x - points[index - 1].x,
+      points[index].y - points[index - 1].y,
+    );
+  }
+  return Math.min(
+    MAX_VERTICES,
+    Math.max(MIN_VERTICES, Math.round(perimeterPx / STROKE_PX_PER_VERTEX)),
+  );
 }
 
 function limitVertexCount(points: StrokePoint[], maxVertices: number): StrokePoint[] {
