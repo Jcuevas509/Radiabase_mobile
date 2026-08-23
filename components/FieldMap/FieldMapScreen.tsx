@@ -68,7 +68,7 @@ import { getMapRegionFromCoordinates } from 'utils/get-map-region-from-coordinat
 import { SAMPLE_LEADERBOARD_REPS } from 'services/sample-leaderboard';
 import { LeaderboardCard } from 'components/Card/LeaderboardCard';
 import { PlainModal } from 'components/Modal/Modal';
-import { GlassSurface } from 'components/GlassSurface';
+import { useDraftActionsStore } from 'store/DraftActionsStore';
 import { getPolygonCentroid } from 'utils/get-polygon-centroid';
 import { getUserScopeKey } from 'utils/get-user-scope-key';
 import { getAcronym, hexToRgba } from 'utils/helperFunctions';
@@ -133,6 +133,10 @@ export function FieldMapScreen() {
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
   const [isMapMoving, setIsMapMoving] = useState(false);
   const [showLeaderboard, setShowLeaderboard] = useState(false);
+  // The vertex handles fire a burst of main-thread MapKit calls on mount,
+  // which stutters the tab bar's morph animation. Mount them only after
+  // the bar has finished animating.
+  const [isDraftEditorReady, setIsDraftEditorReady] = useState(false);
   const isMapMovingRef = useRef(false);
   const settleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapRef = useRef<MapView>(null);
@@ -354,7 +358,21 @@ export function FieldMapScreen() {
       markPerfBreadcrumb('settle');
       isMapMovingRef.current = false;
       setIsMapMoving(false);
-      setViewportRegion(newRegion);
+      // The map re-emits visually identical regions as fresh objects; a
+      // sub-0.1%-of-viewport difference is under a pixel, so keep the old
+      // state object and spare the whole tree a re-render.
+      setViewportRegion((current) => {
+        if (
+          current &&
+          Math.abs(current.latitude - newRegion.latitude) < current.latitudeDelta * 0.001 &&
+          Math.abs(current.longitude - newRegion.longitude) < current.longitudeDelta * 0.001 &&
+          Math.abs(current.latitudeDelta - newRegion.latitudeDelta) < current.latitudeDelta * 0.001 &&
+          Math.abs(current.longitudeDelta - newRegion.longitudeDelta) < current.longitudeDelta * 0.001
+        ) {
+          return current;
+        }
+        return newRegion;
+      });
       compassControllerRef.current?.requestHeadingUpdate();
       if (isAtCurrentLocation && region) {
         const locationThreshold = 0.0001;
@@ -564,6 +582,58 @@ export function FieldMapScreen() {
     useDraftAreaStore.getState().setCoordinates(null);
     setMode('drawing');
   }, []);
+
+  useEffect(() => {
+    if (mode !== 'reviewingDraft') {
+      setIsDraftEditorReady(false);
+      return;
+    }
+    const timer = setTimeout(() => setIsDraftEditorReady(true), 420);
+    return () => clearTimeout(timer);
+  }, [mode]);
+
+  // Collapse the tab bar to three slots for the whole draw flow, so the
+  // screen unmounts happen at draw start (quiet moment) instead of during
+  // the morph animation at stroke end.
+  useEffect(() => {
+    useDraftActionsStore.getState().setCompactBar(mode !== 'idle');
+    return () => {
+      useDraftActionsStore.getState().setCompactBar(false);
+    };
+  }, [mode]);
+
+  // The native tab bar morphs into the draft actions the moment drawing
+  // starts (see (tabs)/_layout) — so finishing a shape changes nothing in
+  // the bar and animates nothing. During painting only Cancel is live;
+  // Save/Redraw activate once the shape exists.
+  useEffect(() => {
+    if (mode === 'idle') {
+      useDraftActionsStore.getState().setActions(null);
+      return;
+    }
+    if (mode === 'drawing') {
+      useDraftActionsStore.getState().setActions({
+        onCancel: handleToggleDrawing,
+        onRedraw: () => undefined,
+        onSave: () => undefined,
+        isSaving: false,
+      });
+    } else {
+      useDraftActionsStore.getState().setActions({
+        onCancel: handleDiscardDraft,
+        onRedraw: handleRedrawDraft,
+        onSave: () => { void handleSaveDraft(); },
+        isSaving: loading,
+      });
+    }
+    return () => {
+      useDraftActionsStore.getState().setActions(null);
+    };
+    // handleSaveDraft is recreated per render but reads live store/session
+    // state at call time, so the latest capture on mode/loading changes is
+    // sufficient.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, loading, handleDiscardDraft, handleRedrawDraft, handleToggleDrawing]);
 
   const handleSaveDraft = async () => {
     const draftCoordinates = useDraftAreaStore.getState().coordinates;
@@ -1067,7 +1137,7 @@ export function FieldMapScreen() {
           }
         }}
       />
-      {mode === 'reviewingDraft' ? (
+      {mode === 'reviewingDraft' && isDraftEditorReady ? (
         <DraftVertexHandles
           region={viewportRegion ?? region}
           mapRef={mapRef}
@@ -1082,36 +1152,6 @@ export function FieldMapScreen() {
         isEnabled={isScreenFocused && isAppActive}
         controllerRef={compassControllerRef}
       />
-      {mode === 'reviewingDraft' ? (
-        <GlassSurface
-          // Same clear, untinted material the system tab bar renders.
-          glassEffectStyle="clear"
-          style={[styles.draftActions, { bottom: insets.bottom + 78 }]}
-          fallbackStyle={styles.draftActionsFallback}
-        >
-          <View style={styles.draftButtons}>
-            <Button
-              text="Cancel"
-              onPress={handleDiscardDraft}
-              buttonStyle={styles.draftSecondaryButton}
-              textStyle={styles.draftSecondaryButtonText}
-            />
-            <Button
-              text="Redraw"
-              onPress={handleRedrawDraft}
-              buttonStyle={styles.draftSecondaryButton}
-              textStyle={styles.draftSecondaryButtonText}
-            />
-            <Button
-              text="Save area"
-              onPress={() => void handleSaveDraft()}
-              isDisabled={loading}
-              buttonStyle={styles.draftPrimaryButton}
-              textStyle={styles.draftPrimaryButtonText}
-            />
-          </View>
-        </GlassSurface>
-      ) : null}
       {hasMapDataError ? (
         <Pressable
           accessibilityRole="button"

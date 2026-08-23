@@ -39,19 +39,13 @@ export function useMapBuildings(input: UseMapBuildingsInput): MapBuildingsState 
   useEffect(() => {
     const requestId = requestIdRef.current + 1;
     requestIdRef.current = requestId;
-    if (!input.isEnabled || !input.region) {
+    if (!viewportQuery) {
       setReadyQueryKey(null);
       setBuildings([]);
       setHasError(false);
       return;
     }
-    if (!isStreetZoomRegion(input.region)) {
-      setReadyQueryKey(null);
-      setBuildings([]);
-      setHasError(false);
-      return;
-    }
-    const visibleQuery = viewportQuery!;
+    const visibleQuery = viewportQuery;
     let abortController: AbortController | null = null;
     const timeoutId = setTimeout(() => {
       abortController = new AbortController();
@@ -76,7 +70,11 @@ export function useMapBuildings(input: UseMapBuildingsInput): MapBuildingsState 
       clearTimeout(timeoutId);
       abortController?.abort();
     };
-  }, [input.isEnabled, input.refreshKey, input.region, viewportQuery]);
+    // Keyed on the computed bbox string, not object identities — the map
+    // re-emits identical regions as fresh objects ("breathing"), which
+    // previously aborted and refetched the same viewport in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input.refreshKey, viewportQuery?.key]);
   return {
     buildings,
     hasError,

@@ -57,7 +57,7 @@ export function useMapHousesViewport(input: UseMapHousesViewportInput): {
   }, [input.areaIds, input.isEnabled, input.region, input.scopeKey]);
 
   useEffect(() => {
-    if (!isAppActive || !input.isEnabled || !input.region || !isStreetZoomRegion(input.region)) {
+    if (!isAppActive || !viewportQuery) {
       return;
     }
     const intervalMs = input.liveSyncIntervalMs ?? MAP_HOUSE_LIVE_SYNC_INTERVAL_MS;
@@ -82,7 +82,8 @@ export function useMapHousesViewport(input: UseMapHousesViewportInput): {
     return () => {
       stop();
     };
-  }, [input.isEnabled, input.liveSyncIntervalMs, input.region, isAppActive]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input.liveSyncIntervalMs, isAppActive, viewportQuery?.key]);
 
   useEffect(() => {
     const requestId = requestIdRef.current + 1;
@@ -102,7 +103,7 @@ export function useMapHousesViewport(input: UseMapHousesViewportInput): {
       setHasError(false);
       return;
     }
-    if (!input.region || !isStreetZoomRegion(input.region)) {
+    if (!viewportQuery) {
       lastSuccessfulViewportKeyRef.current = null;
       setReadyQueryKey(null);
       setHouses([]);
@@ -114,8 +115,8 @@ export function useMapHousesViewport(input: UseMapHousesViewportInput): {
       setHasError(false);
       return;
     }
-    const visibleBbox = viewportQuery!.bbox;
-    const viewportQueryKey = viewportQuery!.key;
+    const visibleBbox = viewportQuery.bbox;
+    const viewportQueryKey = viewportQuery.key;
     let abortController: AbortController | null = null;
     const timeoutId = setTimeout(() => {
       abortController = new AbortController();
@@ -155,7 +156,10 @@ export function useMapHousesViewport(input: UseMapHousesViewportInput): {
       clearTimeout(timeoutId);
       abortController?.abort();
     };
-  }, [input.areaIds, input.isEnabled, input.refreshKey, input.region, input.scopeKey, isAppActive, liveRefreshKey, viewportQuery]);
+    // Keyed on the computed viewport string (scope+areas+bbox), not the
+    // region/array identities that churn every render — see useMapBuildings.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [input.isEnabled, input.refreshKey, input.scopeKey, isAppActive, liveRefreshKey, viewportQuery?.key]);
   return {
     houses,
     hasError,
