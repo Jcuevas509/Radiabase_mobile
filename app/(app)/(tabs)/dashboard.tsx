@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
     Alert,
     View,
@@ -6,15 +6,22 @@ import {
     Text,
     TouchableOpacity,
     ScrollView,
+    ImageBackground,
+    Animated,
+    Easing,
     ActivityIndicator,
     FlatList,
     useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import MapView, { Polygon } from 'react-native-maps';
-import Svg, { Polyline } from 'react-native-svg';
+import Svg, { Circle, Polyline } from 'react-native-svg';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { GlassSurface } from 'components/GlassSurface';
 import { useNavigation } from 'expo-router';
+import { useDraftTabAction } from 'hooks/useDraftTabAction';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { HeaderMenuButton, HeaderMessagesButton } from 'components/Menu/HeaderMenuButton';
 import { LeaderboardCard, type LeaderboardEntry } from 'components/Card/LeaderboardCard';
@@ -86,9 +93,42 @@ function TrendSparkline({ change }: { readonly change: number }) {
 
 const DashboardScreen = () => {
     const navigation = useNavigation();
+    // Morphed tab bar: this slot is Cancel while a draft is active.
+    useDraftTabAction('onCancel');
     const { session } = useSession();
     const { width: windowWidth } = useWindowDimensions();
+    const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<string>('Today');
+    // Sliding gradient pill for the period selector.
+    const periodIndexAnim = useRef(new Animated.Value(0)).current;
+    const [periodTrackWidth, setPeriodTrackWidth] = useState(0);
+    useEffect(() => {
+        Animated.spring(periodIndexAnim, {
+            toValue: Math.max(0, PERIODS.indexOf(activeTab as typeof PERIODS[number])),
+            useNativeDriver: true,
+            friction: 10,
+            tension: 110,
+        }).start();
+    }, [activeTab, periodIndexAnim]);
+    const periodPillWidth = periodTrackWidth > 0 ? (periodTrackWidth - 8) / PERIODS.length : 0;
+    // Border sweep: a slow-rotating oversized gradient behind the
+    // leaderboard's inset card reads as a highlight travelling around the
+    // border — bottom-left, up, around, and back down the right.
+    const borderSweepAnim = useRef(new Animated.Value(0)).current;
+    useEffect(() => {
+        const loop = Animated.loop(Animated.timing(borderSweepAnim, {
+            toValue: 1,
+            duration: 14000,
+            easing: Easing.linear,
+            useNativeDriver: true,
+        }));
+        loop.start();
+        return () => loop.stop();
+    }, [borderSweepAnim]);
+    const borderSweepRotation = borderSweepAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['225deg', '585deg'],
+    });
     const [contactData, setContactData] = useState({
         leads: 0,
         knocks: 0,
@@ -103,7 +143,7 @@ const DashboardScreen = () => {
     const [leaderboardMetric, setLeaderboardMetric] = useState<'Knocks' | 'Deals' | 'Installs'>('Knocks');
     const [leaderboardRole, setLeaderboardRole] = useState<'Setters' | 'Closers' | 'Self Gens'>('Setters');
     const [leaderboardPage, setLeaderboardPage] = useState(1);
-    const turfCardWidth = windowWidth - 40;
+    const turfCardWidth = windowWidth - 44;
 
     // Label every turf card with the city its turf sits in, resolved
     // on-device from the area centroid. Failures just leave the fallback.
@@ -273,20 +313,30 @@ const DashboardScreen = () => {
     };
 
     return (
-        <SafeAreaView style={styles.safeArea} edges={['top']}>
-            <View style={styles.header}>
-                <View style={styles.headerSide}>
-                    <HeaderMenuButton />
+        <SafeAreaView style={styles.safeArea} edges={[]}>
+            <LinearGradient
+                colors={['#067A90', '#0AA6BE', '#00CFE8']}
+                locations={[0, 0.55, 1]}
+                start={{ x: 0.1, y: 0 }}
+                end={{ x: 0.7, y: 1 }}
+                style={[styles.headerBand, { paddingTop: insets.top + 6 }]}
+            >
+                <View style={styles.headerIdentity}>
+                    <View style={styles.headerMenuSlot}>
+                        <HeaderMenuButton color="#FFFFFF" />
+                    </View>
+                    <Text style={styles.headerGreeting} numberOfLines={1}>
+                        Welcome,{'  '}{firstName}
+                    </Text>
                 </View>
-                <Text style={styles.headerTitle}>Home</Text>
                 <View style={styles.headerRightGroup}>
-                    <HeaderMessagesButton />
+                    <HeaderMessagesButton color="#FFFFFF" />
                     <TouchableOpacity
                         accessibilityRole="button"
                         accessibilityLabel="Notifications"
                         hitSlop={12}
                     >
-                        <Ionicons name="notifications-outline" size={24} color="#18181B" />
+                        <Ionicons name="notifications" size={24} color="#FFFFFF" />
                         {notificationCount > 0 ? (
                             <View style={styles.bellBadge}>
                                 <Text style={styles.bellBadgeText}>{notificationCount}</Text>
@@ -294,39 +344,26 @@ const DashboardScreen = () => {
                         ) : null}
                     </TouchableOpacity>
                 </View>
-            </View>
-            <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
-                <View style={styles.heroCard}>
-                    <View style={styles.avatarWrap}>
-                        <View style={styles.avatarRing}>
-                            <UserAvatar
-                                firstName={session?.user?.firstName ?? ''}
-                                lastName={session?.user?.lastName ?? ''}
-                                imageUrl={AVATAR_URL_PLACEHOLDER}
-                                size={60}
-                                color="#18181B"
-                                ringWidth={1}
+            </LinearGradient>
+            <View style={styles.content}>
+                {/* Subtle radial waves rising from the bottom of the sheet. */}
+                <View style={StyleSheet.absoluteFill} pointerEvents="none">
+                    <Svg width="100%" height="100%">
+                        {[0, 1, 2, 3, 4, 5, 6].map((ring) => (
+                            <Circle
+                                key={ring}
+                                cx="50%"
+                                cy="112%"
+                                r={windowWidth * 0.34 + ring * 78}
+                                stroke="#00AFC6"
+                                strokeOpacity={0.07}
+                                strokeWidth={1.6}
+                                fill="none"
                             />
-                        </View>
-                        <View style={styles.presenceDot} />
-                    </View>
-                    <View style={styles.heroTextBlock}>
-                        <Text style={styles.greeting}>Hi, {firstName} 👋</Text>
-                        <Text style={styles.heroTitleRow}>Energy Consultant | Suntapped Energy</Text>
-                        <View style={styles.reviewsRow}>
-                            {[0, 1, 2, 3, 4].map((starIndex) => (
-                                <View key={starIndex} style={styles.starWrap}>
-                                    <Ionicons name="star" size={17} color="#18181B" style={styles.starStroke} />
-                                    <Ionicons name="star" size={14} color="#FBBF24" />
-                                </View>
-                            ))}
-                            <Text style={styles.reviewsCount}>
-                                {REVIEWS_COUNT_PLACEHOLDER.toLocaleString()} reviews
-                            </Text>
-                        </View>
-                    </View>
+                        ))}
+                    </Svg>
                 </View>
-
+                <ScrollView style={styles.scrollArea} contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 96 }]}>
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <Text style={styles.sectionTitle}>Assigned area</Text>
@@ -364,8 +401,13 @@ const DashboardScreen = () => {
                                         ? pickAssigneeColor(area.assignee.id)
                                         : '#8B8682';
                                     return (
+                                        <GlassSurface
+                                            glassEffectStyle="clear"
+                                            style={[styles.turfGlassRim, { width: turfCardWidth }]}
+                                            fallbackStyle={styles.turfGlassRimFallback}
+                                        >
                                         <TouchableOpacity
-                                            style={[styles.turfCard, { width: turfCardWidth }]}
+                                            style={styles.turfCard}
                                             onPress={openMap}
                                             activeOpacity={0.9}
                                         >
@@ -406,6 +448,7 @@ const DashboardScreen = () => {
                                                 </View>
                                             </View>
                                         </TouchableOpacity>
+                                        </GlassSurface>
                                     );
                                 }}
                                 ItemSeparatorComponent={() => <View style={styles.turfSeparator} />}
@@ -429,16 +472,42 @@ const DashboardScreen = () => {
 
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
-                        <Text style={styles.sectionTitle}>Activity / Performance</Text>
+                        <Text style={styles.sectionTitle}>{'Activity / Performance\u00A0'}</Text>
                     </View>
-                    <View style={styles.periodRow}>
+                    {/* Brand-styled period selector: white track, selected
+                        pill in the nav bar's colorway (turquoise on light). */}
+                    <View
+                        style={styles.periodRow}
+                        onLayout={(event) => setPeriodTrackWidth(event.nativeEvent.layout.width)}
+                    >
+                        {periodPillWidth > 0 ? (
+                            <Animated.View
+                                style={[
+                                    styles.periodPill,
+                                    {
+                                        width: periodPillWidth,
+                                        transform: [{
+                                            translateX: Animated.multiply(periodIndexAnim, periodPillWidth),
+                                        }],
+                                    },
+                                ]}
+                            >
+                                <LinearGradient
+                                    colors={['#09090B', '#26262B', '#4A4A52']}
+                                    locations={[0, 0.55, 1]}
+                                    start={{ x: 0.1, y: 0 }}
+                                    end={{ x: 0.7, y: 1 }}
+                                    style={StyleSheet.absoluteFill}
+                                />
+                            </Animated.View>
+                        ) : null}
                         {PERIODS.map((title) => {
                             const isActive = activeTab === title;
                             return (
                                 <TouchableOpacity
                                     key={title}
                                     onPress={() => setActiveTab(title)}
-                                    style={[styles.periodChip, isActive && styles.periodChipActive]}
+                                    style={styles.periodChip}
                                 >
                                     <Text style={[styles.periodText, isActive && styles.periodTextActive]}>
                                         {title}
@@ -484,17 +553,33 @@ const DashboardScreen = () => {
                             </TouchableOpacity>
                         </View>
                     </View>
+                    <View style={styles.leaderboardBorder}>
+                        <Animated.View
+                            pointerEvents="none"
+                            style={[styles.borderSweep, { transform: [{ rotate: borderSweepRotation }] }]}
+                        >
+                            <LinearGradient
+                                colors={['#141416', '#141416', '#DCDCDF', '#141416', '#141416']}
+                                locations={[0, 0.32, 0.5, 0.68, 1]}
+                                start={{ x: 0, y: 0.5 }}
+                                end={{ x: 1, y: 0.5 }}
+                                style={StyleSheet.absoluteFill}
+                            />
+                        </Animated.View>
                     <LeaderboardCard
                         entries={leaderboardEntries}
                         metricLabel={leaderboardMetric.toLowerCase()}
                         rankOffset={(clampedLeaderboardPage - 1) * LEADERBOARD_PAGE_SIZE}
                         page={clampedLeaderboardPage}
                         pageCount={leaderboardPageCount}
+                        fillToCount={leaderboardPageCount > 1 ? LEADERBOARD_PAGE_SIZE : undefined}
                         totalCount={allLeaderboardEntries.length}
                         onPageChange={setLeaderboardPage}
                     />
+                    </View>
                 </View>
-            </ScrollView>
+                </ScrollView>
+            </View>
         </SafeAreaView>
     );
 };
@@ -502,19 +587,37 @@ const DashboardScreen = () => {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#F4F4F5',
+        backgroundColor: '#F1F2F4',
     },
-    header: {
+    headerBand: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        backgroundColor: '#F4F4F5',
+        paddingHorizontal: 16,
+        // Room for the content sheet's rounded corners to overlap the band.
+        paddingBottom: 40,
+    },
+    headerIdentity: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        flex: 1,
+    },
+
+    headerGreeting: {
+        // flex:1 gives the text the full remaining row width — custom OTF
+        // metrics under-measure otherwise and ellipsize early.
+        flex: 1,
+        fontFamily: 'ClashGrotesk-Bold',
+        fontSize: 20,
+        color: '#FFFFFF',
+    },
+    headerMenuSlot: {
+        marginRight: 4,
     },
     headerTitle: {
         fontSize: 20,
-        fontWeight: '800',
+        fontFamily: 'ClashGrotesk-Bold',
         color: '#18181B',
     },
     headerSide: {
@@ -530,9 +633,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'flex-end',
-        gap: 18,
+        gap: 26,
         minWidth: 44,
         height: 44,
+        marginRight: 8,
     },
     bellBadge: {
         position: 'absolute',
@@ -549,14 +653,22 @@ const styles = StyleSheet.create({
     bellBadgeText: {
         color: 'white',
         fontSize: 10,
-        fontWeight: '800',
+        fontFamily: 'ClashGrotesk-Bold',
     },
     content: {
         flex: 1,
+        marginTop: -26,
+        borderTopLeftRadius: 26,
+        borderTopRightRadius: 26,
+        backgroundColor: '#F1F2F4',
+        overflow: 'hidden',
     },
-    scrollContent: {
-        paddingBottom: 32,
+    scrollArea: {
+        flex: 1,
+        backgroundColor: 'transparent',
     },
+
+    scrollContent: {},
     heroCard: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -593,12 +705,12 @@ const styles = StyleSheet.create({
     },
     greeting: {
         fontSize: 24,
-        fontWeight: '800',
+        fontFamily: 'ClashGrotesk-Bold',
         color: '#18181B',
     },
     heroTitleRow: {
         fontSize: 13,
-        fontWeight: '600',
+        fontFamily: 'ClashGrotesk-Semibold',
         color: '#71717A',
         marginBottom: 2,
     },
@@ -620,11 +732,11 @@ const styles = StyleSheet.create({
         marginLeft: 5,
         fontSize: 13,
         lineHeight: 17,
-        fontWeight: '600',
+        fontFamily: 'ClashGrotesk-Semibold',
         color: '#71717A',
     },
     section: {
-        paddingHorizontal: 20,
+        paddingHorizontal: 22,
         paddingTop: 14,
     },
     sectionHeader: {
@@ -634,8 +746,12 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     sectionTitle: {
-        fontSize: 18,
-        fontWeight: '800',
+        // Clash's metrics under-measure; padding keeps the last glyph
+        // from clipping.
+        paddingRight: 14,
+        marginLeft: 1,
+        fontSize: 21,
+        fontFamily: 'ClashGrotesk-Semibold',
         color: '#18181B',
     },
     filterGroup: {
@@ -660,7 +776,7 @@ const styles = StyleSheet.create({
     },
     filterButtonText: {
         fontSize: 12,
-        fontWeight: '700',
+        fontFamily: 'ClashGrotesk-Bold',
         color: '#18181B',
     },
     loader: {
@@ -685,23 +801,29 @@ const styles = StyleSheet.create({
     },
     emptyTitle: {
         fontSize: 16,
-        fontWeight: '700',
+        fontFamily: 'ClashGrotesk-Bold',
         color: '#18181B',
         marginBottom: 4,
+    },
+    // Bare native glass rim: concentric radii (25 outer, 22 inner at 3px
+    // padding), nothing painted around or under it — the material stands
+    // on its own, exactly like the nav bar.
+    turfGlassRim: {
+        borderRadius: 25,
+        padding: 3,
+        overflow: 'hidden',
+    },
+    turfGlassRimFallback: {
+        backgroundColor: 'rgba(255, 255, 255, 0.5)',
     },
     turfCard: {
         borderRadius: 22,
         overflow: 'hidden',
         backgroundColor: '#E4E4E7',
-        shadowColor: '#18181B',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.06,
-        shadowRadius: 16,
-        elevation: 3,
     },
     turfMap: {
         width: '100%',
-        height: 150,
+        height: 190,
     },
     mapFallback: {
         backgroundColor: '#E4E4E7',
@@ -728,7 +850,7 @@ const styles = StyleSheet.create({
     turfCity: {
         color: 'white',
         fontSize: 16,
-        fontWeight: '800',
+        fontFamily: 'ClashGrotesk-Bold',
         textShadowColor: 'rgba(0, 0, 0, 0.6)',
         textShadowOffset: { width: 0, height: 1 },
         textShadowRadius: 3,
@@ -752,38 +874,53 @@ const styles = StyleSheet.create({
     },
     periodRow: {
         flexDirection: 'row',
-        backgroundColor: 'rgba(24, 24, 27, 0.06)',
-        borderRadius: 14,
-        padding: 3,
-        marginBottom: 8,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        padding: 4,
+        marginBottom: 12,
+        borderWidth: StyleSheet.hairlineWidth,
+        borderColor: 'rgba(24, 24, 27, 0.07)',
+        boxShadow: '0 1px 2px rgba(24, 24, 27, 0.05), 0 10px 26px rgba(24, 24, 27, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
+    },
+    periodPill: {
+        position: 'absolute',
+        left: 4,
+        top: 4,
+        bottom: 4,
+        borderRadius: 20,
+        overflow: 'hidden',
     },
     periodChip: {
         flex: 1,
-        minHeight: 32,
-        borderRadius: 11,
+        minHeight: 40,
+        borderRadius: 20,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    periodChipActive: {
-        backgroundColor: '#FFFFFF',
-        shadowColor: '#18181B',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.10,
-        shadowRadius: 6,
-        elevation: 2,
-    },
     periodText: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#71717A',
+        fontSize: 14,
+        fontFamily: 'ClashGrotesk-Semibold',
+        color: '#52525B',
     },
     periodTextActive: {
-        color: '#18181B',
+        color: '#FFFFFF',
+    },
+    leaderboardBorder: {
+        borderRadius: 17,
+        padding: 1,
+        overflow: 'hidden',
+    },
+    borderSweep: {
+        position: 'absolute',
+        top: '-75%',
+        left: '-75%',
+        width: '250%',
+        height: '250%',
     },
     statsGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
+        gap: 12,
     },
     statCard: {
         width: '31%',
@@ -791,13 +928,11 @@ const styles = StyleSheet.create({
         minHeight: 72,
         borderRadius: 18,
         borderWidth: StyleSheet.hairlineWidth,
-        borderColor: 'rgba(24, 24, 27, 0.06)',
+        borderColor: 'rgba(24, 24, 27, 0.07)',
         backgroundColor: '#FFFFFF',
-        shadowColor: '#18181B',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.06,
-        shadowRadius: 16,
-        elevation: 3,
+        // Layered elevation: crisp contact shadow + soft ambient, with an
+        // inset top-edge highlight catching the light.
+        boxShadow: '0 1px 2px rgba(24, 24, 27, 0.05), 0 10px 26px rgba(24, 24, 27, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
         paddingVertical: 10,
         paddingHorizontal: 10,
         flexDirection: 'row',
@@ -811,17 +946,17 @@ const styles = StyleSheet.create({
     },
     trendText: {
         fontSize: 9,
-        fontWeight: '800',
+        fontFamily: 'ClashGrotesk-Bold',
     },
     statLabel: {
         fontSize: 13,
-        fontWeight: '500',
+        fontFamily: 'ClashGrotesk-Medium',
         color: '#71717A',
         marginBottom: 4,
     },
     statNumber: {
         fontSize: 22,
-        fontWeight: '700',
+        fontFamily: 'ClashGrotesk-Bold',
         color: '#18181B',
     },
 });

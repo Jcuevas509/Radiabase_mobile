@@ -3,6 +3,7 @@ import type {
   GearItem,
   ManagerAlert,
   OfficeSummary,
+  OfficeTeam,
   OnboardingRecruit,
   PendingDealApproval,
   RepPerformance,
@@ -17,6 +18,7 @@ import {
   SAMPLE_GEAR,
   SAMPLE_MANAGER_ALERTS,
   SAMPLE_OFFICES,
+  SAMPLE_OFFICE_TEAMS,
   SAMPLE_ONBOARDING,
   SAMPLE_TEAM_ROSTER,
   SAMPLE_TEAM_SNAPSHOT,
@@ -122,6 +124,14 @@ export async function fetchOffices(input: {
   readonly signal?: AbortSignal;
 }): Promise<readonly OfficeSummary[]> {
   return sampleResponse(SAMPLE_OFFICES, input.signal);
+}
+
+// Seam: GET /teams?managerId= (teams grouped client-side by officeName)
+export async function fetchOfficeTeams(input: {
+  readonly managerId: number;
+  readonly signal?: AbortSignal;
+}): Promise<readonly OfficeTeam[]> {
+  return sampleResponse(SAMPLE_OFFICE_TEAMS, input.signal);
 }
 
 // Seam: GET /gear/catalog

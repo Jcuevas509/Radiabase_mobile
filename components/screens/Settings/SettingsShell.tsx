@@ -11,7 +11,9 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { GlassSurface } from 'components/GlassSurface';
 
 /**
  * Shared frame and row kit for the settings sub-screens: back-arrow header,
@@ -22,11 +24,63 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export function SettingsShell({
   title,
   children,
+  headerRight,
+  glassHeader = false,
 }: {
   readonly title: string;
   readonly children: ReactNode;
+  readonly headerRight?: ReactNode;
+  /** Floats the header over the scrolling content on native glass — the
+   * material needs content sliding beneath it to lens, so the bar overlays
+   * the scroll view instead of stacking above it (nav-bar recipe). */
+  readonly glassHeader?: boolean;
 }) {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  if (glassHeader) {
+    return (
+      <View style={styles.safeArea}>
+        {/* Faint diagonal tonal shift on the page ground so the floating
+            glass always has a value change to refract, even at rest. */}
+        <LinearGradient
+          colors={['#FAFBFC', '#F1F2F4', '#E7EAEE']}
+          locations={[0, 0.45, 1]}
+          start={{ x: 0.15, y: 0 }}
+          end={{ x: 0.85, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+        <View style={[styles.header, styles.headerFloating, { top: insets.top }]}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            hitSlop={12}
+            onPress={() => router.back()}
+            style={styles.headerSide}
+          >
+            <GlassSurface
+              glassEffectStyle="clear"
+              isInteractive
+              style={styles.glassButton}
+              fallbackStyle={styles.glassButtonFallback}
+            >
+              <Ionicons name="chevron-back" size={22} color="#18181B" />
+            </GlassSurface>
+          </Pressable>
+          <GlassSurface
+            glassEffectStyle="clear"
+            style={styles.glassTitle}
+            fallbackStyle={styles.glassButtonFallback}
+          >
+            <Text style={styles.headerTitle}>{title}</Text>
+          </GlassSurface>
+          <View style={[styles.headerSide, styles.headerSideRight]}>{headerRight}</View>
+        </View>
+        <ScrollView contentContainerStyle={[styles.content, { paddingTop: insets.top + 76 }]}>
+          {children}
+        </ScrollView>
+      </View>
+    );
+  }
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <View style={styles.header}>
@@ -40,7 +94,7 @@ export function SettingsShell({
           <Ionicons name="chevron-back" size={26} color="#18181B" />
         </Pressable>
         <Text style={styles.headerTitle}>{title}</Text>
-        <View style={styles.headerSide} />
+        <View style={[styles.headerSide, styles.headerSideRight]}>{headerRight}</View>
       </View>
       <ScrollView contentContainerStyle={styles.content}>{children}</ScrollView>
     </SafeAreaView>
@@ -244,6 +298,36 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'flex-start',
     justifyContent: 'center',
+  },
+  headerSideRight: {
+    alignItems: 'flex-end',
+  },
+  headerFloating: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 10,
+  },
+  glassTitle: {
+    height: 40,
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Bare native glass circle — no background or shadow on the glass node,
+  // exactly like the nav bar.
+  glassButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  glassButtonFallback: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   content: {
     padding: 16,

@@ -17,7 +17,7 @@ jest.mock('components/Menu/HeaderMenuButton', () => ({
 jest.mock('expo-router', () => ({
   ...jest.requireActual('expo-router'),
   useIsFocused: () => true,
-  useNavigation: () => ({ dispatch: jest.fn() }),
+  useNavigation: () => ({ dispatch: jest.fn(), addListener: jest.fn(() => () => undefined) }),
 }));
 jest.mock('context/AuthenticationContext', () => ({
   useSession: () => ({ session: mockSession }),

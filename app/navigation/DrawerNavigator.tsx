@@ -93,7 +93,9 @@ const DrawerNavigator = ({ menuItems }: DrawerNavigatorProps) => {
             screenOptions={{
                 headerShown: false,
                 drawerType: 'front',
-                swipeEnabled: isManager,
+                // The admin menu now opens as a bottom sheet (AdminMenuSheet);
+                // the drawer stays only as the route container, never shown.
+                swipeEnabled: false,
                 drawerStyle: {
                     width: DRAWER_WIDTH,
                     backgroundColor: '#FFFFFF',

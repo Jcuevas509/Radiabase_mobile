@@ -21,6 +21,10 @@ type DraftActionsState = {
   readonly isCompactBar: boolean;
   readonly setActions: (actions: DraftActions | null) => void;
   readonly setCompactBar: (isCompactBar: boolean) => void;
+  /** Atomic morph update: one store change → one tab-bar transaction, so
+   * the native collapse animates as a single transition with no trailing
+   * layout nudge. */
+  readonly setFlow: (actions: DraftActions | null, isCompactBar: boolean) => void;
 };
 
 export const useDraftActionsStore = create<DraftActionsState>((set) => ({
@@ -28,4 +32,5 @@ export const useDraftActionsStore = create<DraftActionsState>((set) => ({
   isCompactBar: false,
   setActions: (actions) => set({ actions }),
   setCompactBar: (isCompactBar) => set({ isCompactBar }),
+  setFlow: (actions, isCompactBar) => set({ actions, isCompactBar }),
 }));

@@ -3,6 +3,7 @@ import UserGroupIcon from '@hugeicons/core-free-icons/UserGroupIcon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
+import { useDraftTabAction } from 'hooks/useDraftTabAction';
 import { HeaderMenuButton, HeaderMessagesButton } from 'components/Menu/HeaderMenuButton';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { useSession } from 'context/AuthenticationContext';
@@ -195,6 +196,8 @@ function LeadCard({
 export default function MyLeadsScreen() {
   const { session } = useSession();
   const isFocused = useIsFocused();
+  // Morphed tab bar: this slot is Redraw while a draft is active.
+  useDraftTabAction('onRedraw');
   const salesRepId = Number(session?.user?.id ?? 0);
   const authenticatedScopeKey = session?.token ? getUserScopeKey(session.user) : null;
   const [leads, setLeads] = useState<MyLead[]>([]);

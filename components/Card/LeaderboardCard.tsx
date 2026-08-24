@@ -13,6 +13,8 @@ export type LeaderboardEntry = {
 };
 
 type LeaderboardCardProps = {
+  /** Render without its own surface (hosted on a glass card). */
+  readonly transparent?: boolean;
   readonly entries: LeaderboardEntry[];
   readonly metricLabel: string;
   /** Overall rank of the first entry minus one (paging offset). */
@@ -23,6 +25,12 @@ type LeaderboardCardProps = {
   readonly onPageChange?: (page: number) => void;
   /** Shows a small tag marking the data as sample until the API exists. */
   readonly isSampleData?: boolean;
+  /**
+   * Pads short pages with invisible placeholder rows up to this count so the
+   * card keeps one height across pages (the host's animated border and the
+   * pager don't jump).
+   */
+  readonly fillToCount?: number;
 };
 
 const MEDAL_IMAGES: Record<number, ReturnType<typeof require>> = {
@@ -57,13 +65,16 @@ export function LeaderboardCard({
   totalCount,
   onPageChange,
   isSampleData = false,
+  transparent = false,
+  fillToCount,
 }: LeaderboardCardProps) {
   if (entries.length === 0) {
     return null;
   }
   const showPager = pageCount > 1 && onPageChange;
+  const placeholderCount = Math.max(0, (fillToCount ?? 0) - entries.length);
   return (
-    <View style={styles.card}>
+    <View style={[styles.card, transparent && styles.cardTransparent]}>
       {isSampleData ? (
         <View style={styles.sampleTag}>
           <Text style={styles.sampleTagText}>Sample</Text>
@@ -98,6 +109,25 @@ export function LeaderboardCard({
           </View>
         );
       })}
+      {Array.from({ length: placeholderCount }, (_, index) => (
+        <View
+          key={`placeholder-${index}`}
+          style={[styles.row, styles.placeholderRow, styles.rowDivider]}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+        >
+          <View style={styles.rankBubble} />
+          <View style={styles.placeholderAvatar} />
+          <View style={styles.nameBlock}>
+            <Text style={styles.name}> </Text>
+            <Text style={styles.office}> </Text>
+          </View>
+          <View style={styles.valueBlock}>
+            <Text style={styles.value}> </Text>
+            <Text style={styles.valueLabel}> </Text>
+          </View>
+        </View>
+      ))}
       {showPager ? (
         <View style={styles.pager}>
           <Text style={styles.pagerCount}>
@@ -146,10 +176,15 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#D4D4D8',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(24, 24, 27, 0.07)',
+    boxShadow: '0 1px 2px rgba(24, 24, 27, 0.05), 0 10px 26px rgba(24, 24, 27, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95)',
     paddingVertical: 6,
     paddingHorizontal: 10,
+  },
+  cardTransparent: {
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   sampleTag: {
     position: 'absolute',
@@ -163,7 +198,7 @@ const styles = StyleSheet.create({
   },
   sampleTagText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontFamily: 'ClashGrotesk-Bold',
     color: '#A1A1AA',
   },
   row: {
@@ -172,6 +207,13 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 8,
     paddingHorizontal: 6,
+  },
+  placeholderRow: {
+    opacity: 0,
+  },
+  placeholderAvatar: {
+    width: 34,
+    height: 34,
   },
   rowDivider: {
     borderTopWidth: StyleSheet.hairlineWidth,
@@ -187,7 +229,7 @@ const styles = StyleSheet.create({
   },
   rankText: {
     fontSize: 12,
-    fontWeight: '800',
+    fontFamily: 'ClashGrotesk-Bold',
     color: '#71717A',
   },
   medalImage: {
@@ -200,25 +242,25 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 14,
-    fontWeight: '600',
+    fontFamily: 'ClashGrotesk-Semibold',
     color: '#18181B',
   },
   office: {
     fontSize: 11,
     color: '#A1A1AA',
-    fontWeight: '600',
+    fontFamily: 'ClashGrotesk-Semibold',
   },
   valueBlock: {
     alignItems: 'flex-end',
   },
   value: {
     fontSize: 15,
-    fontWeight: '800',
+    fontFamily: 'ClashGrotesk-Bold',
     color: '#18181B',
   },
   valueLabel: {
     fontSize: 10,
-    fontWeight: '600',
+    fontFamily: 'ClashGrotesk-Semibold',
     color: '#A1A1AA',
   },
   pager: {
@@ -233,7 +275,7 @@ const styles = StyleSheet.create({
   },
   pagerCount: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'ClashGrotesk-Bold',
     color: '#71717A',
   },
   pagerControls: {
@@ -257,7 +299,7 @@ const styles = StyleSheet.create({
   },
   pagerText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: 'ClashGrotesk-Bold',
     color: '#71717A',
   },
 });

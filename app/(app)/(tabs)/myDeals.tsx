@@ -3,6 +3,7 @@ import Search01Icon from '@hugeicons/core-free-icons/Search01Icon';
 import { HugeiconsIcon } from '@hugeicons/react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useIsFocused } from 'expo-router';
+import { useDraftTabAction } from 'hooks/useDraftTabAction';
 import { HeaderMenuButton, HeaderMessagesButton } from 'components/Menu/HeaderMenuButton';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { useSession } from 'context/AuthenticationContext';
@@ -297,6 +298,8 @@ function DealDetailModal({
 export default function MyDealsScreen() {
   const { session } = useSession();
   const isFocused = useIsFocused();
+  // Morphed tab bar: hidden during the flow, inert if briefly visible.
+  useDraftTabAction('onSave');
   const salesRepId = Number(session?.user?.id ?? 0);
   const authenticatedScopeKey = session?.token ? getUserScopeKey(session.user) : null;
   const [search, setSearch] = useState('');

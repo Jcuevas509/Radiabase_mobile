@@ -11,6 +11,8 @@ import { PropsWithChildren, useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as Notifications from 'expo-notifications';
+import { useFonts } from 'expo-font';
+import { Inter_700Bold } from '@expo-google-fonts/inter';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -27,6 +29,14 @@ const PUBLIC_AUTH_ROUTES = ['/login', '/forgotPassword'];
 
 function AppLoader({ children }: PropsWithChildren) {
   const [isAppReady, setAppReady] = useState<boolean>(false);
+  // Fonts resolve fast from disk; the splash already covers the load.
+  useFonts({
+    Inter_700Bold,
+    'ClashGrotesk-Bold': require('../assets/fonts/ClashGrotesk-Bold.otf'),
+    'ClashGrotesk-Semibold': require('../assets/fonts/ClashGrotesk-Semibold.otf'),
+    'ClashGrotesk-Medium': require('../assets/fonts/ClashGrotesk-Medium.otf'),
+    'ClashGrotesk-Regular': require('../assets/fonts/ClashGrotesk-Regular.otf'),
+  });
   const { isLoading: isSessionLoading, session } = useSession();
   const router = useRouter();
   const pathname = usePathname();

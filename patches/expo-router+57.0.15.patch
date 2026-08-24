@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-router/build/native-tabs/NativeBottomTabsNavigator.js b/node_modules/expo-router/build/native-tabs/NativeBottomTabsNavigator.js
-index 76a6b95..a0fb6dd 100644
+index 76a6b95..3c6b60a 100644
 --- a/node_modules/expo-router/build/native-tabs/NativeBottomTabsNavigator.js
 +++ b/node_modules/expo-router/build/native-tabs/NativeBottomTabsNavigator.js
 @@ -126,6 +126,12 @@ function NativeTabsNavigator({ children, backBehavior = defaultBackBehavior, lab
@@ -15,3 +15,12 @@ index 76a6b95..a0fb6dd 100644
              navigation.emit({
                  type: 'tabPress',
                  target: selectedKey,
+@@ -143,7 +149,7 @@ function NativeTabsNavigator({ children, backBehavior = defaultBackBehavior, lab
+             });
+         }
+     }, [descriptors, navigation, state.key]);
+-    return ((0, jsx_runtime_1.jsx)(NavigationContent, { children: (0, jsx_runtime_1.jsx)(exports.NativeTabsContext, { value: true, children: (0, react_1.createElement)(NativeTabsView_1.NativeTabsView, { ...rest, key: visibleTabsKeys, focusedIndex: focusedIndex, 
++    return ((0, jsx_runtime_1.jsx)(NavigationContent, { children: (0, jsx_runtime_1.jsx)(exports.NativeTabsContext, { value: true, children: (0, react_1.createElement)(NativeTabsView_1.NativeTabsView, { ...rest, /* PATCH(radiabase): keying by visibleTabsKeys remounts the whole native tab view when tabs hide/show, killing UIKit's animated setViewControllers transition (RNSTabBarController applies changes with animated:YES). Let React diff instead. */ focusedIndex: focusedIndex, 
+                 // Provenance should only be sent with updates, and updates
+                 // on JS side are only triggered by rerender, so passing ref
+                 // here is ok.

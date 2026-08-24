@@ -1,5 +1,6 @@
 import type {
   Competition,
+  OfficeTeam,
   GearItem,
   ManagerAlert,
   OfficeSummary,
@@ -106,9 +107,205 @@ export const SAMPLE_TURF_AREAS: readonly TurfAreaSummary[] = [
 ];
 
 export const SAMPLE_OFFICES: readonly OfficeSummary[] = [
-  { id: 1, name: 'Suntrappers', city: 'Garland, TX', repsCount: 14, dealsThisMonth: 21, knocksThisWeek: 1240 },
-  { id: 2, name: 'Kaos Cartel', city: 'Dallas, TX', repsCount: 9, dealsThisMonth: 12, knocksThisWeek: 730 },
-  { id: 3, name: 'Firewheel Squad', city: 'Richardson, TX', repsCount: 6, dealsThisMonth: 7, knocksThisWeek: 415 },
+  {
+    id: 1, name: 'Suntrappers', city: 'Garland, TX', repsCount: 14, dealsThisMonth: 21,
+    knocksThisWeek: 1240, installsThisMonth: 8, cancelsThisMonth: 2,
+    managerName: 'Marcus Rivera', managerPortrait: 'men/45',
+    latitude: 32.9126, longitude: -96.6389, accentColor: '#00D1EA',
+  },
+  {
+    id: 2, name: 'Kaos Cartel', city: 'Dallas, TX', repsCount: 9, dealsThisMonth: 12,
+    knocksThisWeek: 730, installsThisMonth: 5, cancelsThisMonth: 1,
+    managerName: 'Tyler Bennett', managerPortrait: 'men/12',
+    latitude: 32.7767, longitude: -96.797, accentColor: '#8B5CF6',
+  },
+  {
+    id: 3, name: 'Firewheel Squad', city: 'Richardson, TX', repsCount: 6, dealsThisMonth: 7,
+    knocksThisWeek: 415, installsThisMonth: 3, cancelsThisMonth: 0,
+    managerName: 'Adam Wolfson', managerPortrait: 'men/32',
+    latitude: 32.9483, longitude: -96.7299, accentColor: '#22C55E',
+  },
+  {
+    id: 4, name: 'Buckeye Blitz', city: 'Columbus, OH', repsCount: 8, dealsThisMonth: 9,
+    knocksThisWeek: 620, installsThisMonth: 4, cancelsThisMonth: 1,
+    managerName: 'Dana Whitfield', managerPortrait: 'women/68',
+    latitude: 39.9612, longitude: -82.9988, accentColor: '#F59E0B',
+  },
+  {
+    id: 5, name: 'Old Dominion', city: 'Richmond, VA', repsCount: 7, dealsThisMonth: 6,
+    knocksThisWeek: 480, installsThisMonth: 2, cancelsThisMonth: 0,
+    managerName: 'Jordan Kim', managerPortrait: 'men/76',
+    latitude: 37.5407, longitude: -77.436, accentColor: '#EF4444',
+  },
+];
+
+export const SAMPLE_OFFICE_TEAMS: readonly OfficeTeam[] = [
+  // Suntrappers
+  {
+    id: 11, name: 'Solar Surge', officeName: 'Suntrappers', emblem: 'flash',
+    accentColor: '#00D1EA', points: 1840, pointsThisWeek: 220,
+    goalPoints: 2500, goalLabel: 'Topgolf night',
+    members: [
+      { name: 'Jake Morrison', portrait: 'men/45' },
+      { name: 'Maria Santos', portrait: 'women/68' },
+      { name: 'Devon Carter', portrait: 'men/23' },
+      { name: 'Priya Shah', portrait: 'women/44' },
+    ],
+  },
+  {
+    id: 12, name: 'Panel Pushers', officeName: 'Suntrappers', emblem: 'rocket',
+    accentColor: '#0E87CC', points: 1420, pointsThisWeek: 140,
+    goalPoints: 2500, goalLabel: 'Topgolf night',
+    members: [
+      { name: 'Sarah Kim', portrait: 'women/12' },
+      { name: 'Tommy Nguyen', portrait: 'men/61' },
+      { name: 'Alexis Moreno', portrait: 'women/21' },
+    ],
+  },
+  {
+    id: 13, name: 'Ray Runners', officeName: 'Suntrappers', emblem: 'sunny',
+    accentColor: '#06B6D4', points: 1180, pointsThisWeek: 190,
+    goalPoints: 2500, goalLabel: 'Topgolf night',
+    members: [
+      { name: 'Jordan Kim', portrait: 'men/76' },
+      { name: 'Sofia Delgado', portrait: 'women/33' },
+      { name: 'Caleb Nguyen', portrait: 'men/37' },
+      { name: 'Maya Thompson', portrait: 'women/57' },
+    ],
+  },
+  {
+    id: 14, name: 'Kilowatt Krew', officeName: 'Suntrappers', emblem: 'pulse',
+    accentColor: '#38BDF8', points: 940, pointsThisWeek: 80,
+    goalPoints: 2500, goalLabel: 'Topgolf night',
+    members: [
+      { name: 'Logan Price', portrait: 'men/85' },
+      { name: 'Amara Osei', portrait: 'women/81' },
+      { name: 'Isabella Reyes', portrait: 'women/24' },
+    ],
+  },
+  // Kaos Cartel
+  {
+    id: 15, name: 'Watt Warriors', officeName: 'Kaos Cartel', emblem: 'flame',
+    accentColor: '#8B5CF6', points: 1210, pointsThisWeek: 180,
+    goalPoints: 2000, goalLabel: 'Steak dinner',
+    members: [
+      { name: 'Isabella Reyes', portrait: 'women/57' },
+      { name: 'Marcus Webb', portrait: 'men/76' },
+      { name: 'Jordan Blake', portrait: 'men/85' },
+    ],
+  },
+  {
+    id: 16, name: 'Grid Lords', officeName: 'Kaos Cartel', emblem: 'trophy',
+    accentColor: '#6D28D9', points: 960, pointsThisWeek: 90,
+    goalPoints: 2000, goalLabel: 'Steak dinner',
+    members: [
+      { name: 'Elena Vasquez', portrait: 'women/33' },
+      { name: 'Logan Pierce', portrait: 'men/37' },
+      { name: 'Nina Alvarez', portrait: 'women/90' },
+      { name: 'Trey Coleman', portrait: 'men/52' },
+    ],
+  },
+  {
+    id: 17, name: 'Night Shift', officeName: 'Kaos Cartel', emblem: 'planet',
+    accentColor: '#A855F7', points: 720, pointsThisWeek: 150,
+    goalPoints: 2000, goalLabel: 'Steak dinner',
+    members: [
+      { name: 'Omar Haddad', portrait: 'men/29' },
+      { name: 'Lena Fischer', portrait: 'women/65' },
+      { name: 'Chris Dalton', portrait: 'men/14' },
+    ],
+  },
+  // Firewheel Squad
+  {
+    id: 18, name: 'Circuit Breakers', officeName: 'Firewheel Squad', emblem: 'trending-up',
+    accentColor: '#22C55E', points: 780, pointsThisWeek: 130,
+    goalPoints: 1500, goalLabel: 'Team jackets',
+    members: [
+      { name: 'Sofia Delgado', portrait: 'women/12' },
+      { name: 'Caleb Brooks', portrait: 'men/61' },
+      { name: 'Maya Thompson', portrait: 'women/33' },
+    ],
+  },
+  {
+    id: 19, name: 'Green Machine', officeName: 'Firewheel Squad', emblem: 'leaf',
+    accentColor: '#16A34A', points: 610, pointsThisWeek: 100,
+    goalPoints: 1500, goalLabel: 'Team jackets',
+    members: [
+      { name: 'Wes Harmon', portrait: 'men/71' },
+      { name: 'Talia Brooks', portrait: 'women/49' },
+      { name: 'Ray Delacruz', portrait: 'men/8' },
+    ],
+  },
+  {
+    id: 20, name: 'Amp Alliance', officeName: 'Firewheel Squad', emblem: 'star',
+    accentColor: '#4ADE80', points: 450, pointsThisWeek: 70,
+    goalPoints: 1500, goalLabel: 'Team jackets',
+    members: [
+      { name: 'Ivy Sandoval', portrait: 'women/15' },
+      { name: 'Grant Mercer', portrait: 'men/40' },
+    ],
+  },
+  // Buckeye Blitz
+  {
+    id: 21, name: 'Buckeye Bolts', officeName: 'Buckeye Blitz', emblem: 'flash',
+    accentColor: '#F59E0B', points: 890, pointsThisWeek: 160,
+    goalPoints: 1500, goalLabel: 'Cedar Point trip',
+    members: [
+      { name: 'Dana Whitfield', portrait: 'women/68' },
+      { name: 'Ethan Caldwell', portrait: 'men/37' },
+      { name: 'Amara Osei', portrait: 'women/81' },
+    ],
+  },
+  {
+    id: 22, name: 'Scarlet Chargers', officeName: 'Buckeye Blitz', emblem: 'thunderstorm',
+    accentColor: '#D97706', points: 730, pointsThisWeek: 120,
+    goalPoints: 1500, goalLabel: 'Cedar Point trip',
+    members: [
+      { name: 'Noah Reiner', portrait: 'men/19' },
+      { name: 'Josie Lang', portrait: 'women/72' },
+      { name: 'Miles Turner', portrait: 'men/55' },
+      { name: 'Bree Colton', portrait: 'women/38' },
+    ],
+  },
+  {
+    id: 23, name: 'High Voltage', officeName: 'Buckeye Blitz', emblem: 'pulse',
+    accentColor: '#FBBF24', points: 540, pointsThisWeek: 60,
+    goalPoints: 1500, goalLabel: 'Cedar Point trip',
+    members: [
+      { name: 'Owen Pratt', portrait: 'men/66' },
+      { name: 'Cara Whitman', portrait: 'women/28' },
+    ],
+  },
+  // Old Dominion
+  {
+    id: 24, name: 'Valley Voltage', officeName: 'Old Dominion', emblem: 'rocket',
+    accentColor: '#EF4444', points: 640, pointsThisWeek: 110,
+    goalPoints: 1500, goalLabel: 'Beach weekend',
+    members: [
+      { name: 'Jordan Kim', portrait: 'men/76' },
+      { name: 'Dana Ortiz', portrait: 'women/21' },
+      { name: 'Silas Monroe', portrait: 'men/33' },
+    ],
+  },
+  {
+    id: 25, name: 'Coastal Current', officeName: 'Old Dominion', emblem: 'compass',
+    accentColor: '#DC2626', points: 520, pointsThisWeek: 90,
+    goalPoints: 1500, goalLabel: 'Beach weekend',
+    members: [
+      { name: 'Harper Ellison', portrait: 'women/54' },
+      { name: 'Reid Calloway', portrait: 'men/47' },
+      { name: 'June Barlow', portrait: 'women/9' },
+    ],
+  },
+  {
+    id: 26, name: 'Blue Ridge Blitz', officeName: 'Old Dominion', emblem: 'trail-sign',
+    accentColor: '#F87171', points: 380, pointsThisWeek: 50,
+    goalPoints: 1500, goalLabel: 'Beach weekend',
+    members: [
+      { name: 'Knox Whitaker', portrait: 'men/3' },
+      { name: 'Sadie Coleman', portrait: 'women/85' },
+    ],
+  },
 ];
 
 export const SAMPLE_GEAR: readonly GearItem[] = [
@@ -129,6 +326,31 @@ export const SAMPLE_ONBOARDING: readonly OnboardingRecruit[] = [
 ];
 
 export const SAMPLE_COMPETITIONS: readonly Competition[] = [
-  { id: 71, name: 'Blitz Weekend', metric: 'Knocks', endsInDays: 2, prize: '$250 + steak dinner', leaderName: 'Jake Morrison' },
-  { id: 72, name: 'September Setters Cup', metric: 'Appointments', endsInDays: 18, prize: 'Top-of-leaderboard banner', leaderName: 'Devon Carter' },
+  {
+    id: 71, name: 'Blitz Weekend', metric: 'Knocks', status: 'active', officeScope: 'All offices',
+    endsInDays: 2, participantsCount: 29, prize: '$250 + steak dinner', leaderName: 'Jake Morrison',
+    topThree: [
+      { name: 'Jake Morrison', portrait: 'men/45', value: 128 },
+      { name: 'Maria Santos', portrait: 'women/68', value: 121 },
+      { name: 'Devon Carter', portrait: 'men/23', value: 117 },
+    ],
+  },
+  {
+    id: 72, name: 'September Setters Cup', metric: 'Appointments', status: 'active', officeScope: 'Suntrappers',
+    endsInDays: 18, participantsCount: 14, prize: 'Top-of-leaderboard banner', leaderName: 'Devon Carter',
+    topThree: [
+      { name: 'Devon Carter', portrait: 'men/23', value: 11 },
+      { name: 'Priya Shah', portrait: 'women/44', value: 9 },
+      { name: 'Sarah Kim', portrait: 'women/12', value: 8 },
+    ],
+  },
+  {
+    id: 70, name: 'August Closers Derby', metric: 'Closes', status: 'ended', officeScope: 'All offices',
+    endsInDays: 0, participantsCount: 29, prize: 'Yeti cooler + bragging rights', leaderName: 'Maria Santos',
+    topThree: [
+      { name: 'Maria Santos', portrait: 'women/68', value: 7 },
+      { name: 'Jake Morrison', portrait: 'men/45', value: 6 },
+      { name: 'Isabella Reyes', portrait: 'women/57', value: 4 },
+    ],
+  },
 ];

@@ -592,42 +592,32 @@ export function FieldMapScreen() {
     return () => clearTimeout(timer);
   }, [mode]);
 
-  // Collapse the tab bar to three slots for the whole draw flow, so the
-  // screen unmounts happen at draw start (quiet moment) instead of during
-  // the morph animation at stroke end.
-  useEffect(() => {
-    useDraftActionsStore.getState().setCompactBar(mode !== 'idle');
-    return () => {
-      useDraftActionsStore.getState().setCompactBar(false);
-    };
-  }, [mode]);
-
   // The native tab bar morphs into the draft actions the moment drawing
   // starts (see (tabs)/_layout) — so finishing a shape changes nothing in
   // the bar and animates nothing. During painting only Cancel is live;
   // Save/Redraw activate once the shape exists.
   useEffect(() => {
     if (mode === 'idle') {
-      useDraftActionsStore.getState().setActions(null);
+      useDraftActionsStore.getState().setFlow(null, false);
       return;
     }
     if (mode === 'drawing') {
-      useDraftActionsStore.getState().setActions({
+      useDraftActionsStore.getState().setFlow({
         onCancel: handleToggleDrawing,
         onRedraw: () => undefined,
         onSave: () => undefined,
         isSaving: false,
-      });
+      }, true);
     } else {
-      useDraftActionsStore.getState().setActions({
+      useDraftActionsStore.getState().setFlow({
         onCancel: handleDiscardDraft,
         onRedraw: handleRedrawDraft,
         onSave: () => { void handleSaveDraft(); },
         isSaving: loading,
-      });
+      }, true);
     }
     return () => {
-      useDraftActionsStore.getState().setActions(null);
+      useDraftActionsStore.getState().setFlow(null, false);
     };
     // handleSaveDraft is recreated per render but reads live store/session
     // state at call time, so the latest capture on mode/loading changes is

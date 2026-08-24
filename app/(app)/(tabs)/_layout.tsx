@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import { DynamicColorIOS, Platform, type ColorValue } from 'react-native';
 import { useDraftActionsStore } from 'store/DraftActionsStore';
@@ -27,21 +27,33 @@ export default function TabsLayout() {
     const draftActions = useDraftActionsStore((state) => state.actions);
     const isCompactBar = useDraftActionsStore((state) => state.isCompactBar);
     const isMorphed = draftActions !== null;
+    // Two-phase choreography: UIKit animates item POSITIONS (the 5→3
+    // collapse) and item CONTENT (labels/icons) as competing transactions
+    // when changed together — the content swap lands mid-collapse, cutting
+    // the pill's transition and re-snapping icon layout. So: collapse
+    // first, untouched labels; swap the text/icons only once the bar is
+    // still (pure content change, no layout motion in equal-width slots).
+    const [labelsMorphed, setLabelsMorphed] = useState(false);
+    useEffect(() => {
+        if (!isMorphed) {
+            setLabelsMorphed(false);
+            return;
+        }
+        const timer = setTimeout(() => setLabelsMorphed(true), 300);
+        return () => clearTimeout(timer);
+    }, [isMorphed]);
 
     useEffect(() => {
         if (!draftActions) {
             (globalThis as Record<string, unknown>).__radiabaseTabPressInterceptor = undefined;
             return;
         }
+        // Cancel/Redraw slots are `disabled` triggers: the native bar
+        // refuses the switch and emits tabPress, handled per-screen by
+        // useDraftTabAction. Only the selected Map tab (= Save) needs the
+        // interceptor, since re-tapping it dispatches a same-route jump.
         const actionByRoute: Record<string, () => void> = {
-            dashboard: draftActions.onCancel,
-            myLeads: draftActions.onRedraw,
-            // The Map tab is the selected item during the morph, so it wears
-            // the cyan pill — it becomes the Save action.
             index: draftActions.isSaving ? () => undefined : draftActions.onSave,
-            // Inert during the flow (relabel-only experiment keeps them visible).
-            myDeals: () => undefined,
-            profile: () => undefined,
         };
         (globalThis as Record<string, unknown>).__radiabaseTabPressInterceptor =
             (routeName: string) => {
@@ -65,19 +77,19 @@ export default function TabsLayout() {
             tintColor={TAB_CYAN}
             minimizeBehavior="onScrollDown"
         >
-            <NativeTabs.Trigger name="dashboard">
-                <NativeTabs.Trigger.Icon sf={isMorphed ? 'xmark' : 'house.fill'} />
-                <NativeTabs.Trigger.Label>{isMorphed ? 'Cancel' : 'Home'}</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger name="dashboard" disabled={isMorphed}>
+                <NativeTabs.Trigger.Icon sf={labelsMorphed ? 'xmark' : 'house.fill'} />
+                <NativeTabs.Trigger.Label>{labelsMorphed ? 'Cancel' : 'Home'}</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
             <NativeTabs.Trigger name="index">
-                <NativeTabs.Trigger.Icon sf={isMorphed ? 'checkmark' : 'map.fill'} />
-                <NativeTabs.Trigger.Label>{isMorphed ? 'Save area' : 'Map'}</NativeTabs.Trigger.Label>
+                <NativeTabs.Trigger.Icon sf={labelsMorphed ? 'checkmark' : 'map.fill'} />
+                <NativeTabs.Trigger.Label>{labelsMorphed ? 'Save area' : 'Map'}</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
-            <NativeTabs.Trigger name="myLeads">
-                <NativeTabs.Trigger.Icon sf={isMorphed ? 'arrow.counterclockwise' : 'person.2.fill'} />
-                <NativeTabs.Trigger.Label>{isMorphed ? 'Redraw' : 'My Leads'}</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger name="myLeads" disabled={isMorphed}>
+                <NativeTabs.Trigger.Icon sf={labelsMorphed ? 'arrow.triangle.2.circlepath' : 'person.2.fill'} />
+                <NativeTabs.Trigger.Label>{labelsMorphed ? 'Redraw' : 'My Leads'}</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>
-            <NativeTabs.Trigger name="myDeals" hidden={isCompactBar}>
+            <NativeTabs.Trigger name="myDeals" hidden={isCompactBar} disabled={isMorphed}>
                 <NativeTabs.Trigger.Icon sf="doc.text.fill" />
                 <NativeTabs.Trigger.Label>My Deals</NativeTabs.Trigger.Label>
             </NativeTabs.Trigger>

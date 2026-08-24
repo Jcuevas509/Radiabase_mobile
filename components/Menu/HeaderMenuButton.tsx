@@ -1,11 +1,9 @@
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { useNavigation } from 'expo-router';
-// expo-router vendors navigation; DrawerActions isn't re-exported publicly.
-import { DrawerActions } from 'expo-router/build/react-navigation/routers';
 import { useRouter } from 'expo-router';
 import { useSession } from 'context/AuthenticationContext';
+import { useMenuSheetStore } from 'store/MenuSheetStore';
 import { useUnreadMessages } from 'hooks/useUnreadMessages';
 
 /**
@@ -15,8 +13,8 @@ import { useUnreadMessages } from 'hooks/useUnreadMessages';
  */
 export function HeaderMenuButton({ color = '#18181B' }: { readonly color?: string }) {
     const { session } = useSession();
-    const navigation = useNavigation();
     const router = useRouter();
+    const openMenuSheet = useMenuSheetStore((state) => state.open);
     const unreadCount = useUnreadMessages();
     const isManager = session?.user?.role === 'manager';
 
@@ -25,7 +23,7 @@ export function HeaderMenuButton({ color = '#18181B' }: { readonly color?: strin
             <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel="Open admin tools"
-                onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                onPress={openMenuSheet}
                 hitSlop={12}
                 style={styles.hit}
             >
@@ -42,7 +40,7 @@ export function HeaderMenuButton({ color = '#18181B' }: { readonly color?: strin
             hitSlop={12}
             style={styles.hit}
         >
-            <Ionicons name="chatbubble-ellipses-outline" size={26} color={color} />
+            <Ionicons name="chatbubble-ellipses" size={26} color={color} />
             {unreadCount > 0 ? (
                 <View style={styles.badge}>
                     <Text style={styles.badgeText}>{unreadCount}</Text>
@@ -74,7 +72,7 @@ export function HeaderMessagesButton({ color = '#18181B' }: { readonly color?: s
             onPress={() => router.push('/messages')}
             hitSlop={12}
         >
-            <Ionicons name="chatbubble-ellipses-outline" size={24} color={color} />
+            <Ionicons name="chatbubble-ellipses" size={24} color={color} />
             <View style={[styles.badge, styles.badgeOnIcon]}>
                 <Text style={styles.badgeText}>{HEADER_UNREAD_PLACEHOLDER}</Text>
             </View>
