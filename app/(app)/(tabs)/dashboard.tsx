@@ -28,6 +28,7 @@ import { LeaderboardCard, type LeaderboardEntry } from 'components/Card/Leaderbo
 import { useSession } from 'context/AuthenticationContext';
 import { fetchFieldStats, fetchMapAreas, FieldStatsResponse, MapAreaResponse } from 'services/area-api';
 import { SAMPLE_LEADERBOARD_REPS } from 'services/sample-leaderboard';
+import { fetchSalesLeaderboard } from 'services/leaderboard-api';
 import { pickDashboardPreviewAreas } from 'utils/pick-dashboard-preview-areas';
 import { pickFieldStatsBucket } from 'utils/pick-field-stats-bucket';
 import { getMapRegionFromCoordinates } from 'utils/get-map-region-from-coordinates';
@@ -143,6 +144,31 @@ const DashboardScreen = () => {
     const [leaderboardMetric, setLeaderboardMetric] = useState<'Knocks' | 'Deals' | 'Installs'>('Knocks');
     const [leaderboardRole, setLeaderboardRole] = useState<'Setters' | 'Closers' | 'Self Gens'>('Setters');
     const [leaderboardPage, setLeaderboardPage] = useState(1);
+    // Live ranked closers (net sales). Empty on staging until deals exist,
+    // in which case the sample roster keeps the card populated.
+    const [liveLeaderboard, setLiveLeaderboard] = useState<LeaderboardEntry[] | null>(null);
+    useEffect(() => {
+        const controller = new AbortController();
+        fetchSalesLeaderboard({ signal: controller.signal })
+            .then((rows) => {
+                if (rows.length === 0) {
+                    return;
+                }
+                setLiveLeaderboard(rows.map((row) => {
+                    const [firstName, ...rest] = row.name.split(' ');
+                    return {
+                        id: row.rank,
+                        firstName,
+                        lastName: rest.join(' '),
+                        avatarUrl: null,
+                        officeName: null,
+                        value: row.totalSales,
+                    };
+                }));
+            })
+            .catch(() => undefined);
+        return () => controller.abort();
+    }, []);
     const turfCardWidth = windowWidth - 44;
 
     // Label every turf card with the city its turf sits in, resolved
@@ -261,7 +287,7 @@ const DashboardScreen = () => {
             ? contactData.customers
             : 0;
     const ROLE_GROUPS: ReadonlyArray<'Setters' | 'Closers' | 'Self Gens'> = ['Setters', 'Closers', 'Self Gens'];
-    const allLeaderboardEntries: LeaderboardEntry[] = [
+    const allLeaderboardEntries: LeaderboardEntry[] = liveLeaderboard ?? [
         ...SAMPLE_LEADERBOARD_REPS
             .map((rep, index) => ({
                 id: -(index + 1),
@@ -575,6 +601,7 @@ const DashboardScreen = () => {
                         fillToCount={leaderboardPageCount > 1 ? LEADERBOARD_PAGE_SIZE : undefined}
                         totalCount={allLeaderboardEntries.length}
                         onPageChange={setLeaderboardPage}
+                        isSampleData={!liveLeaderboard}
                     />
                     </View>
                 </View>

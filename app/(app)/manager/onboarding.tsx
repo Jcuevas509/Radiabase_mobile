@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Modal,
     Pressable,
     ScrollView,
@@ -18,7 +19,7 @@ import { GlassCircleButton } from 'components/Button/GlassCircleButton';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { CARD_SHADOW, TEAL_GRADIENT, portraitUrl } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
-import { advanceOnboardingRecruit, fetchOffices, fetchOnboardingRecruits } from 'services/manager-api';
+import { advanceOnboardingRecruit, fetchOffices, fetchOnboardingRecruits, inviteOnboardingRecruit } from 'services/manager-api';
 import type { OfficeSummary, OnboardingRecruit, OnboardingStage } from 'types/manager.types';
 
 const STAGES: readonly OnboardingStage[] = ['Invited', 'Docs', 'Training', 'Ready'];
@@ -67,7 +68,7 @@ function RecruitCard({ recruit, onAdvance }: {
                 <UserAvatar
                     firstName={recruit.firstName}
                     lastName={recruit.lastName}
-                    imageUrl={portraitUrl(recruit.portrait)}
+                    imageUrl={recruit.portrait ? portraitUrl(recruit.portrait) : null}
                     size={40}
                     color={meta.color}
                     ringWidth={1}
@@ -113,24 +114,31 @@ function InviteSheet({ visible, offices, onClose, onInvite }: {
     readonly visible: boolean;
     readonly offices: readonly OfficeSummary[];
     readonly onClose: () => void;
-    readonly onInvite: (recruit: OnboardingRecruit) => void;
+    readonly onInvite: (invite: {
+        readonly firstName: string;
+        readonly lastName: string;
+        readonly email: string;
+        readonly officeId: number;
+        readonly officeName: string;
+    }) => void;
 }) {
     const [name, setName] = useState('');
+    const [email, setEmail] = useState('');
     const [officeName, setOfficeName] = useState('');
-    const canInvite = name.trim().split(' ').length >= 2 && officeName.length > 0;
+    const canInvite = name.trim().split(' ').length >= 2 && email.includes('@') && officeName.length > 0;
 
     const handleInvite = () => {
         const [firstName, ...rest] = name.trim().split(' ');
+        const office = offices.find((entry) => entry.name === officeName);
         onInvite({
-            id: Date.now(),
             firstName,
             lastName: rest.join(' '),
-            portrait: 'lego/1',
+            email: email.trim(),
+            officeId: office?.id ?? 0,
             officeName,
-            stage: 'Invited',
-            daysInStage: 0,
         });
         setName('');
+        setEmail('');
         setOfficeName('');
     };
 
@@ -152,6 +160,17 @@ function InviteSheet({ visible, offices, onClose, onInvite }: {
                         onChangeText={setName}
                         placeholder="Jordan Avery"
                         placeholderTextColor="#A1A1AA"
+                        returnKeyType="done"
+                    />
+                    <Text style={styles.fieldLabel}>Email</Text>
+                    <TextInput
+                        style={styles.input}
+                        value={email}
+                        onChangeText={setEmail}
+                        placeholder="jordan@company.com"
+                        placeholderTextColor="#A1A1AA"
+                        autoCapitalize="none"
+                        keyboardType="email-address"
                         returnKeyType="done"
                     />
                     <Text style={styles.fieldLabel}>Office</Text>
@@ -313,10 +332,32 @@ export default function OnboardingScreen() {
                 visible={isInviteOpen}
                 offices={offices}
                 onClose={() => setIsInviteOpen(false)}
-                onInvite={(recruit) => {
-                    // Seam: POST /onboarding/invites; local prepend until then.
-                    setRecruits((current) => [recruit, ...(current ?? [])]);
+                onInvite={(invite) => {
                     setIsInviteOpen(false);
+                    // Optimistic row while the live invite lands, then refresh
+                    // from the API so the list reflects the real record.
+                    setRecruits((current) => [{
+                        id: -Date.now(),
+                        firstName: invite.firstName,
+                        lastName: invite.lastName,
+                        portrait: '',
+                        officeName: invite.officeName,
+                        stage: 'Invited',
+                        daysInStage: 0,
+                    }, ...(current ?? [])]);
+                    inviteOnboardingRecruit({
+                        firstName: invite.firstName,
+                        lastName: invite.lastName,
+                        email: invite.email,
+                        officeId: invite.officeId,
+                        salesOrgId: Number(session?.user?.salesOrgId ?? 0),
+                        invitedByUserId: managerId,
+                    })
+                        .then(() => fetchOnboardingRecruits({ managerId }))
+                        .then(setRecruits)
+                        .catch(() => {
+                            Alert.alert('Invite not sent', 'The invite could not reach the server; it will show locally only.');
+                        });
                 }}
             />
         </SettingsShell>

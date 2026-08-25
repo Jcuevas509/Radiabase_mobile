@@ -112,7 +112,7 @@ function OfficeCard({ office, onPress }: { readonly office: OfficeSummary; reado
                         <UserAvatar
                             firstName={office.managerName.split(' ')[0]}
                             lastName={office.managerName.split(' ').slice(1).join(' ')}
-                            imageUrl={portraitUrl(office.managerPortrait)}
+                            imageUrl={office.managerPortrait ? portraitUrl(office.managerPortrait) : null}
                             size={30}
                             color={office.accentColor}
                             ringWidth={1}
