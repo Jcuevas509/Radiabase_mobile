@@ -149,6 +149,14 @@ export async function fetchOnboardingRecruits(input: {
   return sampleResponse(SAMPLE_ONBOARDING, input.signal);
 }
 
+// Seam: PUT /onboarding/recruits/:id/advance — moves a recruit one stage
+// forward; the sample layer is a no-op and the screen updates local state.
+export async function advanceOnboardingRecruit(input: {
+  readonly recruitId: number;
+}): Promise<void> {
+  return sampleResponse(undefined);
+}
+
 // Seam: GET /competitions?officeId=
 export async function fetchCompetitions(input: {
   readonly managerId: number;

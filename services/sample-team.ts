@@ -319,10 +319,14 @@ export const SAMPLE_GEAR: readonly GearItem[] = [
 ];
 
 export const SAMPLE_ONBOARDING: readonly OnboardingRecruit[] = [
-  { id: 1, firstName: 'Cole', lastName: 'Bennett', officeName: 'Suntrappers', stage: 'Ready', daysInStage: 1 },
-  { id: 2, firstName: 'Priya', lastName: 'Shah', officeName: 'Suntrappers', stage: 'Training', daysInStage: 3 },
-  { id: 3, firstName: 'Marcus', lastName: 'Lee', officeName: 'Kaos Cartel', stage: 'Docs', daysInStage: 6 },
-  { id: 4, firstName: 'Dana', lastName: 'Ortiz', officeName: 'Firewheel Squad', stage: 'Invited', daysInStage: 2 },
+  { id: 1, firstName: 'Cole', lastName: 'Bennett', portrait: 'men/11', officeName: 'Suntrappers', stage: 'Ready', daysInStage: 1 },
+  { id: 2, firstName: 'Priya', lastName: 'Shah', portrait: 'women/44', officeName: 'Suntrappers', stage: 'Training', daysInStage: 3 },
+  { id: 3, firstName: 'Marcus', lastName: 'Lee', portrait: 'men/52', officeName: 'Kaos Cartel', stage: 'Docs', daysInStage: 6 },
+  { id: 4, firstName: 'Dana', lastName: 'Ortiz', portrait: 'women/21', officeName: 'Firewheel Squad', stage: 'Invited', daysInStage: 2 },
+  { id: 5, firstName: 'Theo', lastName: 'Ramsey', portrait: 'men/64', officeName: 'Buckeye Blitz', stage: 'Invited', daysInStage: 1 },
+  { id: 6, firstName: 'Lena', lastName: 'Fischer', portrait: 'women/65', officeName: 'Kaos Cartel', stage: 'Training', daysInStage: 8 },
+  { id: 7, firstName: 'Ray', lastName: 'Delacruz', portrait: 'men/8', officeName: 'Firewheel Squad', stage: 'Docs', daysInStage: 2 },
+  { id: 8, firstName: 'June', lastName: 'Barlow', portrait: 'women/9', officeName: 'Old Dominion', stage: 'Ready', daysInStage: 4 },
 ];
 
 export const SAMPLE_COMPETITIONS: readonly Competition[] = [
@@ -343,6 +347,51 @@ export const SAMPLE_COMPETITIONS: readonly Competition[] = [
       { name: 'Priya Shah', portrait: 'women/44', value: 9 },
       { name: 'Sarah Kim', portrait: 'women/12', value: 8 },
     ],
+  },
+  {
+    id: 73, name: 'Door Dash Sprint', metric: 'Knocks', status: 'active', officeScope: 'Kaos Cartel',
+    endsInDays: 5, participantsCount: 9, prize: 'AirPods Pro', leaderName: 'Isabella Reyes',
+    topThree: [
+      { name: 'Isabella Reyes', portrait: 'women/57' },
+      { name: 'Marcus Webb', portrait: 'men/76' },
+      { name: 'Omar Haddad', portrait: 'men/29' },
+    ].map((entry, index) => ({ ...entry, value: [84, 71, 63][index] })),
+  },
+  {
+    id: 74, name: 'October Kickoff', metric: 'Appointments', status: 'active', officeScope: 'All offices',
+    endsInDays: 25, participantsCount: 44, prize: 'Team dinner', leaderName: 'Dana Whitfield',
+    topThree: [
+      { name: 'Dana Whitfield', portrait: 'women/68' },
+      { name: 'Jake Morrison', portrait: 'men/45' },
+      { name: 'Harper Ellison', portrait: 'women/54' },
+    ].map((entry, index) => ({ ...entry, value: [6, 5, 5][index] })),
+  },
+  {
+    id: 75, name: 'Firewheel Face-off', metric: 'Closes', status: 'active', officeScope: 'Firewheel Squad',
+    endsInDays: 9, participantsCount: 6, prize: '$100 gift card', leaderName: 'Sofia Delgado',
+    topThree: [
+      { name: 'Sofia Delgado', portrait: 'women/12' },
+      { name: 'Caleb Brooks', portrait: 'men/61' },
+      { name: 'Wes Harmon', portrait: 'men/71' },
+    ].map((entry, index) => ({ ...entry, value: [3, 2, 1][index] })),
+  },
+  {
+    id: 76, name: 'Buckeye Knock-a-thon', metric: 'Knocks', status: 'active', officeScope: 'Buckeye Blitz',
+    endsInDays: 4, participantsCount: 8, prize: 'Game day tickets', leaderName: 'Noah Reiner',
+    topThree: [
+      { name: 'Noah Reiner', portrait: 'men/19' },
+      { name: 'Josie Lang', portrait: 'women/72' },
+      { name: 'Miles Turner', portrait: 'men/55' },
+    ].map((entry, index) => ({ ...entry, value: [96, 88, 74][index] })),
+  },
+  {
+    id: 77, name: 'Dominion Dash', metric: 'Appointments', status: 'active', officeScope: 'Old Dominion',
+    endsInDays: 6, participantsCount: 7, prize: 'Fishing charter', leaderName: 'Harper Ellison',
+    topThree: [
+      { name: 'Harper Ellison', portrait: 'women/54' },
+      { name: 'Reid Calloway', portrait: 'men/47' },
+      { name: 'June Barlow', portrait: 'women/9' },
+    ].map((entry, index) => ({ ...entry, value: [7, 6, 4][index] })),
   },
   {
     id: 70, name: 'August Closers Derby', metric: 'Closes', status: 'ended', officeScope: 'All offices',

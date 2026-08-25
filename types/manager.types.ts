@@ -156,6 +156,8 @@ export type OnboardingRecruit = {
   readonly id: number;
   readonly firstName: string;
   readonly lastName: string;
+  /** randomuser.me path fragment, e.g. "men/45". Seam: real photo URL. */
+  readonly portrait: string;
   readonly officeName: string;
   readonly stage: OnboardingStage;
   readonly daysInStage: number;

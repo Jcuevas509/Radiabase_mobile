@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
+import { GlassSurface } from 'components/GlassSurface';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchCompetitions, fetchOffices } from 'services/manager-api';
@@ -155,7 +156,7 @@ function CompetitionCard({ competition }: { readonly competition: Competition })
             <View style={styles.cardFooter}>
                 <View style={styles.leaderRow}>
                     {leaderPortrait ? (
-                        <UserAvatar firstName={first} lastName={last} imageUrl={portraitUrl(leaderPortrait)} size={28} color="#18181B" ringWidth={1} />
+                        <UserAvatar firstName={first} lastName={last} imageUrl={portraitUrl(leaderPortrait)} size={26} color="#18181B" ringWidth={1} />
                     ) : null}
                     <View>
                         <Text style={styles.leaderLabel}>{isEnded ? 'Winner' : 'Leader'}</Text>
@@ -405,15 +406,22 @@ export default function CompetitionsScreen() {
             accessibilityLabel="New competition"
             hitSlop={8}
             onPress={() => setIsBuilderOpen(true)}
-            style={({ pressed }) => [styles.addButton, pressed && styles.addButtonPressed]}
+            style={({ pressed }) => [pressed && styles.addButtonPressed]}
         >
-            <Ionicons name="add" size={22} color="#18181B" />
+            <GlassSurface
+                glassEffectStyle="clear"
+                isInteractive
+                style={styles.addButton}
+                fallbackStyle={styles.addButtonFallback}
+            >
+                <Ionicons name="add" size={22} color="#18181B" />
+            </GlassSurface>
         </Pressable>
     );
 
     if (!competitions) {
         return (
-            <SettingsShell title="Competitions" headerRight={addButton}>
+            <SettingsShell title="Competitions" headerRight={addButton} glassHeader>
                 <ActivityIndicator style={styles.loading} color="#18181B" />
             </SettingsShell>
         );
@@ -424,12 +432,17 @@ export default function CompetitionsScreen() {
     const [featured, ...otherActive] = active;
 
     return (
-        <SettingsShell title="Competitions" headerRight={addButton}>
-            {featured ? <HeroCompetitionCard competition={featured} /> : null}
+        <SettingsShell title="Competitions" headerRight={addButton} glassHeader>
+            {featured ? (
+                <>
+                    <Text style={[styles.sectionTitle, styles.sectionTitleFirst]}>Main event</Text>
+                    <HeroCompetitionCard competition={featured} />
+                </>
+            ) : null}
 
             {otherActive.length > 0 ? (
                 <>
-                    <Text style={styles.sectionTitle}>Also running</Text>
+                    <Text style={styles.sectionTitle}>Mini competitions</Text>
                     <View style={styles.cardList}>
                         {otherActive.map((competition) => (
                             <CompetitionCard key={competition.id} competition={competition} />
@@ -466,14 +479,17 @@ const styles = StyleSheet.create({
     loading: {
         marginTop: 48,
     },
+    // Bare native glass circle — no background or shadow on the glass node.
     addButton: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
-        backgroundColor: '#FFFFFF',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        overflow: 'hidden',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: CARD_SHADOW,
+    },
+    addButtonFallback: {
+        backgroundColor: 'rgba(255, 255, 255, 0.5)',
     },
     addButtonPressed: {
         opacity: 0.7,
@@ -613,6 +629,9 @@ const styles = StyleSheet.create({
         marginLeft: 1,
         paddingRight: 14,
     },
+    sectionTitleFirst: {
+        marginTop: 0,
+    },
     cardList: {
         gap: 12,
     },
@@ -622,7 +641,7 @@ const styles = StyleSheet.create({
         borderWidth: StyleSheet.hairlineWidth,
         borderColor: 'rgba(24, 24, 27, 0.07)',
         boxShadow: CARD_SHADOW,
-        padding: 14,
+        padding: 12,
     },
     cardHeader: {
         flexDirection: 'row',
@@ -630,9 +649,9 @@ const styles = StyleSheet.create({
         gap: 11,
     },
     cardTrophy: {
-        width: 38,
-        height: 38,
-        borderRadius: 19,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         backgroundColor: 'rgba(0, 209, 234, 0.12)',
         alignItems: 'center',
         justifyContent: 'center',
@@ -644,7 +663,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     cardName: {
-        fontSize: 16,
+        fontSize: 15,
         fontFamily: 'ClashGrotesk-Semibold',
         color: '#18181B',
     },
@@ -686,8 +705,8 @@ const styles = StyleSheet.create({
         gap: 12,
         borderTopWidth: StyleSheet.hairlineWidth,
         borderTopColor: '#E4E4E7',
-        marginTop: 12,
-        paddingTop: 10,
+        marginTop: 10,
+        paddingTop: 9,
     },
     leaderRow: {
         flexDirection: 'row',
