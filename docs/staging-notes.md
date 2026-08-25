@@ -24,6 +24,15 @@ counterpart yet (`needs-api`).
 | `jose@suntappedenergy.com` / documented staging password | Sales Org Admin (god mode) |
 | `staging.user.445@example.test` / same | Setter, Kaos Cartel (low-privilege QA) |
 
+## Demo stats layer
+
+Metrics the API cannot provide yet (per-office deals/installs/knocks,
+per-rep knock counts, snapshot change %, competition standings without
+deals) are filled with deterministic synthetic numbers over the REAL
+entities — see `services/demo-stats.ts`. Set `EXPO_PUBLIC_DEMO_STATS=0`
+to see only true live values. Remove the layer as reporting endpoints
+arrive.
+
 ## Known staging gaps
 
 1. **No deals can be created**: the `service_providers` table is empty and
@@ -35,4 +44,5 @@ counterpart yet (`needs-api`).
    reporting endpoint yet; those figures read 0 on live data.
 3. Seeded so far by us: onboarding invites (Cole Bennett, Priya Shah,
    Marcus Lee, Dana Ortiz, Theo Ramsey) and three canvassing leads
-   (Rosa Delgado, Hank Porter, Iris Chen).
+   (Rosa Delgado, Hank Porter, Iris Chen) plus 15 more spread across
+   ten real reps.

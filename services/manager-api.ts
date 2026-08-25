@@ -11,6 +11,7 @@ import type {
   TurfAreaSummary,
 } from 'types/manager.types';
 import { apiClient } from 'services/api-client';
+import { DEMO_STATS_ENABLED, demoInt, demoOfficeStats } from 'services/demo-stats';
 import {
   buildSampleRepPerformance,
   SAMPLE_COMPETITIONS,
@@ -133,11 +134,12 @@ export async function fetchTeamSnapshot(input: {
     const activeToday = activeUsers.filter((user) => daysBetween(user.last_login, now) < 1);
     return {
       knocksToday: today.knocks,
-      knocksChangePct: 0,
+      // Change % needs a stats-history endpoint; demo deltas until then.
+      knocksChangePct: DEMO_STATS_ENABLED ? demoInt('kc', -9, 24) : 0,
       appointmentsToday: today.leads,
-      appointmentsChangePct: 0,
+      appointmentsChangePct: DEMO_STATS_ENABLED ? demoInt('ac', -12, 18) : 0,
       dealsToday: today.customers,
-      dealsChangePct: 0,
+      dealsChangePct: DEMO_STATS_ENABLED ? demoInt('dc', -10, 30) : 0,
       repsActive: activeToday.length,
       repsTotal: activeUsers.length,
     };
@@ -164,14 +166,17 @@ export async function fetchTeamRoster(input: {
         const minutesAgo = lastLogin > 0 ? Math.max(0, Math.floor((now - lastLogin) / 60_000)) : 999_999;
         const roleGroup: TeamRosterEntry['roleGroup'] =
           user.sales_role === 'closer' ? 'Closers' : user.sales_role === 'setter' ? 'Setters' : 'Self Gens';
+        const activityState = (minutesAgo < 60 ? 'knocking' : minutesAgo < 480 ? 'idle' : 'offline') as TeamRosterEntry['activityState'];
         return {
           repId: user.id,
           firstName: user.first_name ?? user.full_name?.split(' ')[0] ?? 'Rep',
           lastName: user.last_name ?? '',
           roleGroup,
           officeName: user.office_name ?? '—',
-          activityState: (minutesAgo < 60 ? 'knocking' : minutesAgo < 480 ? 'idle' : 'offline') as TeamRosterEntry['activityState'],
-          knocksToday: 0,
+          activityState,
+          // Per-rep knock counts need a team-activity endpoint; demo
+          // numbers for non-offline reps keep the roster reviewable.
+          knocksToday: DEMO_STATS_ENABLED && activityState !== 'offline' ? demoInt(`kn${user.id}`, 8, 52) : 0,
           lastActivityMinutesAgo: minutesAgo,
           currentAreaName: null,
         };
@@ -245,15 +250,21 @@ export async function fetchOffices(input: {
     return offices
       .map((office, index) => {
         const flavor = OFFICE_FLAVOR[office.name];
+        const repsCount = repsByOffice.get(office.name) ?? 0;
+        // Deal/knock metrics have no reporting endpoint yet; demo numbers
+        // keep offices reviewable (services/demo-stats.ts).
+        const stats = DEMO_STATS_ENABLED
+          ? demoOfficeStats(office.id, repsCount)
+          : { knocksThisWeek: 0, dealsThisMonth: 0, installsThisMonth: 0, cancelsThisMonth: 0 };
         return {
           id: office.id,
           name: office.name,
           city: flavor?.city ?? 'Dallas, TX',
-          repsCount: repsByOffice.get(office.name) ?? 0,
-          dealsThisMonth: 0,
-          knocksThisWeek: 0,
-          installsThisMonth: 0,
-          cancelsThisMonth: 0,
+          repsCount,
+          dealsThisMonth: stats.dealsThisMonth,
+          knocksThisWeek: stats.knocksThisWeek,
+          installsThisMonth: stats.installsThisMonth,
+          cancelsThisMonth: stats.cancelsThisMonth,
           managerName: office.director_name ?? '—',
           managerPortrait: '',
           latitude: flavor?.latitude ?? 32.7767 + (index % 5) * 0.03,
@@ -432,6 +443,19 @@ export async function fetchCompetitions(input: {
         } catch {
           // Standings are additive; the round list still renders without them.
         }
+      }
+      if (topThree.length === 0 && DEMO_STATS_ENABLED && !isEnded) {
+        // No deals on staging yet: rank real closers with demo values so
+        // the bracket is reviewable (services/demo-stats.ts).
+        const closers = (await fetchAllUsersRaw(input.signal))
+          .filter((user) => user.status === 'active' && user.sales_role === 'closer' && user.full_name)
+          .sort((a, b) => demoInt(`cv${round.round}-${b.id}`, 1, 9) - demoInt(`cv${round.round}-${a.id}`, 1, 9))
+          .slice(0, 3);
+        topThree = closers.map((user, index) => ({
+          name: user.full_name as string,
+          portrait: '',
+          value: demoInt(`cv${round.round}-${user.id}`, 1, 9) + (2 - index),
+        }));
       }
       return {
         id: round.round,
