@@ -1,4 +1,4 @@
-import { throttle } from 'lodash';
+import { throttle } from 'utils/throttle';
 import type { RefObject } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type MapView from 'react-native-maps';
@@ -63,7 +63,7 @@ export function useMapCameraHeading(mapRef: RefObject<MapView | null>) {
   const requestHeadingUpdate = useMemo(
     () => throttle(() => {
       void readCamera();
-    }, READ_THROTTLE_MS, { leading: true, trailing: true }),
+    }, READ_THROTTLE_MS),
     [readCamera],
   );
 

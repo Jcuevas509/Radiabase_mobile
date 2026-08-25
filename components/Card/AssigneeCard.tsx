@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import moment from 'moment';
+import { formatStampedDateTime } from 'utils/format-timestamp';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 
 interface AssigneeCardProps {
@@ -46,7 +46,7 @@ export function AssigneeCard({
                 </Text>
                 <Text style={styles.text}>
                     Area assigned on { }<Text style={styles.boldText}>
-                        {moment(new Date()).format('DD.MM.YYYY hh:mmA')}
+                        {formatStampedDateTime(new Date())}
                     </Text>
                 </Text>
             </View>
