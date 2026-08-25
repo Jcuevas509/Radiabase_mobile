@@ -2,8 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { Image, StyleSheet, Text, View } from 'react-native';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { portraitUrl, splitName } from 'constants/design';
+import { demoInt } from 'services/demo-stats';
 import type { CompetitionEvent, CompetitionRound } from 'types/manager.types';
 import { roundStatus } from 'utils/competition';
+
+/** Placeholder headshots for standings rows that have no photo yet —
+ * same randomuser set the rest of the sample data uses. */
+const PLACEHOLDER_PORTRAITS = [
+    'men/45', 'women/68', 'men/23', 'women/44', 'men/12',
+    'women/12', 'men/61', 'women/21', 'men/76', 'women/57',
+] as const;
 
 const MEDAL_IMAGES = [
     require('../../assets/images/medals/gold.jpg'),
@@ -55,7 +63,7 @@ export function RoundTimeline({ event, now, activeRoundNumber }: {
                             ]}
                         >
                             {status === 'ended' ? (
-                                <Ionicons name="checkmark" size={12} color="#0A96AC" />
+                                <Ionicons name="checkmark" size={20} color="#0A96AC" />
                             ) : (
                                 <Text
                                     style={[
@@ -102,6 +110,8 @@ export function StandingsPodium({ round, metricLabel, onDark = false }: {
                 const isGold = rank === 0;
                 const size = isGold ? 92 : 68;
                 const { first, last } = splitName(standing.name);
+                const portrait = standing.portrait
+                    || PLACEHOLDER_PORTRAITS[demoInt(`pp-${standing.name}`, 0, PLACEHOLDER_PORTRAITS.length - 1)];
                 return (
                     <View
                         key={standing.name}
@@ -111,7 +121,7 @@ export function StandingsPodium({ round, metricLabel, onDark = false }: {
                             <UserAvatar
                                 firstName={first}
                                 lastName={last}
-                                imageUrl={standing.portrait ? portraitUrl(standing.portrait) : null}
+                                imageUrl={portraitUrl(portrait)}
                                 size={size}
                                 color={onDark ? '#FFFFFF' : '#18181B'}
                                 ringWidth={2}
@@ -172,11 +182,11 @@ const styles = StyleSheet.create({
     timelineStep: {
         flex: 1,
         alignItems: 'center',
-        gap: 4,
+        gap: 5,
     },
     timelineLine: {
         position: 'absolute',
-        top: 13,
+        top: 16,
         right: '50%',
         left: '-50%',
         height: 2,
@@ -187,9 +197,9 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.85)',
     },
     timelineDot: {
-        width: 27,
-        height: 27,
-        borderRadius: 14,
+        width: 34,
+        height: 34,
+        borderRadius: 17,
         borderWidth: 2,
         borderColor: 'rgba(255, 255, 255, 0.55)',
         alignItems: 'center',
@@ -207,7 +217,7 @@ const styles = StyleSheet.create({
         borderColor: '#18181B',
     },
     timelineDotText: {
-        fontSize: 12,
+        fontSize: 15,
         fontFamily: 'ClashGrotesk-Bold',
         color: '#FFFFFF',
     },
@@ -215,7 +225,7 @@ const styles = StyleSheet.create({
         color: '#0A96AC',
     },
     timelineLabel: {
-        fontSize: 10,
+        fontSize: 12,
         fontFamily: 'ClashGrotesk-Semibold',
         color: '#EAFBFE',
     },

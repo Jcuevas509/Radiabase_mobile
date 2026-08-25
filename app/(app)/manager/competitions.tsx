@@ -1,12 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { GlassCircleButton } from 'components/Button/GlassCircleButton';
 import { CompetitionBuilderSheet } from 'components/Competition/CompetitionBuilderSheet';
-import { MetaChip, RoundTimeline, StandingsPodium } from 'components/Competition/CompetitionPieces';
+import { RoundTimeline, StandingsPodium } from 'components/Competition/CompetitionPieces';
 import { CARD_SHADOW, TEAL_GRADIENT } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchCompetitionEvents, fetchOffices } from 'services/manager-api';
@@ -29,13 +29,69 @@ function metricIcon(metric: CompetitionMetric): keyof typeof Ionicons.glyphMap {
 
 /** The main event: gradient hero with the rounds timeline and the live
  * round's standings. */
+/** Centered popup with the full event rulebook. */
+function EventInfoModal({ event, visible, onClose }: {
+    readonly event: CompetitionEvent;
+    readonly visible: boolean;
+    readonly onClose: () => void;
+}) {
+    return (
+        <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+            <Pressable style={styles.infoScrim} onPress={onClose}>
+                <Pressable style={styles.infoCard} onPress={() => undefined}>
+                    <Text style={styles.infoTitle}>{event.name}</Text>
+                    <View style={styles.infoRow}>
+                        <Ionicons name={metricIcon(event.metric)} size={16} color="#0A96AC" />
+                        <Text style={styles.infoText}>Scored on {event.metric.toLowerCase()}</Text>
+                    </View>
+                    <View style={[styles.infoRow, styles.infoDivider]}>
+                        <Ionicons name="people-outline" size={16} color="#0A96AC" />
+                        <Text style={styles.infoText}>
+                            {event.divisions.join(' and ')} divisions · {scopeLabel(event)} · {event.participantsCount} reps
+                        </Text>
+                    </View>
+                    {event.rounds.map((round) => {
+                        const advance = advanceLabel(round);
+                        return (
+                            <View key={round.roundNumber} style={[styles.infoRow, styles.infoDivider]}>
+                                <Ionicons
+                                    name={round.advance ? 'arrow-forward-circle-outline' : 'trophy-outline'}
+                                    size={16}
+                                    color="#0A96AC"
+                                />
+                                <Text style={styles.infoText}>
+                                    {round.label} ({formatDateRange(round.startDate, round.endDate)})
+                                    {advance ? `: ${advance}` : ''}
+                                    {round.prize ? ` · round prize: ${round.prize}` : ''}
+                                </Text>
+                            </View>
+                        );
+                    })}
+                    <View style={[styles.infoRow, styles.infoDivider]}>
+                        <Ionicons name="gift-outline" size={16} color="#0A96AC" />
+                        <Text style={styles.infoText}>Grand prize: {event.grandPrize}</Text>
+                    </View>
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Close details"
+                        style={styles.infoCloseButton}
+                        onPress={onClose}
+                    >
+                        <Text style={styles.infoCloseText}>Done</Text>
+                    </TouchableOpacity>
+                </Pressable>
+            </Pressable>
+        </Modal>
+    );
+}
+
 function MainEventCard({ event, now, onPress }: {
     readonly event: CompetitionEvent;
     readonly now: Date;
     readonly onPress: () => void;
 }) {
     const round = currentRound(event, now);
-    const advance = advanceLabel(round);
+    const [isInfoOpen, setIsInfoOpen] = useState(false);
     return (
         <TouchableOpacity activeOpacity={0.92} onPress={onPress}>
             <LinearGradient
@@ -59,20 +115,19 @@ function MainEventCard({ event, now, onPress }: {
                         <Ionicons name="time-outline" size={13} color="#0A96AC" />
                         <Text style={styles.endsPillText}>{daysLeft(round, now)}d left</Text>
                     </View>
-                </View>
-                <View style={styles.heroChipsRow}>
-                    <MetaChip onDark icon={metricIcon(event.metric)} label={event.metric} />
-                    <MetaChip onDark icon="people-outline" label={event.divisions.join(' + ')} />
+                    <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityLabel="Competition details"
+                        hitSlop={8}
+                        onPress={() => setIsInfoOpen(true)}
+                        style={styles.infoButton}
+                    >
+                        <Ionicons name="information" size={17} color="#FFFFFF" />
+                    </TouchableOpacity>
                 </View>
                 <RoundTimeline event={event} now={now} />
-                <View style={styles.roundInfoRow}>
-                    <Text style={styles.roundInfoTitle}>{round.label}</Text>
-                    <Text style={styles.roundInfoMeta}>
-                        {formatDateRange(round.startDate, round.endDate)}
-                        {advance ? ` · ${advance}` : ''}
-                    </Text>
-                </View>
                 <StandingsPodium round={round} metricLabel={event.metric.toLowerCase()} onDark />
+                <EventInfoModal event={event} visible={isInfoOpen} onClose={() => setIsInfoOpen(false)} />
                 <View style={styles.heroPrizeRow}>
                     <Ionicons name="gift-outline" size={15} color="#EAFBFE" />
                     <Text style={styles.heroPrizeText} numberOfLines={1}>{event.grandPrize}</Text>
@@ -286,28 +341,65 @@ const styles = StyleSheet.create({
         fontFamily: 'ClashGrotesk-Bold',
         color: '#0A96AC',
     },
-    heroChipsRow: {
-        flexDirection: 'row',
-        gap: 8,
-        marginTop: 12,
+    infoButton: {
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: 'rgba(255, 255, 255, 0.22)',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
-    roundInfoRow: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
-        gap: 8,
-        marginTop: 12,
-        marginLeft: 2,
-    },
-    roundInfoTitle: {
-        fontSize: 15,
-        fontFamily: 'ClashGrotesk-Bold',
-        color: '#FFFFFF',
-    },
-    roundInfoMeta: {
+    infoScrim: {
         flex: 1,
-        fontSize: 12,
+        backgroundColor: 'rgba(0, 0, 0, 0.45)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 26,
+    },
+    infoCard: {
+        alignSelf: 'stretch',
+        backgroundColor: '#FFFFFF',
+        borderRadius: 24,
+        paddingHorizontal: 18,
+        paddingTop: 18,
+        paddingBottom: 14,
+        boxShadow: '0 18px 50px rgba(0, 0, 0, 0.35)',
+    },
+    infoTitle: {
+        fontSize: 19,
+        fontFamily: 'ClashGrotesk-Bold',
+        color: '#18181B',
+        marginBottom: 8,
+    },
+    infoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+        paddingVertical: 10,
+    },
+    infoDivider: {
+        borderTopWidth: StyleSheet.hairlineWidth,
+        borderTopColor: '#E4E4E7',
+    },
+    infoText: {
+        flex: 1,
+        fontSize: 13,
         fontFamily: 'ClashGrotesk-Medium',
-        color: '#EAFBFE',
+        color: '#18181B',
+        lineHeight: 18,
+    },
+    infoCloseButton: {
+        marginTop: 10,
+        backgroundColor: '#18181B',
+        borderRadius: 15,
+        minHeight: 46,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    infoCloseText: {
+        fontSize: 15,
+        fontFamily: 'ClashGrotesk-Semibold',
+        color: '#FFFFFF',
     },
     heroPrizeRow: {
         flexDirection: 'row',
