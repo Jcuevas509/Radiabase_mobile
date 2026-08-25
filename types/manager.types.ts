@@ -68,6 +68,8 @@ export type TurfAreaSummary = {
 
 export type CompetitionMetric = 'Knocks' | 'Appointments' | 'Closes';
 
+export type CompetitionDivision = 'Setters' | 'Closers' | 'Everyone';
+
 export type CompetitionStanding = {
   readonly name: string;
   /** randomuser.me path fragment, e.g. "men/45". Seam: real photo URL. */
@@ -75,18 +77,33 @@ export type CompetitionStanding = {
   readonly value: number;
 };
 
-export type Competition = {
+/** One stage inside a competition event. Single-stage events have exactly
+ * one round spanning the whole event. */
+export type CompetitionRound = {
+  readonly roundNumber: number;
+  readonly label: string;
+  /** ISO dates (inclusive). */
+  readonly startDate: string;
+  readonly endDate: string;
+  /** Top N per division advancing to the next round; null on the final
+   * round (or single-stage events). */
+  readonly advance: Readonly<Partial<Record<CompetitionDivision, number>>> | null;
+  readonly prize: string | null;
+  readonly standings: readonly CompetitionStanding[];
+};
+
+/** A competition event: the main entity managers create. Rounds live
+ * inside it — a tournament is ONE event, not N sibling competitions. */
+export type CompetitionEvent = {
   readonly id: number;
   readonly name: string;
   readonly metric: CompetitionMetric;
-  readonly status: 'active' | 'ended';
-  /** "All offices" or a single office name. */
-  readonly officeScope: string;
-  readonly endsInDays: number;
+  readonly divisions: readonly CompetitionDivision[];
+  /** Office names in scope; empty means the whole org. */
+  readonly officeScope: readonly string[];
+  readonly grandPrize: string;
   readonly participantsCount: number;
-  readonly prize: string;
-  readonly leaderName: string;
-  readonly topThree: readonly CompetitionStanding[];
+  readonly rounds: readonly CompetitionRound[];
 };
 
 export type OfficeSummary = {

@@ -1,5 +1,6 @@
 import type {
-  Competition,
+  CompetitionEvent,
+  CompetitionStanding,
   GearItem,
   ManagerAlert,
   OfficeSummary,
@@ -14,7 +15,7 @@ import { apiClient } from 'services/api-client';
 import { DEMO_STATS_ENABLED, demoInt, demoOfficeStats } from 'services/demo-stats';
 import {
   buildSampleRepPerformance,
-  SAMPLE_COMPETITIONS,
+  SAMPLE_COMPETITION_EVENTS,
   SAMPLE_GEAR,
   SAMPLE_MANAGER_ALERTS,
   SAMPLE_OFFICES,
@@ -398,78 +399,98 @@ type ApiCompetitionRound = {
   readonly advance?: { readonly closer?: number; readonly setter?: number };
 };
 
-// GET /competition/rounds (+ /competition/round-leaderboard for the live
-// round's standings). Rounds are the org's real closes tournament.
-export async function fetchCompetitions(input: {
+async function fetchRoundStandings(
+  round: ApiCompetitionRound,
+  signal: AbortSignal | undefined,
+): Promise<readonly CompetitionStanding[]> {
+  try {
+    const response = await apiClient.get<{
+      readonly data?: readonly { readonly salesRep?: string; readonly fullName?: string; readonly totalSales?: number; readonly total?: number }[];
+    }>('/competition/round-leaderboard', {
+      params: { startDate: round.startDate, endDate: round.endDate, division: 'closer', limit: 3 },
+      signal,
+    });
+    return (response.data?.data ?? [])
+      .map((row) => ({
+        name: row.salesRep ?? row.fullName ?? '',
+        portrait: '',
+        value: row.totalSales ?? row.total ?? 0,
+      }))
+      .filter((row) => row.name.length > 0)
+      .slice(0, 3);
+  } catch {
+    // Standings are additive; rounds still render without them.
+    return [];
+  }
+}
+
+function demoStandings(roundNumber: number, users: readonly ApiUser[]): readonly CompetitionStanding[] {
+  // No deals on staging yet: rank real closers with demo values so the
+  // bracket is reviewable (services/demo-stats.ts).
+  return users
+    .filter((user) => user.status === 'active' && user.sales_role === 'closer' && user.full_name)
+    .sort((a, b) => demoInt(`cv${roundNumber}-${b.id}`, 1, 9) - demoInt(`cv${roundNumber}-${a.id}`, 1, 9))
+    .slice(0, 3)
+    .map((user, index) => ({
+      name: user.full_name as string,
+      portrait: '',
+      value: demoInt(`cv${roundNumber}-${user.id}`, 1, 9) + (2 - index),
+    }));
+}
+
+// GET /competition/rounds + /competition/round-leaderboard, folded into ONE
+// event: the server stores a flat round list today, but the product model
+// is a main event that owns its rounds. Seam: replace with GET /events once
+// the competitions backend is rebuilt.
+export async function fetchCompetitionEvents(input: {
   readonly managerId: number;
   readonly signal?: AbortSignal;
-}): Promise<readonly Competition[]> {
-  return realOrSample('competitions', async () => {
+}): Promise<readonly CompetitionEvent[]> {
+  return realOrSample('competition-events', async () => {
     const response = await apiClient.get<readonly ApiCompetitionRound[]>('/competition/rounds', {
       signal: input.signal,
     });
-    const rounds = response.data ?? [];
-    if (rounds.length === 0) {
+    const apiRounds = response.data ?? [];
+    if (apiRounds.length === 0) {
       throw new Error('no rounds');
     }
     const now = new Date();
-    const competitions = await Promise.all(rounds.map(async (round) => {
-      const end = new Date(`${round.endDate}T23:59:59`);
-      const isEnded = end.getTime() < now.getTime();
-      const advanceCloser = round.advance?.closer ?? 0;
-      const advanceSetter = round.advance?.setter ?? 0;
-      let topThree: Competition['topThree'] = [];
-      if (!isEnded) {
-        try {
-          const standings = await apiClient.get<{
-            readonly data?: readonly { readonly salesRep?: string; readonly fullName?: string; readonly totalSales?: number; readonly total?: number }[];
-          }>('/competition/round-leaderboard', {
-            params: {
-              startDate: round.startDate,
-              endDate: round.endDate,
-              division: 'closer',
-              limit: 3,
-            },
-            signal: input.signal,
-          });
-          topThree = (standings.data?.data ?? [])
-            .map((row) => ({
-              name: row.salesRep ?? row.fullName ?? '',
-              portrait: '',
-              value: row.totalSales ?? row.total ?? 0,
-            }))
-            .filter((row) => row.name.length > 0)
-            .slice(0, 3);
-        } catch {
-          // Standings are additive; the round list still renders without them.
-        }
-      }
-      if (topThree.length === 0 && DEMO_STATS_ENABLED && !isEnded) {
-        // No deals on staging yet: rank real closers with demo values so
-        // the bracket is reviewable (services/demo-stats.ts).
-        const closers = (await fetchAllUsersRaw(input.signal))
-          .filter((user) => user.status === 'active' && user.sales_role === 'closer' && user.full_name)
-          .sort((a, b) => demoInt(`cv${round.round}-${b.id}`, 1, 9) - demoInt(`cv${round.round}-${a.id}`, 1, 9))
-          .slice(0, 3);
-        topThree = closers.map((user, index) => ({
-          name: user.full_name as string,
-          portrait: '',
-          value: demoInt(`cv${round.round}-${user.id}`, 1, 9) + (2 - index),
-        }));
+    const users = DEMO_STATS_ENABLED ? await fetchAllUsersRaw(input.signal) : [];
+    const rounds = await Promise.all(apiRounds.map(async (round, index) => {
+      const isLast = index === apiRounds.length - 1;
+      const hasStarted = new Date(`${round.startDate}T00:00:00`).getTime() <= now.getTime();
+      let standings: readonly CompetitionStanding[] = hasStarted
+        ? await fetchRoundStandings(round, input.signal)
+        : [];
+      if (standings.length === 0 && hasStarted && DEMO_STATS_ENABLED) {
+        standings = demoStandings(round.round, users);
       }
       return {
-        id: round.round,
-        name: round.label,
-        metric: 'Closes' as const,
-        status: (isEnded ? 'ended' : 'active') as Competition['status'],
-        officeScope: 'All offices',
-        endsInDays: isEnded ? 0 : Math.max(0, Math.ceil((end.getTime() - now.getTime()) / 86_400_000)),
-        participantsCount: advanceCloser + advanceSetter,
-        prize: `Top ${advanceCloser} closers + ${advanceSetter} setters advance`,
-        leaderName: topThree[0]?.name ?? '—',
-        topThree,
+        roundNumber: round.round,
+        label: isLast ? 'Finals' : round.label,
+        startDate: round.startDate,
+        endDate: round.endDate,
+        advance: isLast ? null : {
+          ...(round.advance?.setter ? { Setters: round.advance.setter } : {}),
+          ...(round.advance?.closer ? { Closers: round.advance.closer } : {}),
+        },
+        prize: null,
+        standings,
       };
     }));
-    return competitions;
-  }, SAMPLE_COMPETITIONS);
+    const closers = users.filter((user) => user.status === 'active' && user.sales_role).length;
+    // The server has no event entity yet; the org's configured round list
+    // is presented as its one live tournament.
+    const liveEvent: CompetitionEvent = {
+      id: 1,
+      name: 'Closer Cup',
+      metric: 'Closes',
+      divisions: ['Setters', 'Closers'],
+      officeScope: [],
+      grandPrize: 'Grand prize TBA',
+      participantsCount: closers,
+      rounds,
+    };
+    return [liveEvent, ...SAMPLE_COMPETITION_EVENTS.filter((event) => event.rounds.length === 1)];
+  }, SAMPLE_COMPETITION_EVENTS);
 }

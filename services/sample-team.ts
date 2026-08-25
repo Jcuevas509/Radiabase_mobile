@@ -1,5 +1,5 @@
 import type {
-  Competition,
+  CompetitionEvent,
   OfficeTeam,
   GearItem,
   ManagerAlert,
@@ -310,77 +310,80 @@ export const SAMPLE_ONBOARDING: readonly OnboardingRecruit[] = [
   { id: 8, firstName: 'June', lastName: 'Barlow', portrait: 'women/9', officeName: 'Old Dominion', stage: 'Ready', daysInStage: 4 },
 ];
 
-export const SAMPLE_COMPETITIONS: readonly Competition[] = [
+export const SAMPLE_COMPETITION_EVENTS: readonly CompetitionEvent[] = [
   {
-    id: 71, name: 'Blitz Weekend', metric: 'Knocks', status: 'active', officeScope: 'All offices',
-    endsInDays: 2, participantsCount: 29, prize: '$250 + steak dinner', leaderName: 'Jake Morrison',
-    topThree: [
-      { name: 'Jake Morrison', portrait: 'men/45', value: 128 },
-      { name: 'Maria Santos', portrait: 'women/68', value: 121 },
-      { name: 'Devon Carter', portrait: 'men/23', value: 117 },
+    id: 90, name: 'Summer Slam', metric: 'Closes',
+    divisions: ['Setters', 'Closers'], officeScope: [],
+    grandPrize: 'Cabo trip for two', participantsCount: 44,
+    rounds: [
+      {
+        roundNumber: 1, label: 'Round 1', startDate: '2026-06-28', endDate: '2026-07-18',
+        advance: { Setters: 12, Closers: 12 }, prize: null,
+        standings: [
+          { name: 'Jake Morrison', portrait: 'men/45', value: 9 },
+          { name: 'Maria Santos', portrait: 'women/68', value: 8 },
+          { name: 'Devon Carter', portrait: 'men/23', value: 7 },
+        ],
+      },
+      {
+        roundNumber: 2, label: 'Round 2', startDate: '2026-07-19', endDate: '2026-08-08',
+        advance: { Setters: 6, Closers: 9 }, prize: null,
+        standings: [
+          { name: 'Maria Santos', portrait: 'women/68', value: 6 },
+          { name: 'Jake Morrison', portrait: 'men/45', value: 5 },
+          { name: 'Priya Shah', portrait: 'women/44', value: 4 },
+        ],
+      },
+      {
+        roundNumber: 3, label: 'Round 3', startDate: '2026-08-09', endDate: '2026-08-29',
+        advance: { Setters: 3, Closers: 3 }, prize: 'Steak dinner',
+        standings: [
+          { name: 'Jake Morrison', portrait: 'men/45', value: 4 },
+          { name: 'Isabella Reyes', portrait: 'women/57', value: 3 },
+          { name: 'Maria Santos', portrait: 'women/68', value: 3 },
+        ],
+      },
+      {
+        roundNumber: 4, label: 'Finals', startDate: '2026-08-30', endDate: '2026-09-19',
+        advance: null, prize: null, standings: [],
+      },
     ],
   },
   {
-    id: 72, name: 'September Setters Cup', metric: 'Appointments', status: 'active', officeScope: 'Suntrappers',
-    endsInDays: 18, participantsCount: 14, prize: 'Top-of-leaderboard banner', leaderName: 'Devon Carter',
-    topThree: [
-      { name: 'Devon Carter', portrait: 'men/23', value: 11 },
-      { name: 'Priya Shah', portrait: 'women/44', value: 9 },
-      { name: 'Sarah Kim', portrait: 'women/12', value: 8 },
-    ],
+    id: 91, name: 'Blitz Weekend', metric: 'Knocks',
+    divisions: ['Everyone'], officeScope: ['Suntrappers'],
+    grandPrize: '$250 + steak dinner', participantsCount: 14,
+    rounds: [{
+      roundNumber: 1, label: 'Blitz Weekend', startDate: '2026-08-22', endDate: '2026-08-26',
+      advance: null, prize: null,
+      standings: [
+        { name: 'Jake Morrison', portrait: 'men/45', value: 128 },
+        { name: 'Maria Santos', portrait: 'women/68', value: 121 },
+        { name: 'Devon Carter', portrait: 'men/23', value: 117 },
+      ],
+    }],
   },
   {
-    id: 73, name: 'Door Dash Sprint', metric: 'Knocks', status: 'active', officeScope: 'Kaos Cartel',
-    endsInDays: 5, participantsCount: 9, prize: 'AirPods Pro', leaderName: 'Isabella Reyes',
-    topThree: [
-      { name: 'Isabella Reyes', portrait: 'women/57' },
-      { name: 'Marcus Webb', portrait: 'men/76' },
-      { name: 'Omar Haddad', portrait: 'men/29' },
-    ].map((entry, index) => ({ ...entry, value: [84, 71, 63][index] })),
+    id: 92, name: 'October Kickoff', metric: 'Appointments',
+    divisions: ['Setters'], officeScope: [],
+    grandPrize: 'Team dinner', participantsCount: 29,
+    rounds: [{
+      roundNumber: 1, label: 'October Kickoff', startDate: '2026-10-01', endDate: '2026-10-14',
+      advance: null, prize: null, standings: [],
+    }],
   },
   {
-    id: 74, name: 'October Kickoff', metric: 'Appointments', status: 'active', officeScope: 'All offices',
-    endsInDays: 25, participantsCount: 44, prize: 'Team dinner', leaderName: 'Dana Whitfield',
-    topThree: [
-      { name: 'Dana Whitfield', portrait: 'women/68' },
-      { name: 'Jake Morrison', portrait: 'men/45' },
-      { name: 'Harper Ellison', portrait: 'women/54' },
-    ].map((entry, index) => ({ ...entry, value: [6, 5, 5][index] })),
-  },
-  {
-    id: 75, name: 'Firewheel Face-off', metric: 'Closes', status: 'active', officeScope: 'Firewheel Squad',
-    endsInDays: 9, participantsCount: 6, prize: '$100 gift card', leaderName: 'Sofia Delgado',
-    topThree: [
-      { name: 'Sofia Delgado', portrait: 'women/12' },
-      { name: 'Caleb Brooks', portrait: 'men/61' },
-      { name: 'Wes Harmon', portrait: 'men/71' },
-    ].map((entry, index) => ({ ...entry, value: [3, 2, 1][index] })),
-  },
-  {
-    id: 76, name: 'Buckeye Knock-a-thon', metric: 'Knocks', status: 'active', officeScope: 'Buckeye Blitz',
-    endsInDays: 4, participantsCount: 8, prize: 'Game day tickets', leaderName: 'Noah Reiner',
-    topThree: [
-      { name: 'Noah Reiner', portrait: 'men/19' },
-      { name: 'Josie Lang', portrait: 'women/72' },
-      { name: 'Miles Turner', portrait: 'men/55' },
-    ].map((entry, index) => ({ ...entry, value: [96, 88, 74][index] })),
-  },
-  {
-    id: 77, name: 'Dominion Dash', metric: 'Appointments', status: 'active', officeScope: 'Old Dominion',
-    endsInDays: 6, participantsCount: 7, prize: 'Fishing charter', leaderName: 'Harper Ellison',
-    topThree: [
-      { name: 'Harper Ellison', portrait: 'women/54' },
-      { name: 'Reid Calloway', portrait: 'men/47' },
-      { name: 'June Barlow', portrait: 'women/9' },
-    ].map((entry, index) => ({ ...entry, value: [7, 6, 4][index] })),
-  },
-  {
-    id: 70, name: 'August Closers Derby', metric: 'Closes', status: 'ended', officeScope: 'All offices',
-    endsInDays: 0, participantsCount: 29, prize: 'Yeti cooler + bragging rights', leaderName: 'Maria Santos',
-    topThree: [
-      { name: 'Maria Santos', portrait: 'women/68', value: 7 },
-      { name: 'Jake Morrison', portrait: 'men/45', value: 6 },
-      { name: 'Isabella Reyes', portrait: 'women/57', value: 4 },
-    ],
+    id: 93, name: 'August Closers Derby', metric: 'Closes',
+    divisions: ['Closers'], officeScope: [],
+    grandPrize: 'Yeti cooler + bragging rights', participantsCount: 29,
+    rounds: [{
+      roundNumber: 1, label: 'August Closers Derby', startDate: '2026-07-25', endDate: '2026-08-15',
+      advance: null, prize: null,
+      standings: [
+        { name: 'Maria Santos', portrait: 'women/68', value: 7 },
+        { name: 'Jake Morrison', portrait: 'men/45', value: 6 },
+        { name: 'Isabella Reyes', portrait: 'women/57', value: 4 },
+      ],
+    }],
   },
 ];
