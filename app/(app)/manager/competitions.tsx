@@ -13,7 +13,6 @@ import {
     View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import Svg, { Path } from 'react-native-svg';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { GlassCircleButton } from 'components/Button/GlassCircleButton';
 import { GlassSurface } from 'components/GlassSurface';
@@ -127,33 +126,7 @@ function LavaField() {
                 yDur={10000}
                 fade={[0.15, 0.6]}
             />
-            <SilkWaves />
         </View>
-    );
-}
-
-/** Static silk ridges: repeated sine strokes the moving glow lights up. */
-function SilkWaves() {
-    const width = 640;
-    const rows = 18;
-    const spacing = 22;
-    const wavelength = 46;
-    const amplitude = 7;
-    const paths: string[] = [];
-    for (let row = 0; row < rows; row += 1) {
-        const yBase = row * spacing;
-        let d = `M0 ${yBase} q ${wavelength / 2} ${-amplitude} ${wavelength} 0`;
-        for (let x = wavelength; x < width; x += wavelength) {
-            d += ` t ${wavelength} 0`;
-        }
-        paths.push(d);
-    }
-    return (
-        <Svg width={width} height={rows * spacing} style={StyleSheet.absoluteFill}>
-            {paths.map((d, index) => (
-                <Path key={index} d={d} stroke="rgba(150, 235, 255, 0.08)" strokeWidth={1.2} fill="none" />
-            ))}
-        </Svg>
     );
 }
 
