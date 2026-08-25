@@ -13,6 +13,7 @@ import {
     View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import Svg, { Circle, Defs, Path, RadialGradient, Stop } from 'react-native-svg';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { GlassCircleButton } from 'components/Button/GlassCircleButton';
 import { GlassSurface } from 'components/GlassSurface';
@@ -41,66 +42,100 @@ function metricIcon(metric: CompetitionMetric): keyof typeof Ionicons.glyphMap {
 /** The main event: gradient hero with the rounds timeline and the live
  * round's standings. */
 /**
- * Animated depth behind the hero: ripple rings expanding from behind the
- * winner's podium slot plus a slow drifting glow. Pure background motion —
- * the clear glass panel above it does the lensing.
+ * Lava-flow depth for the hero: luminous aurora blobs drifting on slow,
+ * offset sine paths under a silk wave-ridge texture, all on a near-black
+ * ground. The clear glass panel above does the lensing.
  */
-function RippleField() {
-    const ringCount = 4;
-    const rings = useRef(Array.from({ length: ringCount }, () => new Animated.Value(0))).current;
-    const driftX = useRef(new Animated.Value(0)).current;
-    const driftY = useRef(new Animated.Value(0)).current;
+const LAVA_BLOBS = [
+    { size: 400, color: '#22E4FF', peak: 0.85, left: '2%', top: '26%', stretch: 1.8, rotate: '-16deg', xRange: [-80, 70], yRange: [-30, 26], xDur: 13000, yDur: 17000 },
+    { size: 300, color: '#2E6BFF', peak: 0.6, left: '48%', top: '2%', stretch: 1.5, rotate: '14deg', xRange: [60, -70], yRange: [18, -36], xDur: 16000, yDur: 11000 },
+    { size: 340, color: '#00CFE8', peak: 0.75, left: '36%', top: '48%', stretch: 1.9, rotate: '-30deg', xRange: [-40, 70], yRange: [46, -26], xDur: 19000, yDur: 14000 },
+] as const;
+
+function LavaBlob({ blob, index }: {
+    readonly blob: (typeof LAVA_BLOBS)[number];
+    readonly index: number;
+}) {
+    const x = useRef(new Animated.Value(0)).current;
+    const y = useRef(new Animated.Value(0)).current;
+    const breath = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-        const loops = rings.map((value, index) =>
+        const drift = (value: Animated.Value, duration: number) =>
             Animated.loop(Animated.sequence([
-                Animated.delay(index * 1700),
-                Animated.timing(value, {
-                    toValue: 1,
-                    duration: 6800,
-                    easing: Easing.out(Easing.quad),
-                    useNativeDriver: true,
-                }),
-                Animated.timing(value, { toValue: 0, duration: 0, useNativeDriver: true }),
-            ])),
-        );
-        const drift = [
-            Animated.loop(Animated.sequence([
-                Animated.timing(driftX, { toValue: 1, duration: 9000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-                Animated.timing(driftX, { toValue: 0, duration: 9000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            ])),
-            Animated.loop(Animated.sequence([
-                Animated.timing(driftY, { toValue: 1, duration: 13000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-                Animated.timing(driftY, { toValue: 0, duration: 13000, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            ])),
+                Animated.timing(value, { toValue: 1, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+                Animated.timing(value, { toValue: 0, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+            ]));
+        const loops = [
+            drift(x, blob.xDur),
+            drift(y, blob.yDur),
+            drift(breath, 9000 + index * 2400),
         ];
         loops.forEach((loop) => loop.start());
-        drift.forEach((loop) => loop.start());
-        return () => {
-            loops.forEach((loop) => loop.stop());
-            drift.forEach((loop) => loop.stop());
-        };
-    }, [rings, driftX, driftY]);
+        return () => loops.forEach((loop) => loop.stop());
+    }, [x, y, breath, blob, index]);
 
     return (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <Animated.View
-                style={[styles.heroGlow, {
-                    transform: [
-                        { translateX: driftX.interpolate({ inputRange: [0, 1], outputRange: [-70, 60] }) },
-                        { translateY: driftY.interpolate({ inputRange: [0, 1], outputRange: [-30, 50] }) },
-                    ],
-                }]}
-            />
-            {rings.map((value, index) => (
-                <Animated.View
-                    key={index}
-                    style={[styles.ripple, {
-                        opacity: value.interpolate({ inputRange: [0, 0.12, 1], outputRange: [0, 0.55, 0] }),
-                        transform: [{ scale: value.interpolate({ inputRange: [0, 1], outputRange: [0.3, 2.4] }) }],
-                    }]}
-                />
+        <Animated.View
+            style={{
+                position: 'absolute',
+                left: blob.left,
+                top: blob.top,
+                transform: [
+                    { translateX: x.interpolate({ inputRange: [0, 1], outputRange: blob.xRange as unknown as number[] }) },
+                    { translateY: y.interpolate({ inputRange: [0, 1], outputRange: blob.yRange as unknown as number[] }) },
+                    { rotate: blob.rotate },
+                    { scaleX: blob.stretch },
+                    { scale: breath.interpolate({ inputRange: [0, 1], outputRange: [0.92, 1.18] }) },
+                ],
+            }}
+        >
+            <Svg width={blob.size} height={blob.size}>
+                <Defs>
+                    <RadialGradient id={`lava${index}`} cx="50%" cy="50%" r="50%">
+                        <Stop offset="0%" stopColor={blob.color} stopOpacity={blob.peak} />
+                        <Stop offset="55%" stopColor={blob.color} stopOpacity={blob.peak * 0.35} />
+                        <Stop offset="100%" stopColor={blob.color} stopOpacity={0} />
+                    </RadialGradient>
+                </Defs>
+                <Circle cx={blob.size / 2} cy={blob.size / 2} r={blob.size / 2} fill={`url(#lava${index})`} />
+            </Svg>
+        </Animated.View>
+    );
+}
+
+/** Static silk ridges: repeated sine strokes the moving glow lights up. */
+function SilkWaves() {
+    const width = 640;
+    const rows = 18;
+    const spacing = 22;
+    const wavelength = 46;
+    const amplitude = 7;
+    const paths: string[] = [];
+    for (let row = 0; row < rows; row += 1) {
+        const yBase = row * spacing;
+        let d = `M0 ${yBase} q ${wavelength / 2} ${-amplitude} ${wavelength} 0`;
+        for (let x = wavelength; x < width; x += wavelength) {
+            d += ` t ${wavelength} 0`;
+        }
+        paths.push(d);
+    }
+    return (
+        <Svg width={width} height={rows * spacing} style={StyleSheet.absoluteFill}>
+            {paths.map((d, index) => (
+                <Path key={index} d={d} stroke="rgba(150, 235, 255, 0.08)" strokeWidth={1.2} fill="none" />
             ))}
+        </Svg>
+    );
+}
+
+function LavaField() {
+    return (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+            {LAVA_BLOBS.map((blob, index) => (
+                <LavaBlob key={index} blob={blob} index={index} />
+            ))}
+            <SilkWaves />
         </View>
     );
 }
@@ -172,13 +207,13 @@ function MainEventCard({ event, now, onPress }: {
         <TouchableOpacity activeOpacity={0.92} onPress={onPress}>
             <View style={styles.heroCard}>
                 <LinearGradient
-                    colors={[...TEAL_GRADIENT]}
+                    colors={['#020C12', '#062736', '#03101B']}
                     locations={[0, 0.55, 1]}
                     start={{ x: 0.1, y: 0 }}
                     end={{ x: 0.9, y: 1 }}
                     style={StyleSheet.absoluteFill}
                 />
-                <RippleField />
+                <LavaField />
                 <View style={styles.heroHeader}>
                     <View style={styles.heroTrophy}>
                         <Ionicons name="trophy" size={22} color="#FFFFFF" />
@@ -384,29 +419,7 @@ const styles = StyleSheet.create({
         borderRadius: 26,
         padding: 16,
         overflow: 'hidden',
-        backgroundColor: '#067A90',
-    },
-    // Ripples expand from behind the podium's gold slot.
-    ripple: {
-        position: 'absolute',
-        left: '50%',
-        top: '52%',
-        width: 240,
-        height: 240,
-        marginLeft: -120,
-        marginTop: -120,
-        borderRadius: 120,
-        borderWidth: 1.5,
-        borderColor: 'rgba(255, 255, 255, 0.65)',
-    },
-    heroGlow: {
-        position: 'absolute',
-        left: '38%',
-        top: '30%',
-        width: 300,
-        height: 300,
-        borderRadius: 150,
-        backgroundColor: 'rgba(160, 244, 255, 0.16)',
+        backgroundColor: '#020C12',
     },
     // Bare clear glass over the moving ripples — the panel lenses the
     // animation behind it (nav-bar recipe: no paint on the glass node).
