@@ -16,15 +16,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { GlassSurface } from 'components/GlassSurface';
+import { GlassCircleButton } from 'components/Button/GlassCircleButton';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
+import { CARD_SHADOW, TEAL_GRADIENT, PILL_GRADIENT, portraitUrl, splitName } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchCompetitions, fetchOffices } from 'services/manager-api';
 import type { Competition, CompetitionMetric, OfficeSummary } from 'types/manager.types';
-
-const CARD_SHADOW =
-    '0 1px 2px rgba(24, 24, 27, 0.05), 0 10px 26px rgba(24, 24, 27, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95)';
-const TEAL_GRADIENT = ['#067A90', '#0AA6BE', '#00CFE8'] as const;
-const PILL_GRADIENT = ['#09090B', '#26262B', '#4A4A52'] as const;
 
 const METRICS: readonly CompetitionMetric[] = ['Knocks', 'Appointments', 'Closes'];
 const DURATIONS = [
@@ -40,19 +37,10 @@ const MEDAL_IMAGES = [
     require('../../../assets/images/medals/bronze.jpg'),
 ] as const;
 
-function portraitUrl(portrait: string) {
-    return `https://randomuser.me/api/portraits/${portrait}.jpg`;
-}
-
 function metricIcon(metric: CompetitionMetric): keyof typeof Ionicons.glyphMap {
     if (metric === 'Knocks') return 'hand-left';
     if (metric === 'Appointments') return 'calendar';
     return 'ribbon';
-}
-
-function splitName(name: string): { first: string; last: string } {
-    const [first, ...rest] = name.split(' ');
-    return { first, last: rest.join(' ') };
 }
 
 function MetaChip({ icon, label, onDark }: {
@@ -401,22 +389,7 @@ export default function CompetitionsScreen() {
     }, [managerId]);
 
     const addButton = (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="New competition"
-            hitSlop={8}
-            onPress={() => setIsBuilderOpen(true)}
-            style={({ pressed }) => [pressed && styles.addButtonPressed]}
-        >
-            <GlassSurface
-                glassEffectStyle="clear"
-                isInteractive
-                style={styles.addButton}
-                fallbackStyle={styles.addButtonFallback}
-            >
-                <Ionicons name="add" size={22} color="#18181B" />
-            </GlassSurface>
-        </Pressable>
+        <GlassCircleButton icon="add" accessibilityLabel="New competition" onPress={() => setIsBuilderOpen(true)} />
     );
 
     if (!competitions) {
@@ -478,21 +451,6 @@ export default function CompetitionsScreen() {
 const styles = StyleSheet.create({
     loading: {
         marginTop: 48,
-    },
-    // Bare native glass circle — no background or shadow on the glass node.
-    addButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    addButtonFallback: {
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    },
-    addButtonPressed: {
-        opacity: 0.7,
     },
     heroCard: {
         borderRadius: 26,

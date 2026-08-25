@@ -14,38 +14,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { GlassSurface } from 'components/GlassSurface';
+import { GlassCircleButton } from 'components/Button/GlassCircleButton';
+import { CARD_SHADOW, TEAL_GRADIENT, accentGradient, portraitUrl, splitName } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchOfficeTeams, fetchOffices } from 'services/manager-api';
 import type { OfficeSummary, OfficeTeam, TeamMember } from 'types/manager.types';
-
-const CARD_SHADOW =
-    '0 1px 2px rgba(24, 24, 27, 0.05), 0 10px 26px rgba(24, 24, 27, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95)';
-const TEAL_GRADIENT = ['#067A90', '#0AA6BE', '#00CFE8'] as const;
-
-/** Shift a hex color toward black (negative) or white (positive). */
-function shadeColor(hex: string, amount: number) {
-    const value = parseInt(hex.slice(1), 16);
-    const mix = (channel: number) =>
-        Math.round(amount < 0 ? channel * (1 + amount) : channel + (255 - channel) * amount);
-    const r = mix((value >> 16) & 255);
-    const g = mix((value >> 8) & 255);
-    const b = mix(value & 255);
-    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
-}
-
-/** Office-accent version of the hero gradient: deep -> base -> bright. */
-function accentGradient(accent: string): [string, string, string] {
-    return [shadeColor(accent, -0.45), shadeColor(accent, -0.1), shadeColor(accent, 0.18)];
-}
-
-function portraitUrl(portrait: string) {
-    return `https://randomuser.me/api/portraits/${portrait}.jpg`;
-}
-
-function splitName(name: string): { first: string; last: string } {
-    const [first, ...rest] = name.split(' ');
-    return { first, last: rest.join(' ') };
-}
 
 function goalPct(team: OfficeTeam) {
     return Math.min(100, Math.round((team.points / team.goalPoints) * 100));
@@ -244,23 +217,7 @@ export default function TeamsScreen() {
     }, [managerId, requestedOffice]);
 
     const addButton = (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Create team"
-            hitSlop={8}
-            // Seam: opens the create-team flow once POST /teams exists.
-            onPress={() => Alert.alert('New team', 'Team creation is coming with the backend.')}
-            style={({ pressed }) => [pressed && styles.pressed]}
-        >
-            <GlassSurface
-                glassEffectStyle="clear"
-                isInteractive
-                style={styles.glassButton}
-                fallbackStyle={styles.glassButtonFallback}
-            >
-                <Ionicons name="add" size={22} color="#18181B" />
-            </GlassSurface>
-        </Pressable>
+        <GlassCircleButton icon="add" accessibilityLabel="Create team" onPress={() => Alert.alert('New team', 'Team creation is coming with the backend.')} />
     );
 
     if (!teams) {
@@ -307,18 +264,6 @@ const styles = StyleSheet.create({
     },
     pressed: {
         opacity: 0.7,
-    },
-    // Bare native glass circle — no background or shadow on the glass node.
-    glassButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    glassButtonFallback: {
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
     },
     heroCard: {
         borderRadius: 26,

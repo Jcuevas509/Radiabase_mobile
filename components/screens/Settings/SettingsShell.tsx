@@ -14,6 +14,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GlassSurface } from 'components/GlassSurface';
+import { GlassCircleButton } from 'components/Button/GlassCircleButton';
 
 /**
  * Shared frame and row kit for the settings sub-screens: back-arrow header,
@@ -50,26 +51,17 @@ export function SettingsShell({
           style={StyleSheet.absoluteFill}
         />
         <View style={[styles.header, styles.headerFloating, { top: insets.top }]}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            hitSlop={12}
-            onPress={() => router.back()}
-            style={styles.headerSide}
-          >
-            <GlassSurface
-              glassEffectStyle="clear"
-              isInteractive
-              style={styles.glassButton}
-              fallbackStyle={styles.glassButtonFallback}
-            >
-              <Ionicons name="chevron-back" size={22} color="#18181B" />
-            </GlassSurface>
-          </Pressable>
+          <View style={styles.headerSide}>
+            <GlassCircleButton
+              icon="chevron-back"
+              accessibilityLabel="Go back"
+              onPress={() => router.back()}
+            />
+          </View>
           <GlassSurface
             glassEffectStyle="clear"
             style={styles.glassTitle}
-            fallbackStyle={styles.glassButtonFallback}
+            fallbackStyle={styles.glassTitleFallback}
           >
             <Text style={styles.headerTitle}>{title}</Text>
           </GlassSurface>
@@ -316,17 +308,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // Bare native glass circle — no background or shadow on the glass node,
-  // exactly like the nav bar.
-  glassButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  glassButtonFallback: {
+  glassTitleFallback: {
     backgroundColor: 'rgba(255, 255, 255, 0.5)',
   },
   content: {

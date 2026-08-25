@@ -16,12 +16,11 @@ import Svg, { Circle, Path } from 'react-native-svg';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
 import { GlassSurface } from 'components/GlassSurface';
+import { GlassCircleButton } from 'components/Button/GlassCircleButton';
+import { CARD_SHADOW, portraitUrl } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchOffices } from 'services/manager-api';
 import type { OfficeSummary } from 'types/manager.types';
-
-const CARD_SHADOW =
-    '0 1px 2px rgba(24, 24, 27, 0.05), 0 10px 26px rgba(24, 24, 27, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95)';
 
 const HERO_STATE_ROWS = [
     ['Texas', 'Ohio', 'Missouri'],
@@ -44,10 +43,6 @@ const STATE_ART: Record<string, { readonly path: string; readonly dot: readonly 
         dot: [66, 56],
     },
 };
-
-function portraitUrl(portrait: string) {
-    return `https://randomuser.me/api/portraits/${portrait}.jpg`;
-}
 
 /** Region framing every office, biased left so the pins sit on the right
  * half of the hero and the copy gets the gradient side. */
@@ -171,23 +166,7 @@ export default function OfficesScreen() {
     }, [managerId]);
 
     const addButton = (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Add office"
-            hitSlop={8}
-            // Seam: opens the create-office flow once the API exists.
-            onPress={() => Alert.alert('Add office', 'Office creation is coming with the backend.')}
-            style={({ pressed }) => [pressed && styles.addButtonPressed]}
-        >
-            <GlassSurface
-                glassEffectStyle="clear"
-                isInteractive
-                style={styles.addButton}
-                fallbackStyle={styles.addButtonFallback}
-            >
-                <Ionicons name="add" size={22} color="#18181B" />
-            </GlassSurface>
-        </Pressable>
+        <GlassCircleButton icon="add" accessibilityLabel="Add office" onPress={() => Alert.alert('Add office', 'Office creation is coming with the backend.')} />
     );
 
     if (!offices) {
@@ -302,21 +281,6 @@ export default function OfficesScreen() {
 const styles = StyleSheet.create({
     loading: {
         marginTop: 48,
-    },
-    // Bare native glass circle — no background or shadow on the glass node.
-    addButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    addButtonFallback: {
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
-    },
-    addButtonPressed: {
-        opacity: 0.7,
     },
     heroCard: {
         borderRadius: 26,

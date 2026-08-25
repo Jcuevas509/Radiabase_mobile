@@ -14,14 +14,12 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { GlassSurface } from 'components/GlassSurface';
+import { GlassCircleButton } from 'components/Button/GlassCircleButton';
 import { UserAvatar } from 'components/Avatar/UserAvatar';
+import { CARD_SHADOW, TEAL_GRADIENT, portraitUrl } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
 import { advanceOnboardingRecruit, fetchOffices, fetchOnboardingRecruits } from 'services/manager-api';
 import type { OfficeSummary, OnboardingRecruit, OnboardingStage } from 'types/manager.types';
-
-const CARD_SHADOW =
-    '0 1px 2px rgba(24, 24, 27, 0.05), 0 10px 26px rgba(24, 24, 27, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95)';
-const TEAL_GRADIENT = ['#067A90', '#0AA6BE', '#00CFE8'] as const;
 
 const STAGES: readonly OnboardingStage[] = ['Invited', 'Docs', 'Training', 'Ready'];
 
@@ -38,10 +36,6 @@ const STAGE_META: Record<OnboardingStage, {
 
 /** Days in one stage before a recruit counts as stuck. */
 const STUCK_AFTER_DAYS = 5;
-
-function portraitUrl(portrait: string) {
-    return `https://randomuser.me/api/portraits/${portrait}.jpg`;
-}
 
 function StageDots({ stage }: { readonly stage: OnboardingStage }) {
     const activeIndex = STAGES.indexOf(stage);
@@ -239,22 +233,7 @@ export default function OnboardingScreen() {
     };
 
     const addButton = (
-        <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Invite a recruit"
-            hitSlop={8}
-            onPress={() => setIsInviteOpen(true)}
-            style={({ pressed }) => [pressed && styles.pressed]}
-        >
-            <GlassSurface
-                glassEffectStyle="clear"
-                isInteractive
-                style={styles.glassButton}
-                fallbackStyle={styles.glassButtonFallback}
-            >
-                <Ionicons name="add" size={22} color="#18181B" />
-            </GlassSurface>
-        </Pressable>
+        <GlassCircleButton icon="add" accessibilityLabel="Invite a recruit" onPress={() => setIsInviteOpen(true)} />
     );
 
     if (!recruits) {
@@ -350,18 +329,6 @@ const styles = StyleSheet.create({
     },
     pressed: {
         opacity: 0.7,
-    },
-    // Bare native glass circle — no background or shadow on the glass node.
-    glassButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        overflow: 'hidden',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    glassButtonFallback: {
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
     },
     heroCard: {
         borderRadius: 26,

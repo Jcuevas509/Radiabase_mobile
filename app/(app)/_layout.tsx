@@ -5,7 +5,7 @@ import { AdminMenuSheet } from 'components/Menu/AdminMenuSheet';
 /**
  * Native stack over the tab shell: manager, messages, and settings pages
  * push with the system slide transition and pop back to exactly the
- * previous screen — the drawer group only hosts the tabs.
+ * previous screen. The admin menu is a bottom sheet (no drawer layer).
  */
 export default function Layout() {
     return (
@@ -14,7 +14,7 @@ export default function Layout() {
                 dark icons for the app's light screens. */}
             <StatusBar style="dark" />
             <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(drawer)" />
+                <Stack.Screen name="(tabs)" />
             </Stack>
             {/* The admin menu presents as a native bottom sheet, not the drawer. */}
             <AdminMenuSheet />

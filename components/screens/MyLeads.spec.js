@@ -3,7 +3,7 @@ const { Alert } = require('react-native');
 const TestRenderer = require('react-test-renderer');
 const { act } = TestRenderer;
 const { fetchMyLeads, updateFieldLeadStatus } = require('services/leads-api');
-const MyLeadsScreen = require('app/(app)/(drawer)/(tabs)/myLeads').default;
+const MyLeadsScreen = require('app/(app)/(tabs)/myLeads').default;
 
 let mockSession;
 

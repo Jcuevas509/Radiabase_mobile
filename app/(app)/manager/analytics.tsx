@@ -6,13 +6,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import Svg, { Rect } from 'react-native-svg';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { GlassSurface } from 'components/GlassSurface';
+import { CARD_SHADOW, TEAL_GRADIENT } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchManagerAlerts, fetchTeamRoster, fetchTeamSnapshot } from 'services/manager-api';
 import type { ManagerAlert, TeamRosterEntry, TeamSnapshot } from 'types/manager.types';
-
-const CARD_SHADOW =
-    '0 1px 2px rgba(24, 24, 27, 0.05), 0 10px 26px rgba(24, 24, 27, 0.07), inset 0 1px 0 rgba(255, 255, 255, 0.95)';
-const TEAL_GRADIENT = ['#067A90', '#0AA6BE', '#00CFE8'] as const;
 
 const STATE_COLORS: Record<TeamRosterEntry['activityState'], string> = {
     knocking: '#16A34A',
