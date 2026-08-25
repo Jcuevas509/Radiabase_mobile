@@ -5,7 +5,6 @@ import type {
   OfficeSummary,
   OfficeTeam,
   OnboardingRecruit,
-  PendingDealApproval,
   RepPerformance,
   TeamRosterEntry,
   TeamSnapshot,
@@ -13,7 +12,6 @@ import type {
 } from 'types/manager.types';
 import {
   buildSampleRepPerformance,
-  SAMPLE_APPROVAL_QUEUE,
   SAMPLE_COMPETITIONS,
   SAMPLE_GEAR,
   SAMPLE_MANAGER_ALERTS,
@@ -77,27 +75,6 @@ export async function fetchRepPerformance(input: {
 export async function saveRepWeeklyGoal(input: {
   readonly repId: number;
   readonly weeklyGoalKnocks: number;
-}): Promise<void> {
-  return sampleResponse(undefined);
-}
-
-// Seam: GET /deals/approvals?managerId=&status=pending
-export async function fetchApprovalQueue(input: {
-  readonly managerId: number;
-  readonly signal?: AbortSignal;
-}): Promise<readonly PendingDealApproval[]> {
-  return sampleResponse(SAMPLE_APPROVAL_QUEUE, input.signal);
-}
-
-// Seam: POST /deals/approvals/:dealId/approve
-export async function approveDeal(input: { readonly dealId: number }): Promise<void> {
-  return sampleResponse(undefined);
-}
-
-// Seam: POST /deals/approvals/:dealId/kick-back body={reason}
-export async function kickBackDeal(input: {
-  readonly dealId: number;
-  readonly reason: string;
 }): Promise<void> {
   return sampleResponse(undefined);
 }

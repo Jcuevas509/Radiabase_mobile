@@ -22,7 +22,6 @@ export const menuItemsManager: MenuItemProps[] = [
   { id: 4, label: 'Shop Gear', route: '/manager/shop-gear', icon: drawerIcon('shirt-outline') },
   { id: 5, label: 'Area management', route: '/manager/area-management', icon: drawerIcon('map-outline') },
   { id: 6, label: 'Onboarding', route: '/manager/onboarding', icon: drawerIcon('person-add-outline') },
-  { id: 7, label: 'Deal approvals', route: '/manager/approvals', icon: drawerIcon('checkmark-done-outline') },
 ];
 
 /** Standard reps have no drawer — the header button opens Messages instead

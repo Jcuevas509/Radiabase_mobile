@@ -56,20 +56,6 @@ export type RepPerformance = {
   readonly trend: readonly number[];
 };
 
-export type ApprovalStatus = 'pending' | 'approved' | 'kicked-back';
-
-export type PendingDealApproval = {
-  readonly id: number;
-  readonly customerName: string;
-  readonly address: string;
-  readonly repName: string;
-  readonly systemSizeKw: number;
-  readonly grossPricePerWatt: number;
-  readonly netPricePerWatt: number;
-  readonly submittedHoursAgo: number;
-  readonly status: ApprovalStatus;
-};
-
 export type TurfAreaSummary = {
   readonly id: number;
   readonly name: string;

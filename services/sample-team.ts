@@ -5,7 +5,6 @@ import type {
   ManagerAlert,
   OfficeSummary,
   OnboardingRecruit,
-  PendingDealApproval,
   RepPerformance,
   TeamRosterEntry,
   TeamSnapshot,
@@ -78,24 +77,6 @@ export function buildSampleRepPerformance(repId: number): RepPerformance {
     trend: [3, 5, 4, 7, 6, 9, 8].map((value) => Math.round(value * scale)),
   };
 }
-
-export const SAMPLE_APPROVAL_QUEUE: readonly PendingDealApproval[] = [
-  {
-    id: 9001, customerName: 'Rosa Delgado', address: '412 Pecan Hollow Dr, Garland, TX 75043',
-    repName: 'Maria Santos', systemSizeKw: 12.3, grossPricePerWatt: 3.42, netPricePerWatt: 2.87,
-    submittedHoursAgo: 2, status: 'pending',
-  },
-  {
-    id: 9002, customerName: 'Hank Porter', address: '318 Lakeview Ct, Garland, TX 75043',
-    repName: 'Sarah Kim', systemSizeKw: 9.72, grossPricePerWatt: 3.95, netPricePerWatt: 3.40,
-    submittedHoursAgo: 5, status: 'pending',
-  },
-  {
-    id: 9003, customerName: 'Iris Chen', address: '77 Firewheel Pkwy, Garland, TX 75040',
-    repName: 'Jake Morrison', systemSizeKw: 14.2, grossPricePerWatt: 3.28, netPricePerWatt: 2.73,
-    submittedHoursAgo: 26, status: 'pending',
-  },
-];
 
 export const SAMPLE_TURF_AREAS: readonly TurfAreaSummary[] = [
   { id: 501, name: 'Pecan Hollow', assignedRepName: 'Jake Morrison', doorsTotal: 420, doorsKnockedThisWeek: 311, lastWorkedDaysAgo: 0, conversionRatePct: 4.2 },
