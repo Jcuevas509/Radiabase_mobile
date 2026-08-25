@@ -77,41 +77,68 @@ export function RoundTimeline({ event, now, activeRoundNumber }: {
     );
 }
 
-/** Medal-ranked standings rows on a white inset card. */
-export function StandingsCard({ round, metricLabel }: {
+/** Top-three podium: big profile photos with a medal badge pinned to the
+ * bottom-right of each — gold raised in the center, silver left, bronze
+ * right. */
+export function StandingsPodium({ round, metricLabel, onDark = false }: {
     readonly round: CompetitionRound;
     readonly metricLabel: string;
+    readonly onDark?: boolean;
 }) {
+    if (round.standings.length === 0) {
+        return (
+            <Text style={[styles.standingsEmpty, onDark && styles.standingsEmptyDark]}>
+                No results yet — standings appear once activity lands in this round.
+            </Text>
+        );
+    }
+    // Render order silver / gold / bronze; gold gets the big raised slot.
+    const podiumOrder = [1, 0, 2]
+        .filter((rank) => rank < round.standings.length)
+        .map((rank) => ({ rank, standing: round.standings[rank] }));
     return (
-        <View style={styles.standingsCard}>
-            {round.standings.length === 0 ? (
-                <Text style={styles.standingsEmpty}>
-                    No results yet — standings appear once activity lands in this round.
-                </Text>
-            ) : (
-                round.standings.map((standing, index) => {
-                    const { first, last } = splitName(standing.name);
-                    return (
-                        <View
-                            key={standing.name}
-                            style={[styles.standingRow, index > 0 && styles.standingRowDivider]}
-                        >
-                            <Image source={MEDAL_IMAGES[index]} style={styles.medalImage} resizeMode="contain" />
+        <View style={styles.podiumRow}>
+            {podiumOrder.map(({ rank, standing }) => {
+                const isGold = rank === 0;
+                const size = isGold ? 92 : 68;
+                const { first, last } = splitName(standing.name);
+                return (
+                    <View
+                        key={standing.name}
+                        style={[styles.podiumSlot, !isGold && styles.podiumSlotSide]}
+                    >
+                        <View style={{ width: size, height: size }}>
                             <UserAvatar
                                 firstName={first}
                                 lastName={last}
                                 imageUrl={standing.portrait ? portraitUrl(standing.portrait) : null}
-                                size={30}
-                                color="#18181B"
-                                ringWidth={1}
+                                size={size}
+                                color={onDark ? '#FFFFFF' : '#18181B'}
+                                ringWidth={2}
                             />
-                            <Text style={styles.standingName} numberOfLines={1}>{standing.name}</Text>
-                            <Text style={styles.standingValue}>{standing.value.toLocaleString()}</Text>
-                            <Text style={styles.standingMetric}>{metricLabel}</Text>
+                            <View style={[styles.medalBadge, isGold && styles.medalBadgeGold]}>
+                                <Image
+                                    source={MEDAL_IMAGES[rank]}
+                                    style={isGold ? styles.medalBadgeImageGold : styles.medalBadgeImage}
+                                    resizeMode="contain"
+                                />
+                            </View>
                         </View>
-                    );
-                })
-            )}
+                        <Text
+                            style={[styles.podiumName, onDark && styles.podiumNameDark]}
+                            numberOfLines={1}
+                        >
+                            {first} {last.charAt(0) ? `${last.charAt(0)}.` : ''}
+                        </Text>
+                        <Text style={[styles.podiumValue, onDark && styles.podiumValueDark]}>
+                            {standing.value.toLocaleString()}
+                            <Text style={[styles.podiumMetric, onDark && styles.podiumMetricDark]}>
+                                {' '}{metricLabel}
+                            </Text>
+                        </Text>
+                    </View>
+                );
+            })}
         </View>
     );
 }
@@ -192,47 +219,80 @@ const styles = StyleSheet.create({
         fontFamily: 'ClashGrotesk-Semibold',
         color: '#EAFBFE',
     },
-    standingsCard: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 18,
-        marginTop: 14,
-        paddingVertical: 4,
-        paddingHorizontal: 12,
-    },
     standingsEmpty: {
+        marginTop: 14,
         paddingVertical: 12,
         fontSize: 13,
         fontFamily: 'ClashGrotesk-Medium',
         color: '#71717A',
     },
-    standingRow: {
+    standingsEmptyDark: {
+        color: '#EAFBFE',
+    },
+    podiumRow: {
         flexDirection: 'row',
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+        gap: 22,
+        marginTop: 16,
+    },
+    podiumSlot: {
         alignItems: 'center',
-        gap: 9,
-        paddingVertical: 7,
+        gap: 3,
+        maxWidth: 108,
     },
-    standingRowDivider: {
-        borderTopWidth: StyleSheet.hairlineWidth,
-        borderTopColor: '#E4E4E7',
+    podiumSlotSide: {
+        marginBottom: 6,
     },
-    medalImage: {
-        width: 24,
+    // White circular chip so the medal art sits cleanly over photos.
+    medalBadge: {
+        position: 'absolute',
+        right: -6,
+        bottom: -4,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        backgroundColor: '#FFFFFF',
+        alignItems: 'center',
+        justifyContent: 'center',
+        boxShadow: '0 1px 4px rgba(24, 24, 27, 0.25)',
+    },
+    medalBadgeGold: {
+        width: 32,
         height: 32,
+        borderRadius: 16,
     },
-    standingName: {
-        flex: 1,
-        fontSize: 14,
+    medalBadgeImage: {
+        width: 16,
+        height: 22,
+    },
+    medalBadgeImageGold: {
+        width: 18,
+        height: 25,
+    },
+    podiumName: {
+        marginTop: 6,
+        fontSize: 13,
         fontFamily: 'ClashGrotesk-Semibold',
         color: '#18181B',
     },
-    standingValue: {
-        fontSize: 15,
+    podiumNameDark: {
+        color: '#FFFFFF',
+    },
+    podiumValue: {
+        fontSize: 14,
         fontFamily: 'ClashGrotesk-Bold',
         color: '#18181B',
     },
-    standingMetric: {
+    podiumValueDark: {
+        color: '#FFFFFF',
+    },
+    podiumMetric: {
         fontSize: 11,
         fontFamily: 'ClashGrotesk-Medium',
-        color: '#A1A1AA',
+        color: '#71717A',
+    },
+    podiumMetricDark: {
+        color: '#CFF6FC',
     },
 });

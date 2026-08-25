@@ -6,7 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
 import { GlassCircleButton } from 'components/Button/GlassCircleButton';
 import { CompetitionBuilderSheet } from 'components/Competition/CompetitionBuilderSheet';
-import { MetaChip, RoundTimeline, StandingsCard } from 'components/Competition/CompetitionPieces';
+import { MetaChip, RoundTimeline, StandingsPodium } from 'components/Competition/CompetitionPieces';
 import { CARD_SHADOW, TEAL_GRADIENT } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchCompetitionEvents, fetchOffices } from 'services/manager-api';
@@ -72,7 +72,7 @@ function MainEventCard({ event, now, onPress }: {
                         {advance ? ` · ${advance}` : ''}
                     </Text>
                 </View>
-                <StandingsCard round={round} metricLabel={event.metric.toLowerCase()} />
+                <StandingsPodium round={round} metricLabel={event.metric.toLowerCase()} onDark />
                 <View style={styles.heroPrizeRow}>
                     <Ionicons name="gift-outline" size={15} color="#EAFBFE" />
                     <Text style={styles.heroPrizeText} numberOfLines={1}>{event.grandPrize}</Text>

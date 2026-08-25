@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SettingsShell } from 'components/screens/Settings/SettingsShell';
-import { MetaChip, RoundTimeline, StandingsCard } from 'components/Competition/CompetitionPieces';
+import { MetaChip, RoundTimeline, StandingsPodium } from 'components/Competition/CompetitionPieces';
 import { CARD_SHADOW, TEAL_GRADIENT } from 'constants/design';
 import { useSession } from 'context/AuthenticationContext';
 import { fetchCompetitionEvents } from 'services/manager-api';
@@ -133,7 +133,7 @@ export default function CompetitionDetailScreen() {
                 <Text style={styles.sectionMeta}>{formatDateRange(selectedRound.startDate, selectedRound.endDate)}</Text>
             </View>
             <View style={styles.standingsWrap}>
-                <StandingsCard round={selectedRound} metricLabel={event.metric.toLowerCase()} />
+                <StandingsPodium round={selectedRound} metricLabel={event.metric.toLowerCase()} />
             </View>
             {roundStatus(selectedRound, now) === 'upcoming' ? (
                 <Text style={styles.upcomingNote}>This round hasn't started yet.</Text>
