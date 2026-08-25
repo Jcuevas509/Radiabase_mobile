@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
-    Animated,
-    Easing,
     Modal,
     Pressable,
     StyleSheet,
@@ -40,96 +38,6 @@ function metricIcon(metric: CompetitionMetric): keyof typeof Ionicons.glyphMap {
 
 /** The main event: gradient hero with the rounds timeline and the live
  * round's standings. */
-/**
- * Continuously morphing gradient (AnimatedGradientView-style): two
- * oversized gradient sheets pan on opposing diagonal sine paths while the
- * upper sheet crossfades, so color and direction both flow. Native-driver
- * transforms/opacity only.
- */
-const FLOW_SHEET = 1000;
-
-function FlowSheet({ colors, startPoint, endPoint, xRange, yRange, xDur, yDur, fade }: {
-    readonly colors: readonly [string, string, ...string[]];
-    readonly startPoint: { x: number; y: number };
-    readonly endPoint: { x: number; y: number };
-    readonly xRange: readonly [number, number];
-    readonly yRange: readonly [number, number];
-    readonly xDur: number;
-    readonly yDur: number;
-    readonly fade?: readonly [number, number];
-}) {
-    const x = useRef(new Animated.Value(0)).current;
-    const y = useRef(new Animated.Value(0)).current;
-    const opacity = useRef(new Animated.Value(0)).current;
-
-    useEffect(() => {
-        const drift = (value: Animated.Value, duration: number) =>
-            Animated.loop(Animated.sequence([
-                Animated.timing(value, { toValue: 1, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-                Animated.timing(value, { toValue: 0, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
-            ]));
-        const loops = [drift(x, xDur), drift(y, yDur)];
-        if (fade) {
-            loops.push(drift(opacity, (xDur + yDur) / 2));
-        }
-        loops.forEach((loop) => loop.start());
-        return () => loops.forEach((loop) => loop.stop());
-    }, [x, y, opacity, xDur, yDur, fade]);
-
-    return (
-        <Animated.View
-            style={{
-                position: 'absolute',
-                width: FLOW_SHEET,
-                height: FLOW_SHEET,
-                left: -(FLOW_SHEET / 2),
-                top: -(FLOW_SHEET / 2),
-                opacity: fade
-                    ? opacity.interpolate({ inputRange: [0, 1], outputRange: fade as unknown as number[] })
-                    : 1,
-                transform: [
-                    { translateX: x.interpolate({ inputRange: [0, 1], outputRange: xRange as unknown as number[] }) },
-                    { translateY: y.interpolate({ inputRange: [0, 1], outputRange: yRange as unknown as number[] }) },
-                ],
-            }}
-        >
-            <LinearGradient
-                colors={[...colors]}
-                locations={[0, 0.28, 0.5, 0.72, 1]}
-                start={startPoint}
-                end={endPoint}
-                style={StyleSheet.absoluteFill}
-            />
-        </Animated.View>
-    );
-}
-
-function LavaField() {
-    return (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            <FlowSheet
-                colors={['#04121C', '#0B4A63', '#19C8E8', '#083055', '#04121C']}
-                startPoint={{ x: 0, y: 0.1 }}
-                endPoint={{ x: 1, y: 0.9 }}
-                xRange={[-240, 200]}
-                yRange={[-140, 120]}
-                xDur={12000}
-                yDur={17000}
-            />
-            <FlowSheet
-                colors={['#050B26', '#14309B', '#4A2BC0', '#0A1B3F', '#050B26']}
-                startPoint={{ x: 1, y: 0 }}
-                endPoint={{ x: 0, y: 1 }}
-                xRange={[200, -220]}
-                yRange={[120, -150]}
-                xDur={15000}
-                yDur={10000}
-                fade={[0.15, 0.6]}
-            />
-        </View>
-    );
-}
-
 /** Centered popup with the full event rulebook. */
 function EventInfoModal({ event, visible, onClose }: {
     readonly event: CompetitionEvent;
@@ -197,13 +105,12 @@ function MainEventCard({ event, now, onPress }: {
         <TouchableOpacity activeOpacity={0.92} onPress={onPress}>
             <View style={styles.heroCard}>
                 <LinearGradient
-                    colors={['#020C12', '#062736', '#03101B']}
+                    colors={[...TEAL_GRADIENT]}
                     locations={[0, 0.55, 1]}
                     start={{ x: 0.1, y: 0 }}
                     end={{ x: 0.9, y: 1 }}
                     style={StyleSheet.absoluteFill}
                 />
-                <LavaField />
                 <View style={styles.heroHeader}>
                     <View style={styles.heroTrophy}>
                         <Ionicons name="trophy" size={22} color="#FFFFFF" />
@@ -409,7 +316,7 @@ const styles = StyleSheet.create({
         borderRadius: 26,
         padding: 16,
         overflow: 'hidden',
-        backgroundColor: '#020C12',
+        backgroundColor: '#067A90',
     },
     // Bare clear glass over the moving ripples — the panel lenses the
     // animation behind it (nav-bar recipe: no paint on the glass node).
