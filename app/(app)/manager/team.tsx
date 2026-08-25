@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
     ActivityIndicator,
@@ -147,10 +147,10 @@ function OfficePagerCard({ officeName, office, teams, onPrevious, onNext }: {
     );
 }
 
-function TeamCard({ team }: { readonly team: OfficeTeam }) {
+function TeamCard({ team, onPress }: { readonly team: OfficeTeam; readonly onPress: () => void }) {
     const pct = goalPct(team);
     return (
-        <View style={styles.teamCard}>
+        <TouchableOpacity style={styles.teamCard} activeOpacity={0.9} onPress={onPress}>
             <View style={styles.teamTopRow}>
                 <View style={[styles.teamEmblem, { backgroundColor: `${team.accentColor}1F` }]}>
                     <Ionicons
@@ -167,6 +167,7 @@ function TeamCard({ team }: { readonly team: OfficeTeam }) {
                     <Text style={styles.teamPoints}>{team.points.toLocaleString()}</Text>
                     <Text style={styles.teamPointsLabel}>pts</Text>
                 </View>
+                <Ionicons name="chevron-forward" size={16} color="#A1A1AA" />
             </View>
             <View style={styles.teamBottomRow}>
                 <AvatarStack members={team.members} size={26} />
@@ -183,12 +184,13 @@ function TeamCard({ team }: { readonly team: OfficeTeam }) {
                     <Ionicons name="gift-outline" size={11} color="#71717A" /> {team.goalLabel} · {pct}%
                 </Text>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 }
 
 export default function TeamsScreen() {
     const { session } = useSession();
+    const router = useRouter();
     const params = useLocalSearchParams<{ office?: string }>();
     const managerId = Number(session?.user?.id ?? 0);
     const [teams, setTeams] = useState<readonly OfficeTeam[] | null>(null);
@@ -251,7 +253,14 @@ export default function TeamsScreen() {
 
             <View style={styles.teamList}>
                 {officeTeams.map((team) => (
-                    <TeamCard key={team.id} team={team} />
+                    <TeamCard
+                        key={team.id}
+                        team={team}
+                        onPress={() => router.push({
+                            pathname: '/(app)/manager/team-detail',
+                            params: { teamId: String(team.id) },
+                        })}
+                    />
                 ))}
             </View>
         </SettingsShell>
