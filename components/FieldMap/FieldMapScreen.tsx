@@ -21,13 +21,13 @@ import { AssignAreaModal } from 'components/DrawingMap/AssignAreaModal';
 import { DetailedHouseOverviewModal } from 'components/DrawingMap/DetailedHouseOverviewModal';
 import FloatingButtons from 'components/DrawingMap/FloatingButtons';
 import { ManageAreaModal } from 'components/DrawingMap/ManageAreaModal';
-import { QuickHouseOverviewModal } from 'components/DrawingMap/QuickHouseOverviewModal';
 import { SubmitLeadFromHouseModal } from 'components/DrawingMap/SubmitLeadFromHouseModal';
 import { AreaLabelOverlay } from 'components/FieldMap/AreaLabelOverlay';
 import { AreaLayer, type AreaDisplay } from 'components/FieldMap/AreaLayer';
 import { DraftAreaPolygon, DraftVertexHandles } from 'components/FieldMap/DraftAreaEditor';
 import { DrawingCanvas, type CanvasSize } from 'components/FieldMap/DrawingCanvas';
 import { HouseDecalOverlay } from 'components/FieldMap/HouseDecalOverlay';
+import { MapSearchBar } from 'components/FieldMap/MapSearchBar';
 import {
   MapCompassController,
   type CompassControllerHandle,
@@ -54,6 +54,7 @@ import {
 } from 'services/area-api';
 import { updateFieldLeadInfo } from 'services/leads-api';
 import { BuildingProps, CoordinateProps, LeadStatus } from 'types/componentsTypes';
+import { SubmitLeadFormValues } from 'types/submit-lead.types';
 import { applyMapHouseDetailToBuilding } from 'utils/apply-map-house-detail-to-building';
 import { buildAreaName } from 'utils/build-area-name';
 import { getPolygonAreaSquareMeters } from 'utils/get-polygon-area-square-meters';
@@ -65,8 +66,6 @@ import { convertMapHousesToBuildings } from 'utils/convert-map-houses-to-buildin
 import { containsCoordinate, findMapBuildingAtCoordinate } from 'utils/find-map-building-at-coordinate';
 import { getApiErrorMessage } from 'utils/get-api-error-message';
 import { getMapRegionFromCoordinates } from 'utils/get-map-region-from-coordinates';
-import { SAMPLE_LEADERBOARD_REPS } from 'services/sample-leaderboard';
-import { LeaderboardCard } from 'components/Card/LeaderboardCard';
 import { PlainModal } from 'components/Modal/Modal';
 import { useDraftActionsStore } from 'store/DraftActionsStore';
 import { getPolygonCentroid } from 'utils/get-polygon-centroid';
@@ -122,7 +121,6 @@ export function FieldMapScreen() {
   const [openManageAreaModal, setOpenManageAreaModal] = useState(false);
   const [selectedBuilding, setSelectedBuilding] = useState<any | null>(null);
   const [isReassignment, setIsReassignment] = useState(false);
-  const [openQuickStatusModal, setOpenQuickStatusModal] = useState(false);
   const [openDetailedHouseModal, setOpenDetailedHouseModal] = useState(false);
   const [openSubmitLeadModal, setOpenSubmitLeadModal] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
@@ -132,7 +130,8 @@ export function FieldMapScreen() {
   const [loadingHouseDetail, setLoadingHouseDetail] = useState(false);
   const [mapRefreshKey, setMapRefreshKey] = useState(0);
   const [isMapMoving, setIsMapMoving] = useState(false);
-  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [isAddingHouse, setIsAddingHouse] = useState(false);
+  const [searchPin, setSearchPin] = useState<CoordinateProps | null>(null);
   // The vertex handles fire a burst of main-thread MapKit calls on mount,
   // which stutters the tab bar's morph animation. Mount them only after
   // the bar has finished animating.
@@ -143,6 +142,10 @@ export function FieldMapScreen() {
   const pendingKnockHouseIdRef = useRef<number | null>(null);
   const houseSelectionRequestIdRef = useRef(0);
   const isSavingRoofRef = useRef(false);
+  // Sequential sheet handoff: open the next sheet only after the previous
+  // one has fully animated out, so the swap feels like a native push.
+  const pendingOpenSubmitLeadRef = useRef(false);
+  const pendingReopenHouseRef = useRef(false);
 
   const isIdle = mode === 'idle';
   const compassControllerRef = useRef<CompassControllerHandle | null>(null);
@@ -399,6 +402,23 @@ export function FieldMapScreen() {
     setOpenDetailedHouseModal(true);
   };
 
+  const mergeSubmitLeadValuesIntoHouse = (values: SubmitLeadFormValues) => {
+    setSelectedBuilding((current: BuildingProps | null) => current ? {
+      ...current,
+      assignee: {
+        ...current.assignee,
+        name: values.firstName,
+        lastname: values.lastName,
+        phone: values.phone,
+        email: values.email,
+      },
+      additionalDetails: {
+        ...current.additionalDetails,
+        note: values.about,
+      },
+    } : current);
+  };
+
   const handleBuildingPress = (building: BuildingProps) => {
     if (pendingKnockHouseIdRef.current !== null) {
       return;
@@ -437,10 +457,7 @@ export function FieldMapScreen() {
     if (!isIdle || pendingKnockHouseIdRef.current !== null) {
       return;
     }
-    houseSelectionRequestIdRef.current += 1;
-    setLoadingHouseDetail(false);
-    setSelectedBuilding(building);
-    setOpenQuickStatusModal(true);
+    handleBuildingPress(building);
   };
 
   const saveHouseKnockStatus = async (building: BuildingProps, status: LeadStatus) => {
@@ -520,12 +537,59 @@ export function FieldMapScreen() {
     }
   };
 
+  const handleSearchAddress = async (query: string): Promise<boolean> => {
+    try {
+      const results = await Location.geocodeAsync(query);
+      const first = results[0];
+      if (!first) {
+        Alert.alert('No results', 'Nothing found for that search.');
+        return false;
+      }
+      setSearchPin({ latitude: first.latitude, longitude: first.longitude });
+      mapRef.current?.animateToRegion({
+        latitude: first.latitude,
+        longitude: first.longitude,
+        latitudeDelta: LATITUDE_DELTA,
+        longitudeDelta: LONGITUDE_DELTA,
+      }, 600);
+      return true;
+    } catch {
+      Alert.alert('Search failed', 'Could not look up that address. Try again.');
+      return false;
+    }
+  };
+
+  const handleSearchPinPress = () => {
+    if (!searchPin || !isIdle) {
+      return;
+    }
+    const building = findMapBuildingAtCoordinate(mapBuildings, searchPin);
+    setSearchPin(null);
+    void handleFootprintPress(building ?? {
+      id: `manual-${searchPin.latitude.toFixed(6)}-${searchPin.longitude.toFixed(6)}`,
+      roofLat: searchPin.latitude,
+      roofLng: searchPin.longitude,
+    } as MapBuildingResponse);
+  };
+
   const handleMapPress = (event: MapPressEvent) => {
     if (!isIdle) {
       return;
     }
     const coordinate = event.nativeEvent.coordinate;
     const building = findMapBuildingAtCoordinate(mapBuildings, coordinate);
+    if (isAddingHouse) {
+      setIsAddingHouse(false);
+      // No Overture footprint under the tap → create the house from a
+      // deterministic synthetic id so the same dot never duplicates; the
+      // API's Regrid lookup plus the sheet's reverse-geocode fill the address.
+      void handleFootprintPress(building ?? {
+        id: `manual-${coordinate.latitude.toFixed(6)}-${coordinate.longitude.toFixed(6)}`,
+        roofLat: coordinate.latitude,
+        roofLng: coordinate.longitude,
+      } as MapBuildingResponse);
+      return;
+    }
     if (building) {
       void handleFootprintPress(building);
       return;
@@ -834,12 +898,6 @@ export function FieldMapScreen() {
       <FloatingButtons
         buttons={[
           {
-            icon: <Ionicons name="podium-outline" size={21} color="white" />,
-            onPress: () => setShowLeaderboard(true),
-            style: { backgroundColor: '#00D1EA' },
-            accessibilityLabel: 'Show the leaderboard',
-          },
-          {
             icon: <MyLocationSvg color="white" />,
             onPress: handleMyLocation,
             style: { backgroundColor: '#00D1EA' },
@@ -857,29 +915,17 @@ export function FieldMapScreen() {
             style: { backgroundColor: '#00D1EA' },
             accessibilityLabel: 'Jump to my next assigned area',
           }] : []),
+          {
+            icon: <Ionicons name={isAddingHouse ? 'close' : 'add'} size={24} color="white" />,
+            onPress: () => setIsAddingHouse((current) => !current),
+            style: { backgroundColor: isAddingHouse ? '#18181B' : '#00D1EA' },
+            accessibilityLabel: isAddingHouse ? 'Cancel adding a house' : 'Add a house dot on the map',
+          },
         ]}
         activeDrawing={mode === 'drawing'}
         onToggleDrawing={mode !== 'reviewingDraft' ? handleToggleDrawing : undefined}
         isManager={isManager}
       />
-      <PlainModal
-        visible={showLeaderboard}
-        title="Leaderboard"
-        onClose={() => setShowLeaderboard(false)}
-      >
-        <LeaderboardCard
-          entries={SAMPLE_LEADERBOARD_REPS.slice(0, 10).map((rep, index) => ({
-            id: -(index + 1),
-            firstName: rep.first,
-            lastName: rep.last,
-            avatarUrl: `https://randomuser.me/api/portraits/${rep.portrait}.jpg`,
-            officeName: index % 5 === 2 ? 'Kaos Cartel' : 'Suntrappers',
-            value: rep.value,
-          }))}
-          metricLabel="knocks"
-          isSampleData
-        />
-      </PlainModal>
       <CustomAlert
         visible={alertVisible}
         onDismiss={() => {
@@ -926,32 +972,14 @@ export function FieldMapScreen() {
         }}
         onReassignArea={handleReassignArea}
       />
-      <QuickHouseOverviewModal
-        onClose={() => setOpenQuickStatusModal(false)}
-        visible={openQuickStatusModal}
-        selectedHouse={selectedBuilding}
-        isStatusSaving={pendingKnock !== null}
-        savingStatusId={selectedHousePendingStatusId}
-        onOpenHouseInfo={() => {
-          setOpenQuickStatusModal(false);
-          if (selectedBuilding) {
-            handleBuildingPress(selectedBuilding);
-          }
-        }}
-        onChangeHouseStatus={async (status: LeadStatus) => {
-          if (!selectedBuilding) {
-            return;
-          }
-          try {
-            await saveHouseKnockStatus(selectedBuilding, status);
-            setOpenQuickStatusModal(false);
-          } catch (error) {
-            Alert.alert('Could not update status', getApiErrorMessage(error, 'The knock was not saved to the API.'));
-          }
-        }}
-      />
       <DetailedHouseOverviewModal
         onClose={() => setOpenDetailedHouseModal(false)}
+        onDismiss={() => {
+          if (pendingOpenSubmitLeadRef.current) {
+            pendingOpenSubmitLeadRef.current = false;
+            setOpenSubmitLeadModal(true);
+          }
+        }}
         visible={openDetailedHouseModal}
         selectedHouse={selectedBuilding}
         isStatusSaving={pendingKnock !== null}
@@ -1009,8 +1037,8 @@ export function FieldMapScreen() {
             return;
           }
           setSelectedBuilding(updatedHouse);
+          pendingOpenSubmitLeadRef.current = true;
           setOpenDetailedHouseModal(false);
-          setOpenSubmitLeadModal(true);
         }}
         onUpdateLead={async (updatedHouse) => {
           const existingLeadId = updatedHouse.additionalDetails?.leadId;
@@ -1038,11 +1066,18 @@ export function FieldMapScreen() {
           visible={openSubmitLeadModal}
           house={selectedBuilding}
           user={session.user}
-          onBack={() => {
+          onBack={(values) => {
+            mergeSubmitLeadValuesIntoHouse(values);
+            pendingReopenHouseRef.current = true;
             setOpenSubmitLeadModal(false);
-            setOpenDetailedHouseModal(true);
           }}
-          onSubmitted={async () => {
+          onDismiss={() => {
+            if (pendingReopenHouseRef.current) {
+              pendingReopenHouseRef.current = false;
+              setOpenDetailedHouseModal(true);
+            }
+          }}
+          onSubmitted={async (values) => {
             const detail = await fetchMapHouseDetail(Number(selectedBuilding.id));
             setPolygons((current) => mergeHouseDetailIntoPolygons(
               current,
@@ -1054,8 +1089,9 @@ export function FieldMapScreen() {
               selectedBuilding.additionalDetails?.externalId ?? null,
             ));
             setSelectedBuilding(applyMapHouseDetailToBuilding(selectedBuilding, detail));
+            mergeSubmitLeadValuesIntoHouse(values);
+            pendingReopenHouseRef.current = true;
             setOpenSubmitLeadModal(false);
-            setOpenDetailedHouseModal(true);
             setMessage('Lead submitted to Radiabase.');
             setAlertVisible(true);
           }}
@@ -1103,6 +1139,17 @@ export function FieldMapScreen() {
               </Text>
             </View>
           </Marker>
+          {searchPin ? (
+            <Marker
+              key="search-pin"
+              coordinate={searchPin}
+              anchor={{ x: 0.5, y: 1 }}
+              onPress={handleSearchPinPress}
+              tracksViewChanges={false}
+            >
+              <Ionicons name="location-sharp" size={44} color="#00D1EA" style={styles.searchPinIcon} />
+            </Marker>
+          ) : null}
           <AreaLayer areas={areaDisplays} />
           {mode === 'reviewingDraft' ? <DraftAreaPolygon /> : null}
         </MapView>
@@ -1142,6 +1189,12 @@ export function FieldMapScreen() {
         isEnabled={isScreenFocused && isAppActive}
         controllerRef={compassControllerRef}
       />
+      <MapSearchBar onSearch={handleSearchAddress} />
+      {isAddingHouse ? (
+        <View style={styles.addHouseHint} pointerEvents="none">
+          <Text style={styles.addHouseHintText}>Tap the map to drop a house</Text>
+        </View>
+      ) : null}
       {hasMapDataError ? (
         <Pressable
           accessibilityRole="button"
@@ -1165,6 +1218,26 @@ const styles = StyleSheet.create({
   },
   map: {
     ...StyleSheet.absoluteFill,
+  },
+  searchPinIcon: {
+    textShadowColor: 'rgba(0, 0, 0, 0.45)',
+    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 2 },
+  },
+  addHouseHint: {
+    position: 'absolute',
+    top: 64,
+    alignSelf: 'center',
+    backgroundColor: 'rgba(24, 24, 27, 0.85)',
+    borderRadius: 100,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    zIndex: 30,
+  },
+  addHouseHintText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
   },
   mapDataError: {
     position: 'absolute',
