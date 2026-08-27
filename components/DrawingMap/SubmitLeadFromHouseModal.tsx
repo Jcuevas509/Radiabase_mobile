@@ -33,8 +33,9 @@ type SubmitLeadFromHouseModalProps = {
   readonly visible: boolean;
   readonly house: BuildingProps;
   readonly user: User;
-  readonly onBack: () => void;
-  readonly onSubmitted: () => Promise<void> | void;
+  readonly onBack: (values: SubmitLeadFormValues) => void;
+  readonly onDismiss?: () => void;
+  readonly onSubmitted: (values: SubmitLeadFormValues) => Promise<void> | void;
 };
 
 function pickSelectedOffice(
@@ -45,13 +46,16 @@ function pickSelectedOffice(
 }
 
 /**
- * Separate Submit Lead form, prefilled from a canvassing house.
+ * Separate Submit Lead form, prefilled from a canvassing house. Edits made
+ * here are handed back through onBack/onSubmitted so the house sheet stays
+ * in sync with what the setter typed.
  */
 export function SubmitLeadFromHouseModal({
   visible,
   house,
   user,
   onBack,
+  onDismiss,
   onSubmitted,
 }: SubmitLeadFromHouseModalProps) {
   const insets = useSafeAreaInsets();
@@ -132,7 +136,7 @@ export function SubmitLeadFromHouseModal({
         longitude: house.longitude,
         houseId: Number(house.id),
       }));
-      await onSubmitted();
+      await onSubmitted(values);
     } catch (error) {
       setErrors([error instanceof Error ? error.message : 'Could not submit this lead.']);
     } finally {
@@ -141,23 +145,27 @@ export function SubmitLeadFromHouseModal({
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet">
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onDismiss={onDismiss}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <View style={[styles.screen, { paddingBottom: insets.bottom }]}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={onBack} style={styles.backButton} hitSlop={8}>
-              <Ionicons name="chevron-back" size={22} color="#18181B" />
-              <Text style={styles.backText}>House</Text>
+            <TouchableOpacity
+              onPress={() => onBack(values)}
+              style={styles.circleButton}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Back to house"
+            >
+              <Ionicons name="chevron-back" size={20} color="#18181B" />
             </TouchableOpacity>
-            <Text style={styles.title}>Submit Lead</Text>
-            <View style={styles.headerSpacer} />
+            <View style={styles.titlePill}>
+              <Text style={styles.title}>Submit Lead</Text>
+            </View>
+            <View style={styles.circleButtonSpacer} />
           </View>
-          <Text style={styles.subtitle}>
-            Same Radiabase submit as the web app, linked to this house.
-          </Text>
           <ScrollView
             style={styles.flex}
             contentContainerStyle={[
@@ -165,147 +173,157 @@ export function SubmitLeadFromHouseModal({
               { paddingBottom: keyboardShown ? keyboardHeight : 24 },
             ]}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             <Text style={styles.sectionTitle}>Customer information</Text>
-            <View style={styles.row}>
-              <View style={styles.half}>
-                <InputField
-                  value={values.firstName}
-                  placeholder="First name *"
-                  onChange={(text) => updateValue('firstName', text)}
-                />
+            <View style={styles.card}>
+              <View style={styles.row}>
+                <View style={styles.half}>
+                  <InputField
+                    value={values.firstName}
+                    placeholder="First name *"
+                    onChange={(text) => updateValue('firstName', text)}
+                  />
+                </View>
+                <View style={styles.half}>
+                  <InputField
+                    value={values.lastName}
+                    placeholder="Last name *"
+                    onChange={(text) => updateValue('lastName', text)}
+                  />
+                </View>
               </View>
-              <View style={styles.half}>
-                <InputField
-                  value={values.lastName}
-                  placeholder="Last name *"
-                  onChange={(text) => updateValue('lastName', text)}
-                />
+              <View style={styles.row}>
+                <View style={styles.half}>
+                  <InputField
+                    value={values.phone}
+                    placeholder="Phone *"
+                    keyboardType="phone-pad"
+                    onChange={(text) => updateValue('phone', formatSubmitLeadPhone(text))}
+                  />
+                </View>
+                <View style={styles.half}>
+                  <InputField
+                    value={values.email}
+                    placeholder="Email *"
+                    keyboardType="email-address"
+                    isEmail
+                    onChange={(text) => updateValue('email', text)}
+                  />
+                </View>
               </View>
-            </View>
-            <View style={styles.row}>
-              <View style={styles.half}>
-                <InputField
-                  value={values.phone}
-                  placeholder="Phone *"
-                  keyboardType="phone-pad"
-                  onChange={(text) => updateValue('phone', formatSubmitLeadPhone(text))}
-                />
-              </View>
-              <View style={styles.half}>
-                <InputField
-                  value={values.email}
-                  placeholder="Email *"
-                  keyboardType="email-address"
-                  isEmail
-                  onChange={(text) => updateValue('email', text)}
-                />
-              </View>
-            </View>
-            {isLookingUpAddress ? (
-              <Text style={styles.lookupText}>Looking up this house address…</Text>
-            ) : null}
-            <InputField
-              value={values.addressLine1}
-              placeholder="Street address *"
-              onChange={(text) => updateValue('addressLine1', text)}
-            />
-            <View style={styles.row}>
-              <View style={styles.half}>
-                <InputField
-                  value={values.city}
-                  placeholder="City *"
-                  onChange={(text) => updateValue('city', text)}
-                />
-              </View>
-              <View style={styles.quarter}>
-                <InputField
-                  value={values.state}
-                  placeholder="State *"
-                  onChange={(text) => updateValue('state', text)}
-                />
-              </View>
-              <View style={styles.quarter}>
-                <InputField
-                  value={values.zip}
-                  placeholder="ZIP *"
-                  keyboardType="number-pad"
-                  onChange={(text) => updateValue('zip', text)}
-                />
+              {isLookingUpAddress ? (
+                <Text style={styles.lookupText}>Looking up this house address…</Text>
+              ) : null}
+              <InputField
+                value={values.addressLine1}
+                placeholder="Street address *"
+                onChange={(text) => updateValue('addressLine1', text)}
+              />
+              <View style={styles.row}>
+                <View style={styles.half}>
+                  <InputField
+                    value={values.city}
+                    placeholder="City *"
+                    onChange={(text) => updateValue('city', text)}
+                  />
+                </View>
+                <View style={styles.quarter}>
+                  <InputField
+                    value={values.state}
+                    placeholder="State *"
+                    onChange={(text) => updateValue('state', text)}
+                  />
+                </View>
+                <View style={styles.quarter}>
+                  <InputField
+                    value={values.zip}
+                    placeholder="ZIP *"
+                    keyboardType="number-pad"
+                    onChange={(text) => updateValue('zip', text)}
+                  />
+                </View>
               </View>
             </View>
 
             <Text style={styles.sectionTitle}>Lead details</Text>
-            <View style={styles.toggleRow}>
-              <TouchableOpacity
-                style={[styles.toggle, values.isSubmitToOffice && styles.toggleActive]}
-                onPress={() => updateValue('isSubmitToOffice', true)}
-              >
-                <Text style={[styles.toggleTitle, values.isSubmitToOffice && styles.toggleTitleActive]}>
-                  Assign to Office
-                </Text>
-                <Text style={styles.toggleHint}>Send to office for processing</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.toggle, !values.isSubmitToOffice && styles.toggleActive]}
-                onPress={() => updateValue('isSubmitToOffice', false)}
-              >
-                <Text style={[styles.toggleTitle, !values.isSubmitToOffice && styles.toggleTitleActive]}>
-                  Internal Lead
-                </Text>
-                <Text style={styles.toggleHint}>Manage the lead yourself</Text>
-              </TouchableOpacity>
-            </View>
-            {values.isSubmitToOffice ? (
-              <View style={styles.officeBlock}>
-                <Text style={styles.label}>Office *</Text>
-                {isLoading ? <ActivityIndicator color="#32A0FF" /> : (
-                  <View style={styles.options}>
-                    {offices.map((office) => {
-                      const isSelected = values.officeId === office.id;
-                      return (
-                        <TouchableOpacity
-                          key={office.id}
-                          style={[styles.chip, isSelected && styles.chipSelected]}
-                          onPress={() => updateValue('officeId', office.id)}
-                        >
-                          <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
-                            {office.name}
-                            {office.id === user.officeId ? ' · Current' : ''}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                )}
+            <View style={styles.card}>
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[styles.toggle, values.isSubmitToOffice && styles.toggleActive]}
+                  onPress={() => updateValue('isSubmitToOffice', true)}
+                >
+                  <Text style={[styles.toggleTitle, values.isSubmitToOffice && styles.toggleTitleActive]}>
+                    Assign to Office
+                  </Text>
+                  <Text style={styles.toggleHint}>Send to office for processing</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggle, !values.isSubmitToOffice && styles.toggleActive]}
+                  onPress={() => updateValue('isSubmitToOffice', false)}
+                >
+                  <Text style={[styles.toggleTitle, !values.isSubmitToOffice && styles.toggleTitleActive]}>
+                    Internal Lead
+                  </Text>
+                  <Text style={styles.toggleHint}>Manage the lead yourself</Text>
+                </TouchableOpacity>
               </View>
-            ) : null}
+              {values.isSubmitToOffice ? (
+                <View style={styles.officeBlock}>
+                  <Text style={styles.label}>Office *</Text>
+                  {isLoading ? <ActivityIndicator color="#32A0FF" /> : (
+                    <View style={styles.options}>
+                      {offices.map((office) => {
+                        const isSelected = values.officeId === office.id;
+                        return (
+                          <TouchableOpacity
+                            key={office.id}
+                            style={[styles.chip, isSelected && styles.chipSelected]}
+                            onPress={() => updateValue('officeId', office.id)}
+                          >
+                            <Text style={[styles.chipText, isSelected && styles.chipTextSelected]}>
+                              {office.name}
+                              {office.id === user.officeId ? ' · Current' : ''}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              ) : null}
 
-            <SubmitLeadAppointmentPicker
-              appointmentDate={values.appointmentDate}
-              onChange={(isoDate) => updateValue('appointmentDate', isoDate)}
-            />
+              <SubmitLeadAppointmentPicker
+                appointmentDate={values.appointmentDate}
+                onChange={(isoDate) => updateValue('appointmentDate', isoDate)}
+              />
 
-            <Text style={styles.label}>About</Text>
-            <InputField
-              value={values.about}
-              placeholder="Notes for the office"
-              multiline
-              style={styles.about}
-              onChange={(text) => updateValue('about', text)}
-            />
+              <Text style={styles.label}>About</Text>
+              <InputField
+                value={values.about}
+                placeholder="Notes for the office"
+                multiline
+                style={styles.about}
+                onChange={(text) => updateValue('about', text)}
+              />
+            </View>
 
             {values.isSubmitToOffice && selectedOffice?.isQuestionnaireEnabled ? (
-              <SubmitLeadQuestionnaireFields
-                questions={selectedOffice.questions}
-                answers={values.questionnaire}
-                onChangeAnswer={(questionId, answer) => {
-                  updateValue('questionnaire', {
-                    ...values.questionnaire,
-                    [String(questionId)]: answer,
-                  });
-                }}
-              />
+              <>
+                <Text style={styles.sectionTitle}>Questionnaire</Text>
+                <View style={styles.card}>
+                  <SubmitLeadQuestionnaireFields
+                    questions={selectedOffice.questions}
+                    answers={values.questionnaire}
+                    onChangeAnswer={(questionId, answer) => {
+                      updateValue('questionnaire', {
+                        ...values.questionnaire,
+                        [String(questionId)]: answer,
+                      });
+                    }}
+                  />
+                </View>
+              </>
             ) : null}
 
             {errors.length > 0 ? (
@@ -345,42 +363,60 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  circleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FFFFFF',
-  },
-  backButton: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    minWidth: 72,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  backText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#18181B',
+  circleButtonSpacer: {
+    width: 36,
+  },
+  titlePill: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 100,
+    paddingHorizontal: 18,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   title: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#18181B',
-  },
-  headerSpacer: {
-    minWidth: 72,
-  },
-  subtitle: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    backgroundColor: '#FFFFFF',
-    color: '#71717A',
-    fontSize: 12,
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: '#18181B',
-    marginBottom: 12,
-    marginTop: 8,
+    marginBottom: 10,
+    marginTop: 10,
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
   },
   row: {
     flexDirection: 'row',
@@ -405,14 +441,13 @@ const styles = StyleSheet.create({
   toggle: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
     borderWidth: 1,
     borderColor: '#E4E4E7',
   },
   toggleActive: {
     borderColor: '#18181B',
-    backgroundColor: '#FFFFFF',
   },
   toggleTitle: {
     fontSize: 13,
@@ -440,13 +475,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 4,
   },
   chip: {
-    borderRadius: 8,
+    borderRadius: 100,
     borderWidth: 1,
     borderColor: '#D4D4D8',
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     backgroundColor: '#FFFFFF',
   },
@@ -468,7 +503,7 @@ const styles = StyleSheet.create({
   },
   errors: {
     backgroundColor: '#FEF2F2',
-    borderRadius: 8,
+    borderRadius: 12,
     padding: 12,
     marginTop: 8,
   },
@@ -478,15 +513,15 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   footer: {
-    padding: 16,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E4E4E7',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 4,
   },
   submitButton: {
     backgroundColor: '#18181B',
     width: '100%',
-    height: 44,
+    height: 50,
+    borderRadius: 100,
   },
   submitText: {
     color: '#FFFFFF',

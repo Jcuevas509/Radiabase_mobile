@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ActivityIndicator, View, Text, StyleSheet, Switch, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
+import { ActivityIndicator, View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Linking } from 'react-native';
 import { PlainModal } from 'components/Modal/Modal';
 import { Button } from '../Button/Button';
 import { customerStatuses, leadStatuses } from 'constants/leadStatuses';
@@ -12,9 +12,12 @@ import { StatusCard } from 'components/Card/StatusCard';
 import { AssigneeCard } from 'components/Card/AssigneeCard';
 import { InputField } from 'components/Input/InputField';
 import { StatusTooltip } from 'components/Tooltip/StatusTooltip';
+import { isUnknownMapAddress } from 'utils/parse-house-address';
+import { reverseGeocodeHouseAddress } from 'utils/reverse-geocode-house-address';
 interface DetailedHouseOverviewModalProps {
     visible: boolean;
     onClose: () => void;
+    onDismiss?: () => void;
     selectedHouse: BuildingProps;
     isStatusSaving: boolean;
     savingStatusId: number | null;
@@ -28,6 +31,7 @@ interface DetailedHouseOverviewModalProps {
 export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProps> = ({
     visible,
     onClose,
+    onDismiss,
     selectedHouse,
     isStatusSaving,
     savingStatusId,
@@ -54,10 +58,15 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
     const [isNoteFocused, setIsNoteFocused] = useState(false)
     const [isValidEmail, setIsValidEmail] = useState(true)
     const [isConverting, setIsConverting] = useState(false)
+    const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
+    const [isResolvingAddress, setIsResolvingAddress] = useState(false);
     const currentStatus = leadStatuses.find(status => status?.statusId === selectedHouse?.statusId) || null;
     const leadId = selectedHouse?.additionalDetails?.leadId as number | null | undefined;
     const hasLead = Boolean(leadId);
     const hasInvalidEmail = email.trim().length > 0 && !isValidEmail;
+    const displayAddress = !isUnknownMapAddress(selectedHouse?.address)
+        ? selectedHouse?.address
+        : resolvedAddress;
 
     const buildUpdatedHouse = (): BuildingProps => ({
         ...selectedHouse,
@@ -95,6 +104,43 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
         setNote(selectedHouse?.additionalDetails?.note || '')
     }, [visible, selectedHouse?.id])
 
+    // Same Apple reverse-geocode the Submit Lead form uses: when the backend
+    // has no address for this parcel, resolve one from the pin coordinates.
+    useEffect(() => {
+        setResolvedAddress(null);
+        if (!visible
+            || !isUnknownMapAddress(selectedHouse?.address)
+            || selectedHouse?.latitude == null
+            || selectedHouse?.longitude == null) {
+            return;
+        }
+        let isActive = true;
+        setIsResolvingAddress(true);
+        reverseGeocodeHouseAddress(selectedHouse.latitude, selectedHouse.longitude)
+            .then((address) => {
+                if (!isActive || !address) {
+                    return;
+                }
+                const line = [
+                    address.addressLine1,
+                    address.city,
+                    [address.state, address.zip].filter(Boolean).join(' '),
+                ].filter(Boolean).join(', ');
+                if (line) {
+                    setResolvedAddress(line);
+                }
+            })
+            .catch(() => undefined)
+            .finally(() => {
+                if (isActive) {
+                    setIsResolvingAddress(false);
+                }
+            });
+        return () => {
+            isActive = false;
+        };
+    }, [visible, selectedHouse?.id])
+
     // useEffect(() => {
     //     if (keyboardShown) {
     //         setTimeout(() => {
@@ -117,6 +163,31 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
 
     const persistHomeowner = () => {
         onSaveHomeowner(buildUpdatedHouse());
+    };
+
+    // 650+ is the approval target; below that financing usually falls through.
+    const creditColor = creditScore >= 650 ? '#16A34A' : creditScore >= 580 ? '#F59E0B' : '#EF4444';
+
+    const openProjectSunroof = () => {
+        if (selectedHouse?.latitude == null || selectedHouse?.longitude == null) {
+            return;
+        }
+        Linking.openURL(`https://sunroof.withgoogle.com/building/${selectedHouse.latitude}/${selectedHouse.longitude}`).catch(() => null);
+    };
+
+    const openGoogleMaps = () => {
+        if (selectedHouse?.latitude == null || selectedHouse?.longitude == null) {
+            return;
+        }
+        Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${selectedHouse.latitude},${selectedHouse.longitude}`).catch(() => null);
+    };
+
+    const openAppleMaps = () => {
+        if (selectedHouse?.latitude == null || selectedHouse?.longitude == null) {
+            return;
+        }
+        const query = displayAddress ? `&q=${encodeURIComponent(displayAddress)}` : '';
+        Linking.openURL(`http://maps.apple.com/?ll=${selectedHouse.latitude},${selectedHouse.longitude}${query}`).catch(() => null);
     };
 
     const handleLeadAction = async () => {
@@ -232,30 +303,31 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
         <PlainModal
             visible={visible}
             onClose={persistAndClose}
+            onDismiss={onDismiss}
+            hasButtonDivider={false}
+            topAccent
+            compactBottom
             customTitle={
                 <View style={styles.customTitleContainer}>
-                    <View style={styles.statusSection}>
-                        <View style={[styles.statusContainer, { borderColor: currentStatus?.color || 'black', backgroundColor: currentStatus?.color || 'white' }]}>
-                            {currentStatus ? <currentStatus.icon color="white" /> : <></>}
-                        </View>
-                        <Text style={styles.statusName}>
-                            {currentStatus ? currentStatus?.fullName : "This house has no status!"}
+                    <View style={[styles.statusContainer, { borderColor: currentStatus?.color || '#E4E4E7', backgroundColor: currentStatus?.color || '#F4F4F5' }]}>
+                        {currentStatus
+                            ? <currentStatus.icon color="white" />
+                            : <FontAwesome6 name="house" size={14} color="#A1A1AA" />}
+                    </View>
+                    <View style={styles.headerTextContainer}>
+                        <Text style={styles.addressTitle} numberOfLines={2}>
+                            {displayAddress || (isResolvingAddress ? 'Finding address…' : 'Unknown Address')}
                         </Text>
                     </View>
-                    {selectedHouse?.statuses && selectedHouse?.statuses?.length > 0 && <TouchableOpacity onPress={() => setShowStatusHistory(!showStatusHistory)} style={styles.historySection} hitSlop={8}>
-                        <Text style={styles.statusHistory}>
-                            {showStatusHistory ? "Close history" : "Status history"}
-                        </Text>
-                    </TouchableOpacity>}
                 </View>
             }
             buttons={
                 <Button
                     text={hasLead ? 'Update Lead' : 'Convert to Lead'}
-                    buttonStyle={{ backgroundColor: 'black', width: '100%' }}
-                    textStyle={{ color: 'white' }}
+                    buttonStyle={styles.leadActionButton}
+                    textStyle={styles.leadActionButtonText}
                     onPress={handleLeadAction}
-                    isDisabled={hasLead && hasInvalidEmail}
+                    isDisabled={hasInvalidEmail}
                     isLoading={isConverting}
                 />
             }
@@ -279,17 +351,6 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
 
                     keyboardShouldPersistTaps="handled">
                     {showStatusHistory && <StatusHistory />}
-                    <View style={styles.addressContainer}>
-                        <View style={styles.statusSection}>
-                            <FontAwesome6 name='location-dot' color='black' size={22} style={styles.locationIcon} />
-                            <Text style={styles.addressText}>
-                                {selectedHouse?.address}
-                            </Text>
-                        </View>
-                        <View style={styles.historySection}>
-                            <MaterialIcons name="solar-power" size={28} color="#32A0FF" />
-                        </View>
-                    </View>
                     {hasLead ? (
                         <Text style={styles.leadBadge}>Lead #{leadId}</Text>
                     ) : null}
@@ -346,54 +407,35 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                             />
                         </View>
                     </View>
-                    <View style={styles.switchContainer}>
-                        <Text style={styles.label}>Owner:</Text>
-                        <Switch
-                            value={isOwner}
-                            onValueChange={setIsOwner}
-                            thumbColor={isOwner ? "#32A0FF" : 'white'}
-                            trackColor={{ false: '#E9E9E9', true: '#D9D9D9' }}
+                    <View style={styles.creditRow}>
+                        <Text style={styles.creditLabel}>Credit</Text>
+                        <Slider
+                            style={styles.creditSlider}
+                            minimumValue={300}
+                            maximumValue={850}
+                            value={creditScore}
+                            minimumTrackTintColor={creditColor}
+                            maximumTrackTintColor='#E4E4E7'
+                            thumbTintColor={creditColor}
+                            onValueChange={setCreditScore}
+                            step={5}
                         />
-                        <TouchableOpacity style={styles.infoButton}>
-                            <MaterialIcons name="info-outline" size={16} color="black" />
-                        </TouchableOpacity>
-                    </View>
-                    <View style={styles.sliderContainer}>
-                        <View>
-                            <Text style={styles.label}>Credit: </Text>
-                        </View>
-                        <View style={styles.sliderWrapper}>
-                            <View style={styles.labelContainer}>
-                                <Text style={styles.maxLabel}>700+</Text>
-                            </View>
-                            <Slider
-                                style={{ width: 260 }}
-                                minimumValue={300}
-                                maximumValue={850}
-                                value={creditScore}
-                                minimumTrackTintColor={'#32A0FF'}
-                                maximumTrackTintColor='#D9D9D9'
-                                thumbTintColor={"#32A0FF"}
-                                onValueChange={setCreditScore}
-                                step={1}
-                            />
-                        </View>
-                        <TouchableOpacity style={styles.infoButton}>
-                            <MaterialIcons name="info-outline" size={16} color="black" />
-                        </TouchableOpacity>
+                        <Text style={[styles.creditValue, { color: creditColor }]}>
+                            {creditScore >= 850 ? '850+' : Math.round(creditScore)}
+                        </Text>
                     </View>
 
                     <View style={styles.tabViewContainer}>
                         <View style={styles.sliderContainer}>
                             <View style={styles.tabBar}>
                                 <TouchableOpacity
-                                    style={[styles.tabItem, { width: 123 }, !customerTab && styles.activeTabItem,]}
+                                    style={[styles.tabItem, !customerTab && styles.activeTabItem]}
                                     onPress={() => setCustomerTab(false)}
                                 >
                                     <Text style={[styles.tabText, !customerTab && styles.activeTabText]}>Lead Status</Text>
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    style={[styles.tabItem, , { width: 159 }, customerTab && styles.activeTabItem]}
+                                    style={[styles.tabItem, customerTab && styles.activeTabItem]}
                                     onPress={() => setCustomerTab(true)}
                                 >
                                     <Text style={[styles.tabText, customerTab && styles.activeTabText]}>Customer Status</Text>
@@ -401,7 +443,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                             </View>
 
                             <TouchableOpacity style={styles.infoButton} onPress={() => setIsTooltipVisible(true)}>
-                                <Octicons name="question" size={24} color="black" />
+                                <Octicons name="question" size={18} color="black" />
                             </TouchableOpacity>
 
                         </View>
@@ -412,7 +454,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                     <View >
                         <InputField
                             style={[styles.noteInput]}
-                            placeholder="Leave internal note here..."
+                            placeholder="Add Notes"
                             multiline
                             onFocus={() => handleInputFocus(false)}
                             onBlur={() => {
@@ -422,6 +464,54 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                             value={note}
                             onChange={setNote}
                         />
+                    </View>
+                    <View style={styles.actionRow}>
+                        <TouchableOpacity
+                            style={styles.actionItem}
+                            onPress={openProjectSunroof}
+                            accessibilityRole="button"
+                            accessibilityLabel="Open this house in Project Sunroof"
+                        >
+                            <View style={styles.actionIconCircle}>
+                                <MaterialIcons name="solar-power" size={20} color="#18181B" />
+                            </View>
+                            <Text style={styles.actionLabel}>Sunroof</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.actionItem}
+                            onPress={openGoogleMaps}
+                            accessibilityRole="button"
+                            accessibilityLabel="Open this house in Google Maps"
+                        >
+                            <View style={styles.actionIconCircle}>
+                                <FontAwesome6 name="google" size={17} color="#18181B" />
+                            </View>
+                            <Text style={styles.actionLabel}>Google</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.actionItem}
+                            onPress={openAppleMaps}
+                            accessibilityRole="button"
+                            accessibilityLabel="Open this house in Apple Maps"
+                        >
+                            <View style={styles.actionIconCircle}>
+                                <FontAwesome6 name="apple" size={20} color="#18181B" />
+                            </View>
+                            <Text style={styles.actionLabel}>Maps</Text>
+                        </TouchableOpacity>
+                        {(selectedHouse?.statuses?.length ?? 0) > 0 && (
+                            <TouchableOpacity
+                                style={styles.actionItem}
+                                onPress={() => setShowStatusHistory(!showStatusHistory)}
+                                accessibilityRole="button"
+                                accessibilityLabel="Toggle status history"
+                            >
+                                <View style={styles.actionIconCircle}>
+                                    <Ionicons name="time-outline" size={20} color="#18181B" />
+                                </View>
+                                <Text style={styles.actionLabel}>History</Text>
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </ScrollView>
                 {isTooltipVisible && <StatusTooltip onClose={() => setIsTooltipVisible(false)} />}
@@ -442,9 +532,6 @@ const styles = StyleSheet.create({
         flexGrow: 1,
         maxHeight: 550,
     },
-    keyboardAvoidingView: {
-        flex: 1,
-    },
     scrollViewContent: {
         flexGrow: 1,
     },
@@ -454,32 +541,26 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center'
     },
-    textContainer: {
-        paddingVertical: 0
-    },
     singleStatus: {
         flexDirection: 'column',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 32,
-    },
-    quickHouseOverviewText: {
-        fontSize: 12,
-        marginBottom: 12,
-        fontWeight: 400,
-        color: 'black'
-    },
-    boldText: {
-        fontWeight: '600'
     },
     customTitleContainer: {
         flex: 1,
         flexDirection: 'row',
-        justifyContent: 'space-between',
         alignItems: 'center',
         paddingTop: 12,
-        paddingRight: 8,
+        paddingRight: 12,
         zIndex: 20,
+    },
+    headerTextContainer: {
+        flex: 1,
+    },
+    addressTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#18181B',
     },
     historyCloseButton: {
         flexDirection: 'row',
@@ -492,23 +573,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
         fontWeight: '600',
         color: 'black',
-    },
-    statusSection: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    addressContainer: {
-        width: '100%',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingBottom: 24,
-        paddingLeft: 8
-    },
-    addressText: {
-        fontSize: 12,
-        fontWeight: 400,
-        color: '#1F1F1F',
     },
     leadBadge: {
         alignSelf: 'flex-start',
@@ -531,38 +595,25 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         marginRight: 16,
     },
-    locationIcon: {
-        height: 22,
-        marginRight: 16
-    },
     statuses: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'flex-start',
+        justifyContent: 'space-between',
         marginVertical: 8,
+        paddingHorizontal: 4,
     },
     button: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
+        width: 38,
+        height: 38,
+        borderRadius: 19,
         justifyContent: 'center',
         alignItems: 'center',
     },
     buttonText: {
-        color: 'black',
-        fontSize: 12,
-        fontWeight: 500,
-        marginBottom: 4,
-    },
-    container: {
-        padding: 0,
-        flexGrow: 1
-    },
-    switchContainer: {
-        marginTop: 12,
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 24,
+        color: '#3F3F46',
+        fontSize: 11,
+        fontWeight: '600',
+        marginBottom: 6,
     },
     sliderContainer: {
         width: '100%',
@@ -574,26 +625,29 @@ const styles = StyleSheet.create({
         marginTop: 12,
     },
     tabBar: {
+        flex: 1,
         flexDirection: 'row',
-        width: 288,
         padding: 3,
-        borderRadius: 8,
-        backgroundColor: '#E9E9E9'
+        borderRadius: 100,
+        backgroundColor: '#F4F4F5',
     },
     tabItem: {
-        paddingVertical: 10,
-        borderRadius: 8,
+        flex: 1,
+        paddingVertical: 9,
+        borderRadius: 100,
         alignItems: 'center',
     },
     activeTabItem: {
-        backgroundColor: 'white',
+        backgroundColor: '#18181B',
     },
     activeTabText: {
-        fontWeight: 600,
+        fontWeight: '700',
+        color: '#FFFFFF',
     },
     tabText: {
-        fontSize: 16,
-        fontWeight: 500,
+        fontSize: 13,
+        fontWeight: '600',
+        color: '#71717A',
     },
     tabContent: {
         marginTop: 12,
@@ -605,40 +659,68 @@ const styles = StyleSheet.create({
         width: '100%',
         textAlignVertical: 'top',
     },
-    label: {
-        fontSize: 12,
-        marginRight: 24,
-        fontWeight: 600,
-        color: 'black'
-    },
-    statusName: {
-        fontWeight: '300',
-        fontSize: 12,
-    },
-    historySection: {
-        alignItems: 'flex-end',
-    },
-    statusHistory: {
-        fontWeight: '600',
-        fontSize: 12,
-    },
-    maxLabel: {
-        fontSize: 8,
-        fontWeight: '600',
-    },
-    sliderWrapper: {
-        flexDirection: 'column',
-        alignItems: 'flex-end',
-        justifyContent: 'center',
-        marginTop: -8
-    },
-    labelContainer: {
+    creditRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 0,
+        alignItems: 'center',
+        marginTop: 8,
+        marginBottom: 4,
+        paddingHorizontal: 4,
+    },
+    creditLabel: {
+        fontSize: 13,
+        fontWeight: '700',
+        color: '#18181B',
+        marginRight: 12,
+    },
+    creditSlider: {
+        flex: 1,
+    },
+    creditValue: {
+        fontSize: 17,
+        fontWeight: '800',
+        minWidth: 48,
+        textAlign: 'right',
+        marginLeft: 8,
+        fontVariant: ['tabular-nums'],
     },
     infoButton: {
         marginLeft: 16,
+    },
+    leadActionButton: {
+        backgroundColor: 'black',
+        width: '100%',
+        height: 50,
+        borderRadius: 100,
+    },
+    leadActionButtonText: {
+        color: 'white',
+        fontSize: 14,
+    },
+    actionRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-start',
+        gap: 24,
+        marginTop: 16,
+        marginBottom: 4,
+        paddingHorizontal: 4,
+    },
+    actionItem: {
+        alignItems: 'center',
+        gap: 5,
+        minWidth: 52,
+    },
+    actionIconCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F4F4F5',
+    },
+    actionLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        color: '#18181B',
     },
     tooltipWrapper: {
         position: 'absolute',
