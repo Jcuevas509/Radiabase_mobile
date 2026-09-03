@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import Constants from 'expo-constants';
 import {
     View,
     StyleSheet,
@@ -19,6 +20,7 @@ import { InputField } from 'components/Input/InputField';
 import { Button } from 'components/Button/Button';
 import { isUnauthorizedError, loginWithPassword } from 'services/auth-api';
 import { useRouter } from 'expo-router';
+import { loadApiBaseUrlOverride, saveApiBaseUrlOverride } from 'utils/api-base-url';
 
 const COLORS = {
     gradientStart: '#000000',
@@ -51,11 +53,23 @@ export function Login({ signIn }: LoginProps) {
     const [password, setPassword] = useState<string>('');
     const [email, setEmail] = useState<string>('');
     const [isValidEmail, setIsValidEmail] = useState<boolean>(true);
+    const canOverrideApiUrl = Constants.expoConfig?.extra?.allowApiUrlOverride === true;
+    const [apiBaseUrl, setApiBaseUrl] = useState<string>('');
+
+    useEffect(() => {
+        if (!canOverrideApiUrl) {
+            return;
+        }
+        void loadApiBaseUrlOverride().then(setApiBaseUrl);
+    }, [canOverrideApiUrl]);
 
     const handleLogin = async () => {
         setIsLoading(true);
         setErrorMessage('');
         try {
+            if (canOverrideApiUrl) {
+                await saveApiBaseUrlOverride(apiBaseUrl);
+            }
             const session = await loginWithPassword({ email, password });
             await signIn(session);
         } catch (error) {
@@ -112,6 +126,21 @@ export function Login({ signIn }: LoginProps) {
                                     iconColor={COLORS.muted}
                                     style={styles.input}
                                 />
+                                {canOverrideApiUrl ? (
+                                    <>
+                                        <Text style={[styles.label, styles.passwordLabel]}>API server</Text>
+                                        <InputField
+                                            value={apiBaseUrl}
+                                            placeholder="http://172.20.10.3:3010/api"
+                                            onChange={setApiBaseUrl}
+                                            isSignInput
+                                            keyboardType="url"
+                                            placeHolderColor={COLORS.muted}
+                                            iconColor={COLORS.muted}
+                                            style={styles.input}
+                                        />
+                                    </>
+                                ) : null}
                                 <Text style={[styles.label, styles.passwordLabel]}>Password</Text>
                                 <InputField
                                     placeholder="Password"
