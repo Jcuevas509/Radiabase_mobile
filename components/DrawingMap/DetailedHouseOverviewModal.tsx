@@ -14,6 +14,8 @@ import { InputField } from 'components/Input/InputField';
 import { StatusTooltip } from 'components/Tooltip/StatusTooltip';
 import { isUnknownMapAddress } from 'utils/parse-house-address';
 import { reverseGeocodeHouseAddress } from 'utils/reverse-geocode-house-address';
+import { useMapHouseSolar } from 'hooks/use-map-house-solar';
+import { HouseSolarCard } from './HouseSolarCard';
 interface DetailedHouseOverviewModalProps {
     visible: boolean;
     onClose: () => void;
@@ -67,6 +69,14 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
     const displayAddress = !isUnknownMapAddress(selectedHouse?.address)
         ? selectedHouse?.address
         : resolvedAddress;
+    const persistedHouseId = Number(selectedHouse?.id);
+    const solarHouseId = Number.isFinite(persistedHouseId) && persistedHouseId > 0
+        ? persistedHouseId
+        : null;
+    const { isLoading: isSolarLoading, insights: solarInsights } = useMapHouseSolar(
+        solarHouseId,
+        visible,
+    );
 
     const buildUpdatedHouse = (): BuildingProps => ({
         ...selectedHouse,
@@ -424,6 +434,7 @@ export const DetailedHouseOverviewModal: React.FC<DetailedHouseOverviewModalProp
                             {creditScore >= 850 ? '850+' : Math.round(creditScore)}
                         </Text>
                     </View>
+                    <HouseSolarCard isLoading={isSolarLoading} insights={solarInsights} />
 
                     <View style={styles.tabViewContainer}>
                         <View style={styles.sliderContainer}>

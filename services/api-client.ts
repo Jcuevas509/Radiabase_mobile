@@ -1,6 +1,6 @@
 import axios, { AxiosInstance } from 'axios';
 import { Platform } from 'react-native';
-import { API_BASE_URL } from 'constants/api';
+import { getApiBaseUrl } from 'utils/api-base-url';
 import { getOrCreateDeviceId } from 'services/device-identity';
 
 let accessToken: string | null = null;
@@ -13,7 +13,7 @@ export function setAccessToken(token: string | null): void {
 }
 
 export const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
@@ -21,6 +21,7 @@ export const apiClient: AxiosInstance = axios.create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
+  config.baseURL = getApiBaseUrl();
   const deviceId = await getOrCreateDeviceId();
   config.headers['x-device-id'] = deviceId;
   config.headers['x-platform'] = Platform.OS;

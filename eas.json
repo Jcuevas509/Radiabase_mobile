@@ -17,6 +17,23 @@
         "EXPO_PUBLIC_API_URL": "https://sunnected-jose-1.onrender.com/api"
       }
     },
+    "preview-jose": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://sunnected-jose-1.onrender.com/api",
+        "RADIOBASE_PERSONAL_BUILD": "1"
+      },
+      "ios": {
+        "resourceClass": "medium"
+      }
+    },
+    "preview-jose-local": {
+      "extends": "preview-jose",
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://172.20.10.3:3010/api",
+        "RADIOBASE_PERSONAL_BUILD": "1"
+      }
+    },
     "production": {
       "autoIncrement": true
     }

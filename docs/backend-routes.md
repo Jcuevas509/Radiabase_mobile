@@ -90,6 +90,7 @@ The map is four layers. They are not the same thing.
 | Roofs | Overture building footprints | No | Display only. Loaded per street viewport |
 | Doors (`houses`) | A roof someone tapped, knocked, or imported | Yes | Write on first tap |
 | Address | Regrid parcel on first tap, if the token is set | Cached on that `houses` row | One lookup per new unknown door |
+| Solar | Google Solar insights on the house sheet | Cached on `houses.location.solar` | One lookup per house, then 30-day cache |
 | Lead | Homeowner submitted from that door | Yes, `leads` + optional `house_id` | Submit Lead |
 
 Rules that matter in the field:
@@ -100,6 +101,7 @@ Rules that matter in the field:
 4. If Regrid is unset or the county is outside the sandbox, the house is still created as `Unknown Address`.
 5. Knock / status does **not** look up the address again.
 6. Phone GPS reverse-geocode in the Submit Lead form is **client-only**. It is not the source of truth and is not an API route.
+7. Opening the house sheet may call Solar once. Panning the map does **not**.
 
 ---
 
@@ -110,7 +112,7 @@ Rules that matter in the field:
 | Login | `POST /auth/login`, then `GET /auth/me` |
 | Forgot password | `POST /auth/forgot-password` |
 | Home / dashboard | `GET /area-management/field-stats`, `GET /area-management/map-areas` |
-| Field map | `map-areas`, `map-buildings`, `map-houses`, `from-building`, house detail / status / notes, `create-area`, `assign-area-rep`, `DELETE /areas/:id`, `GET /users` or `/users/all` |
+| Field map | `map-areas`, `map-buildings`, `map-houses`, `from-building`, house detail / status / notes / solar, `create-area`, `assign-area-rep`, `DELETE /areas/:id`, `GET /users` or `/users/all` |
 | Convert to Lead | `GET /offices/user-offices`, `POST /leads` |
 | Update Lead on the house sheet | `PATCH /leads/:id/info` |
 | My Leads | `GET /leads` with `sales_rep_id`, paginated search, and newest-first sorting |
@@ -470,6 +472,43 @@ Sandbox (current tester token):
 Nationwide addresses need a paid Regrid Self-Serve plan, not a code change.
 
 Confirmed locally with the token on the **local** API: Dallas tap created house `29` with that street; a Florida tap created house `30` as `Unknown Address`.
+
+---
+
+## Google Solar — house sheet + raster proxy
+
+The phone never holds a Google key. Staging already has `GOOGLE_SOLAR_API_KEY` on the Nest service.
+
+### `GET /area-management/map-houses/:id/solar`
+
+Slim `buildingInsights` for an org-visible house. Cached on `houses.location.solar` for 30 days. The house sheet calls this when it opens.
+
+```json
+{
+  "available": true,
+  "reason": null,
+  "imageryQuality": "HIGH",
+  "imageryDate": { "year": 2023, "month": 6, "day": 12 },
+  "maxSunshineHoursPerYear": 1840,
+  "maxArrayPanelsCount": 28,
+  "maxArrayAreaMeters2": 54.2,
+  "wholeRoofAreaMeters2": 180.4,
+  "yearlyEnergyKwh": 12400,
+  "buildingCenter": { "lat": 32.834967, "lng": -96.563861 }
+}
+```
+
+Unavailable is still `200`: `reason` is `unconfigured`, `no_coverage`, or `upstream_error`. Dallas test roof: `32.834967, -96.563861`.
+
+### Nearby Solar routes the app does not call yet
+
+| Method | Path | Why |
+| --- | --- | --- |
+| GET | `/area-management/solar/building-insights?lat&lng` | Coordinate lookup, rate-limited, does not write a house |
+| GET | `/area-management/solar/data-layers?lat&lng&radiusMeters` | Small radius (max 100m). Radiabase raster hrefs, never Google URLs |
+| GET | `/area-management/solar/rasters/:token` | Authenticated GeoTIFF stream for a short-lived token |
+
+Do not call Solar on map pan. The key must stay on Nest (`GOOGLE_SOLAR_API_KEY`), never `EXPO_PUBLIC_*`.
 
 ---
 

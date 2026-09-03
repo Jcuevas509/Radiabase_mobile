@@ -80,6 +80,19 @@ export type FieldStatsResponse = {
   readonly month: { readonly leads: number; readonly knocks: number; readonly customers: number };
 };
 
+export type SolarInsightsResponse = {
+  readonly available: boolean;
+  readonly reason: 'unconfigured' | 'no_coverage' | 'upstream_error' | null;
+  readonly imageryQuality: string | null;
+  readonly imageryDate: { readonly year: number; readonly month: number; readonly day: number } | null;
+  readonly maxSunshineHoursPerYear: number | null;
+  readonly maxArrayPanelsCount: number | null;
+  readonly maxArrayAreaMeters2: number | null;
+  readonly wholeRoofAreaMeters2: number | null;
+  readonly yearlyEnergyKwh: number | null;
+  readonly buildingCenter: { readonly lat: number; readonly lng: number } | null;
+};
+
 type CreateMapAreaInput = {
   readonly name?: string;
   readonly officeId: number;
@@ -147,6 +160,16 @@ export async function createMapHouseFromBuilding(input: {
       roofLng: input.roofLng,
       areaId: input.areaId,
     },
+  );
+  return response.data;
+}
+
+/**
+ * Loads slim Google Solar insights for a canvassing house. Does not run on pan.
+ */
+export async function fetchMapHouseSolar(houseId: number): Promise<SolarInsightsResponse> {
+  const response = await apiClient.get<SolarInsightsResponse>(
+    `/area-management/map-houses/${houseId}/solar`,
   );
   return response.data;
 }

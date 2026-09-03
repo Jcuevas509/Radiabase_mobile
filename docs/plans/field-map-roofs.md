@@ -59,9 +59,13 @@ Paint existing `house_statuses` on the footprint or marker. Keep appending histo
 
 If address is still unknown after tap: one Regrid point lookup, save address + `ll_uuid` on `houses.location`. Never on pan. Create-area sends `auto_discover_houses: false`.
 
+### V1E — Google Solar (house sheet)
+
+`GET /area-management/map-houses/:id/solar` when the sheet opens. Show sunshine hours, max panels, roof m², yearly kWh, imagery quality/date. Keep the browser Sunroof link as a secondary action. Do not fetch dataLayers or overlay flux on the map yet.
+
 ## Out of scope until V1A works on a phone
 
-Mapbox/MapLibre, Regrid parcel tiles, Smarty roam, owner intel, offline packs, solar score, new CRM tables, dumping Overture into Postgres as `houses`.
+Mapbox/MapLibre, Regrid parcel tiles, Smarty roam, owner intel, offline packs, flux overlay, new CRM tables, dumping Overture into Postgres as `houses`.
 
 ## App files (V1A)
 
